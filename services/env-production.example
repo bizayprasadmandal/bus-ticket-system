@@ -1,0 +1,123 @@
+# Enhanced Environment Variables for Advanced Features
+
+# Basic Configuration
+NODE_ENV=production
+PORT=3000
+BASE_URL=https://api.samayadeluxe.com
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=samayadeluxe_db
+DB_USERNAME=root
+DB_PASSWORD=your_secure_password
+
+# JWT Configuration
+JWT_SECRET=your_super_secure_jwt_secret_key_change_this_in_production_minimum_32_characters
+JWT_EXPIRES_IN=24h
+
+# Redis Configuration (for caching and rate limiting)
+REDIS_URL=redis://localhost:6379
+REDIS_PASSWORD=your_redis_password
+
+# Payment Gateway Configuration
+# eSewa
+ESEWA_MERCHANT_CODE=your_esewa_merchant_code
+ESEWA_SECRET_KEY=your_esewa_secret_key
+
+# Khalti
+KHALTI_SECRET_KEY=your_khalti_secret_key
+KHALTI_PUBLIC_KEY=your_khalti_public_key
+
+# ConnectIPS
+CONNECTIPS_MERCHANT_ID=your_connectips_merchant_id
+CONNECTIPS_APP_ID=your_connectips_app_id
+CONNECTIPS_APP_NAME=SamayaDeluxe
+CONNECTIPS_TXN_PASSWORD=your_connectips_txn_password
+
+# Email Configuration (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=noreply@samayadeluxe.com
+SMTP_PASSWORD=your_smtp_password
+SMTP_FROM_EMAIL=noreply@samayadeluxe.com
+SMTP_FROM_NAME=Samaya Deluxe
+
+# SMS Configuration
+# Twilio
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# Sparrow SMS (Nepal)
+SPARROW_SMS_TOKEN=your_sparrow_sms_token
+SPARROW_SMS_FROM=SamayaDlx
+
+# File Upload Configuration
+FILE_STORAGE=local
+UPLOAD_DIR=./uploads
+
+# AWS S3 Configuration (if using S3 for file storage)
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=samaya-deluxe-uploads
+
+# Security Configuration
+BCRYPT_ROUNDS=12
+SEAT_LOCK_DURATION_MINUTES=15
+
+# CORS Configuration
+ALLOWED_ORIGINS=https://samayadeluxe.com,https://www.samayadeluxe.com,https://admin.samayadeluxe.com
+
+# Support Configuration
+SUPPORT_PHONE=+977-1-4567890
+SUPPORT_EMAIL=support@samayadeluxe.com
+
+# Notification Configuration
+ENABLE_EMAIL_NOTIFICATIONS=true
+ENABLE_SMS_NOTIFICATIONS=true
+
+# Rate Limiting Configuration
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Caching Configuration
+CACHE_DEFAULT_TTL=600
+ENABLE_REDIS_CACHE=true
+
+# Logging Configuration
+LOG_LEVEL=info
+LOG_FILE_PATH=./logs
+LOG_MAX_SIZE=20m
+LOG_MAX_FILES=14d
+
+# WebSocket Configuration
+WEBSOCKET_CORS_ORIGINS=https://samayadeluxe.com,https://www.samayadeluxe.com
+
+# Background Jobs Configuration
+QUEUE_REDIS_URL=redis://localhost:6379
+ENABLE_BACKGROUND_JOBS=true
+
+# Monitoring Configuration
+ENABLE_HEALTH_CHECKS=true
+HEALTH_CHECK_INTERVAL=30000
+
+# Development Configuration (set to false in production)
+ENABLE_API_DOCS=false
+DEBUG_MODE=false
+
+# Backup Configuration
+AUTO_BACKUP_ENABLED=true
+BACKUP_INTERVAL_HOURS=24
+BACKUP_RETENTION_DAYS=30
+
+# Analytics Configuration
+GOOGLE_ANALYTICS_ID=GA-XXXXXXXXX
+ENABLE_ANALYTICS=true
+
+# Feature Flags
+ENABLE_WALLET_TRANSFERS=true
+ENABLE_LOCATION_TRACKING=true
+ENABLE_REAL_TIME_NOTIFICATIONS=true
+ENABLE_ADVANCED_REPORTING=true

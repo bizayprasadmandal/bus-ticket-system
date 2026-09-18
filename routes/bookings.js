@@ -15,6 +15,9 @@ const {
 const { authenticateToken } = require('../middleware/auth');
 const { bookingValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const { NotificationService } = require('../services/notifications');
+
+const notificationService = new NotificationService();
 
 const router = express.Router();
 
@@ -233,6 +236,14 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
       ],
     });
 
+    // Send booking confirmation notifications (non-blocking)
+    const user = await User.findByPk(userId);
+    if (user) {
+      notificationService.sendBookingConfirmation(completeBooking, user).catch(err => {
+        console.error('Failed to send booking notification:', err.message);
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
@@ -445,6 +456,14 @@ router.post('/:id/cancel', authenticateToken, bookingValidation.cancel, handleVa
     }, { transaction });
 
     await transaction.commit();
+
+    // Send cancellation notification (non-blocking)
+    const cancelUser = await User.findByPk(userId);
+    if (cancelUser) {
+      notificationService.sendBookingCancellation(booking, cancelUser, refundAmount).catch(err => {
+        console.error('Failed to send cancellation notification:', err.message);
+      });
+    }
 
     res.json({
       success: true,

@@ -4,7 +4,7 @@ const axios = require('axios');
 
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: process.env.SMTP_PORT || 587,
       secure: false, // true for 465, false for other ports
@@ -257,11 +257,8 @@ class EmailService {
 
 class SMSService {
   constructor() {
-    // Twilio configuration
-    this.twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+    // Twilio configuration (lazy init to avoid crash with placeholder credentials)
+    this.twilioClient = null;
     this.twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
     // Sparrow SMS configuration (Popular in Nepal)
@@ -272,6 +269,12 @@ class SMSService {
   // Send SMS via Twilio
   async sendViaTwilio(to, message) {
     try {
+      if (!this.twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_ACCOUNT_SID.startsWith('AC')) {
+        this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      }
+      if (!this.twilioClient) {
+        return { success: false, error: 'Twilio not configured' };
+      }
       const result = await this.twilioClient.messages.create({
         body: message,
         from: this.twilioPhoneNumber,

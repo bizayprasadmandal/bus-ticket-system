@@ -10,3 +10,7 @@ mobile
 .vscode
 coverage
 .nyc_output
+docker
+logs
+uploads
+.github

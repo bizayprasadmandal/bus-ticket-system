@@ -12,6 +12,7 @@ import OperatorLayout from './pages/operator/OperatorLayout';
 import OperatorDashboard from './pages/operator/OperatorDashboard';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import ApiDocsPage from './pages/admin/ApiDocsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
@@ -66,6 +67,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="api-docs" element={<ApiDocsPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

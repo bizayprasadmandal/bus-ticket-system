@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/admin/operators', label: 'Operators', icon: UserCog },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/admin/api-docs', label: 'API Docs', icon: Code },
 ];
 
 export default function AdminLayout() {

@@ -31,8 +31,8 @@ export default function MyBookingsScreen({ navigation }: any) {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const response = await bookingAPI.getAll();
-      setBookings(response.data.bookings);
+      const response = await bookingAPI.getMyBookings();
+      setBookings(response.data.data?.bookings || response.data.bookings || []);
     } catch (error: any) {
       Alert.alert('Error', 'Failed to load bookings');
     } finally {
@@ -55,7 +55,7 @@ export default function MyBookingsScreen({ navigation }: any) {
   };
 
   const renderBooking = ({ item }: { item: Booking }) => (
-    <TouchableOpacity style={styles.bookingCard}>
+    <TouchableOpacity style={styles.bookingCard} onPress={() => navigation.navigate('BookingDetail', { bookingId: item.id, pnr: item.pnr })}>
       <View style={styles.bookingHeader}>
         <View style={styles.pnrContainer}>
           <Text style={styles.pnrLabel}>PNR</Text>

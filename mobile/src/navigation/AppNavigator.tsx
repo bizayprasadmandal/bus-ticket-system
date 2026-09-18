@@ -16,6 +16,8 @@ import TripResultsScreen from '../screens/TripResultsScreen';
 import SeatSelectionScreen from '../screens/SeatSelectionScreen';
 import BookingConfirmScreen from '../screens/BookingConfirmScreen';
 import PaymentScreen from '../screens/PaymentScreen';
+import BookingDetailScreen from '../screens/BookingDetailScreen';
+import WalletScreen from '../screens/WalletScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -52,6 +54,16 @@ function HomeStack() {
         name="Payment"
         component={PaymentScreen}
         options={{ title: 'Payment', headerTintColor: colors.primary }}
+      />
+      <Stack.Screen
+        name="BookingDetail"
+        component={BookingDetailScreen}
+        options={{ title: 'Booking Details', headerTintColor: colors.primary }}
+      />
+      <Stack.Screen
+        name="Wallet"
+        component={WalletScreen}
+        options={{ title: 'Wallet', headerTintColor: colors.primary }}
       />
     </Stack.Navigator>
   );

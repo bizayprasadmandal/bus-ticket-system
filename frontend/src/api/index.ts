@@ -108,3 +108,47 @@ export const reportAPI = {
   getOperators: (params?: any) => api.get('/reports/operators', { params }),
   getUsers: (params?: any) => api.get('/reports/users', { params }),
 };
+
+export const operatorBusAPI = {
+  getMyBuses: () => api.get('/buses/operator/my-buses'),
+  getAll: (params?: any) => api.get('/buses', { params }),
+  getById: (id: number) => api.get(`/buses/${id}`),
+  create: (data: any) => api.post('/buses', data),
+  update: (id: number, data: any) => api.put(`/buses/${id}`, data),
+  delete: (id: number) => api.delete(`/buses/${id}`),
+};
+
+export const operatorRouteAPI = {
+  getMyRoutes: () => api.get('/routes/operator/my-routes'),
+  getAll: (params?: any) => api.get('/routes', { params }),
+  getById: (id: number) => api.get(`/routes/${id}`),
+  create: (data: any) => api.post('/routes', data),
+  update: (id: number, data: any) => api.put(`/routes/${id}`, data),
+  delete: (id: number) => api.delete(`/routes/${id}`),
+};
+
+export const operatorTripAPI = {
+  getMyTrips: (params?: any) => api.get('/trips/operator/my-trips', { params }),
+  getById: (id: number) => api.get(`/trips/${id}`),
+  create: (data: any) => api.post('/trips', data),
+  update: (id: number, data: any) => api.put(`/trips/${id}`, data),
+  updateStatus: (id: number, status: string) => api.put(`/trips/${id}/status`, { status }),
+  delete: (id: number) => api.delete(`/trips/${id}`),
+};
+
+export const operatorBookingAPI = {
+  getMyBookings: (params?: any) => api.get('/bookings/operator/my-bookings', { params }),
+};
+
+export const adminOperatorAPI = {
+  getAll: (params?: any) => api.get('/admin/operators', { params }),
+  getById: (id: number) => api.get(`/admin/operators/${id}`),
+  create: (data: any) => api.post('/admin/operators', data),
+  update: (id: number, data: any) => api.put(`/admin/operators/${id}`, data),
+};
+
+export const adminUserAPI = {
+  getAll: (params?: any) => api.get('/admin/users', { params }),
+  getById: (id: number) => api.get(`/admin/users/${id}`),
+  updateStatus: (id: number, is_active: boolean) => api.put(`/admin/users/${id}/status`, { is_active }),
+};

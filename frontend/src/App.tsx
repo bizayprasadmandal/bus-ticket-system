@@ -10,8 +10,15 @@ import MyBookingsPage from './pages/customer/MyBookingsPage';
 import PaymentPage from './pages/customer/PaymentPage';
 import OperatorLayout from './pages/operator/OperatorLayout';
 import OperatorDashboard from './pages/operator/OperatorDashboard';
+import OperatorBusesPage from './pages/operator/OperatorBusesPage';
+import OperatorRoutesPage from './pages/operator/OperatorRoutesPage';
+import OperatorTripsPage from './pages/operator/OperatorTripsPage';
+import OperatorBookingsPage from './pages/operator/OperatorBookingsPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminOperatorsPage from './pages/admin/AdminOperatorsPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminReportsPage from './pages/admin/AdminReportsPage';
 import ApiDocsPage from './pages/admin/ApiDocsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -59,6 +66,10 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<OperatorDashboard />} />
+            <Route path="buses" element={<OperatorBusesPage />} />
+            <Route path="routes" element={<OperatorRoutesPage />} />
+            <Route path="trips" element={<OperatorTripsPage />} />
+            <Route path="bookings" element={<OperatorBookingsPage />} />
           </Route>
 
           <Route path="/admin" element={
@@ -67,6 +78,9 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="operators" element={<AdminOperatorsPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
             <Route path="api-docs" element={<ApiDocsPage />} />
           </Route>
         </Routes>

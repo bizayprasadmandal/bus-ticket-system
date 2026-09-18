@@ -4,10 +4,12 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const { CronJob } = require('cron');
 require('dotenv').config();
 
 const { testConnection } = require('./config/database');
 const { errorHandler, notFound } = require('./middleware/error');
+const { setupSwagger } = require('./config/swagger');
 
 // Import services
 const WebSocketService = require('./services/websocket');
@@ -78,18 +80,53 @@ app.use('/api/seat-locks', seatLockRoutes);
 app.use('/api/wallets', walletRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+const PORT = process.env.PORT || 3000;
+
+// Swagger API docs
+if (process.env.ENABLE_API_DOCS === 'true') {
+  setupSwagger(app);
+  console.log(`📚 API docs: http://localhost:${PORT}/api-docs`);
+}
+
 // Error handling middleware
 app.use(notFound);
 app.use(errorHandler);
-
-const PORT = process.env.PORT || 3000;
 
 // Start server
 const startServer = async () => {
   try {
     // Test database connection
     await testConnection();
-    
+
+    // Sync database models
+    const { sequelize } = require('./models');
+    await sequelize.sync({ alter: true });
+    console.log('✅ Database models synced.');
+
+    // Setup automated seat lock cleanup cron (every 2 minutes)
+    const seatLockCleanup = new CronJob('*/2 * * * *', async () => {
+      try {
+        const { SeatLock } = require('./models');
+        const { Op } = require('sequelize');
+        const result = await SeatLock.update(
+          { status: 'RELEASED' },
+          {
+            where: {
+              status: 'LOCKED',
+              expires_at: { [Op.lt]: new Date() },
+            },
+          }
+        );
+        if (result[0] > 0) {
+          console.log(`🧹 Cleaned up ${result[0]} expired seat locks`);
+        }
+      } catch (error) {
+        console.error('Seat lock cleanup error:', error.message);
+      }
+    });
+    seatLockCleanup.start();
+    console.log('✅ Seat lock cleanup cron started (every 2 minutes)');
+
     app.listen(PORT, () => {
       console.log(`🚀 Samaya Deluxe API server running on port ${PORT}`);
       console.log(`📍 Health check: http://localhost:${PORT}/health`);

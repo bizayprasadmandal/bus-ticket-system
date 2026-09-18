@@ -488,4 +488,121 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
   }
 });
 
+// GET /trips/operator/my-trips - Get trips for logged-in operator
+router.get('/operator/my-trips', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator information not found' });
+    }
+
+    const trips = await Trip.findAll({
+      include: [
+        { model: Bus, as: 'bus', where: { operator_id: operatorRole.operator_id }, required: true },
+        { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
+      ],
+      order: [['trip_date', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Operator trips retrieved successfully',
+      data: { trips, total: trips.length },
+    });
+  } catch (error) {
+    console.error('Get operator trips error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get operator trips', error: error.message });
+  }
+});
+
+// POST /trips - Create a new trip (Operator only)
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator information not found' });
+    }
+
+    const { bus_id, route_id, trip_date, departure_time, current_fare, available_seats } = req.body;
+
+    if (!bus_id || !route_id || !trip_date || !departure_time || !current_fare) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    // Verify bus belongs to operator
+    const bus = await Bus.findOne({ where: { id: bus_id, operator_id: operatorRole.operator_id } });
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'Bus not found or not authorized' });
+    }
+
+    const trip = await Trip.create({
+      bus_id, route_id, trip_date, departure_time, current_fare,
+      available_seats: available_seats || bus.total_seats,
+      status: 'SCHEDULED',
+    });
+
+    res.status(201).json({ success: true, message: 'Trip created successfully', data: { trip } });
+  } catch (error) {
+    console.error('Create trip error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create trip', error: error.message });
+  }
+});
+
+// PUT /trips/:id - Update trip (Operator only)
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator information not found' });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [{ model: Bus, as: 'bus' }] });
+    if (!trip || trip.bus.operator_id !== operatorRole.operator_id) {
+      return res.status(404).json({ success: false, message: 'Trip not found or not authorized' });
+    }
+
+    const { trip_date, departure_time, current_fare, available_seats } = req.body;
+    await trip.update({ trip_date, departure_time, current_fare, available_seats });
+
+    res.json({ success: true, message: 'Trip updated successfully', data: { trip } });
+  } catch (error) {
+    console.error('Update trip error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update trip', error: error.message });
+  }
+});
+
+// DELETE /trips/:id - Delete trip (Operator only, if not started)
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator information not found' });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [{ model: Bus, as: 'bus' }] });
+    if (!trip || trip.bus.operator_id !== operatorRole.operator_id) {
+      return res.status(404).json({ success: false, message: 'Trip not found or not authorized' });
+    }
+
+    if (!['SCHEDULED'].includes(trip.status)) {
+      return res.status(400).json({ success: false, message: 'Can only delete trips with SCHEDULED status' });
+    }
+
+    await trip.update({ status: 'CANCELLED' });
+
+    res.json({ success: true, message: 'Trip cancelled successfully' });
+  } catch (error) {
+    console.error('Delete trip error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete trip', error: error.message });
+  }
+});
+
 module.exports = router;

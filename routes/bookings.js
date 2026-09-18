@@ -542,4 +542,37 @@ router.get('/pnr/:pnr', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /bookings/operator/my-bookings - Get bookings for operator's trips
+router.get('/operator/my-bookings', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator information not found' });
+    }
+
+    const bookings = await Booking.findAll({
+      include: [
+        {
+          model: Trip,
+          as: 'trip',
+          include: [{ model: Bus, as: 'bus', where: { operator_id: operatorRole.operator_id }, required: true }],
+        },
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Operator bookings retrieved successfully',
+      data: { bookings, total: bookings.length },
+    });
+  } catch (error) {
+    console.error('Get operator bookings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get operator bookings', error: error.message });
+  }
+});
+
 module.exports = router;

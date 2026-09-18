@@ -81,12 +81,13 @@ export default function BookingPage() {
         id_type: p.id_type,
         id_number: p.id_number,
       }));
-      await bookingAPI.create({
+      const response = await bookingAPI.create({
         trip_id: Number(tripId),
         passengers: passengerData,
       });
-      toast.success('Booking created!');
-      navigate('/my-bookings');
+      const bookingId = response.data.data.booking.id;
+      toast.success('Booking created! Proceed to payment.');
+      navigate(`/payment/${bookingId}`);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Booking failed');
     } finally {

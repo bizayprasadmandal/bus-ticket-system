@@ -7,6 +7,7 @@ import CustomerLayout from './pages/customer/CustomerLayout';
 import SearchPage from './pages/customer/SearchPage';
 import BookingPage from './pages/customer/BookingPage';
 import MyBookingsPage from './pages/customer/MyBookingsPage';
+import PaymentPage from './pages/customer/PaymentPage';
 import OperatorLayout from './pages/operator/OperatorLayout';
 import OperatorDashboard from './pages/operator/OperatorDashboard';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -45,6 +46,7 @@ function App() {
         }>
           <Route index element={<SearchPage />} />
           <Route path="book/:tripId" element={<BookingPage />} />
+          <Route path="payment/:bookingId" element={<PaymentPage />} />
           <Route path="my-bookings" element={<MyBookingsPage />} />
         </Route>
 

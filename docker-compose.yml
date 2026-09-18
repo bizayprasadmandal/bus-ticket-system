@@ -10,9 +10,9 @@ services:
       - PORT=3000
       - DB_HOST=mysql
       - DB_PORT=3306
-      - DB_NAME=samaya_deluxe
-      - DB_USER=samaya_user
-      - DB_PASSWORD=${DB_PASSWORD:-samaya_password}
+      - DB_NAME=${DB_NAME:-bus_gadi}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-root123}
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       - JWT_EXPIRES_IN=7d
       - REDIS_URL=redis://redis:6379
@@ -41,9 +41,9 @@ services:
       - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
-      - MYSQL_DATABASE=samaya_deluxe
-      - MYSQL_USER=samaya_user
-      - MYSQL_PASSWORD=${DB_PASSWORD:-samaya_password}
+      - MYSQL_DATABASE=${DB_NAME:-bus_gadi}
+      - MYSQL_USER=${DB_USER:-root}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-root123}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:

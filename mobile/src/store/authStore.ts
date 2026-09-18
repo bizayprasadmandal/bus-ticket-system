@@ -30,9 +30,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true });
       const response = await authAPI.login({ phone_number: phoneNumber, password });
-      const { access_token, user } = response.data;
-      await AsyncStorage.setItem('auth_token', access_token);
-      set({ user, token: access_token, isAuthenticated: true, isLoading: false });
+      const { token, user } = response.data.data;
+      await AsyncStorage.setItem('auth_token', token);
+      set({ user, token, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
       set({ isLoading: false });
       const message = error.response?.data?.message || 'Login failed. Please try again.';
@@ -44,9 +44,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true });
       const response = await authAPI.register(data);
-      const { access_token, user } = response.data;
-      await AsyncStorage.setItem('auth_token', access_token);
-      set({ user, token: access_token, isAuthenticated: true, isLoading: false });
+      const { token, user } = response.data.data;
+      await AsyncStorage.setItem('auth_token', token);
+      set({ user, token, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
       set({ isLoading: false });
       const message = error.response?.data?.message || 'Registration failed. Please try again.';
@@ -68,7 +68,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
       const response = await authAPI.verifyToken();
-      set({ user: response.data.user, token, isAuthenticated: true, isLoading: false });
+      const user = response.data.data?.user || response.data.user;
+      set({ user, token, isAuthenticated: true, isLoading: false });
     } catch {
       await AsyncStorage.removeItem('auth_token');
       set({ user: null, token: null, isAuthenticated: false, isLoading: false });

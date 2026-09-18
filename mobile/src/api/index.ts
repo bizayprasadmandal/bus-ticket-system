@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, UserRole, Trip, Booking, City } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,9 +17,19 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      AsyncStorage.removeItem('auth_token');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const authAPI = {
   login: (data: { phone_number: string; password: string }) =>
-    api.post<{ access_token: string; user: User }>('/auth/login', data),
+    api.post('/auth/login', data),
 
   register: (data: {
     phone_number: string;
@@ -27,15 +37,18 @@ export const authAPI = {
     full_name: string;
     email?: string;
     gender?: string;
-  }) => api.post<{ access_token: string; user: User }>('/auth/register', data),
+  }) => api.post('/auth/register', data),
 
   sendOTP: (phone_number: string) =>
-    api.post<{ message: string }>('/auth/send-otp', { phone_number }),
+    api.post('/auth/send-otp', { phone_number }),
 
   verifyOTP: (data: { phone_number: string; otp: string }) =>
-    api.post<{ message: string }>('/auth/verify-otp', data),
+    api.post('/auth/verify-otp', data),
 
-  verifyToken: () => api.get<{ user: User }>('/auth/me'),
+  verifyToken: () => api.get('/auth/verify'),
+
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.put('/auth/change-password', data),
 };
 
 export const tripAPI = {
@@ -44,12 +57,13 @@ export const tripAPI = {
     destination_city?: string;
     trip_date?: string;
     passengers?: number;
-  }) => api.get<{ trips: Trip[] }>('/trips/search', { params }),
+  }) => api.get('/trips/search', { params }),
 
-  getById: (id: number) => api.get<{ trip: Trip }>(`/trips/${id}`),
+  getById: (id: number) => api.get(`/trips/${id}`),
 
-  getSeats: (tripId: number) =>
-    api.get<{ available_seats: string[]; seat_layout: any }>(`/trips/${tripId}/seats`),
+  getSeats: (tripId: number) => api.get(`/trips/${tripId}/seats`),
+
+  getLocation: (tripId: number) => api.get(`/trips/${tripId}/location`),
 };
 
 export const bookingAPI = {
@@ -64,17 +78,17 @@ export const bookingAPI = {
       id_number: string;
       phone_number?: string;
     }[];
-  }) => api.post<{ booking: Booking }>('/bookings', data),
+  }) => api.post('/bookings', data),
 
-  getAll: (params?: { status?: string; page?: number; limit?: number }) =>
-    api.get<{ bookings: Booking[]; total: number }>('/bookings', { params }),
+  getMyBookings: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get('/bookings/my', { params }),
 
-  getById: (id: number) => api.get<{ booking: Booking }>(`/bookings/${id}`),
+  getById: (id: number) => api.get(`/bookings/${id}`),
 
   cancel: (id: number, reason?: string) =>
-    api.post<{ booking: Booking }>(`/bookings/${id}/cancel`, { cancellation_reason: reason }),
+    api.post(`/bookings/${id}/cancel`, { cancellation_reason: reason }),
 
-  getByPNR: (pnr: string) => api.get<{ booking: Booking }>(`/bookings/pnr/${pnr}`),
+  getByPNR: (pnr: string) => api.get(`/bookings/pnr/${pnr}`),
 };
 
 export const paymentAPI = {
@@ -82,24 +96,37 @@ export const paymentAPI = {
     booking_id: number;
     payment_method: string;
     amount: number;
-  }) => api.post<{ payment_id: string; payment_url?: string }>('/payments/initiate', data),
+  }) => api.post('/payments', data),
 
-  verify: (data: { payment_id: string; transaction_id: string }) =>
-    api.post<{ status: string }>('/payments/verify', data),
+  verify: (paymentId: number, params?: any) =>
+    api.post(`/payments/${paymentId}/verify`, null, { params }),
+
+  getDetails: (id: number) => api.get(`/payments/${id}`),
 };
 
 export const cityAPI = {
-  getAll: () => api.get<{ cities: City[] }>('/cities'),
+  getAll: (params?: { major_only?: boolean }) =>
+    api.get('/cities', { params }),
 };
 
 export const walletAPI = {
-  getBalance: () => api.get<{ balance: number }>('/wallet/balance'),
+  getBalance: () => api.get('/wallets/balance'),
 
-  topUp: (data: { amount: number; payment_method: string }) =>
-    api.post<{ transaction_id: string }>('/wallet/topup', data),
+  topUp: (amount: number, payment_method?: string) =>
+    api.post('/wallets/topup', { amount, payment_method }),
 
-  getTransactions: (params?: { page?: number; limit?: number }) =>
-    api.get<{ transactions: any[]; total: number }>('/wallet/transactions', { params }),
+  getTransactions: (params?: { page?: number; limit?: number; type?: string }) =>
+    api.get('/wallets/transactions', { params }),
+};
+
+export const seatLockAPI = {
+  lock: (trip_id: number, seat_numbers: string[]) =>
+    api.post('/seat-locks', { trip_id, seat_numbers }),
+  release: (id: number) => api.delete(`/seat-locks/${id}`),
+};
+
+export const dashboardAPI = {
+  getCustomer: () => api.get('/dashboard/customer'),
 };
 
 export default api;

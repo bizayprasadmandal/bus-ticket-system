@@ -143,6 +143,42 @@ const startServer = async () => {
       console.log(`📡 WebSocket ready for connections`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
     });
+
+    // Graceful shutdown
+    const gracefulShutdown = async (signal) => {
+      console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+      // Stop accepting new connections
+      server.close(async () => {
+        console.log('HTTP server closed');
+
+        // Stop seat lock cleanup cron
+        seatLockCleanup.stop();
+        console.log('Seat lock cleanup cron stopped');
+
+        // Close database connections
+        const { sequelize } = require('./models');
+        await sequelize.close();
+        console.log('Database connections closed');
+
+        // Close cache connections
+        const cachingService = require('./services/caching');
+        await cachingService.close();
+        console.log('Cache connections closed');
+
+        console.log('Graceful shutdown complete');
+        process.exit(0);
+      });
+
+      // Force shutdown after 30 seconds
+      setTimeout(() => {
+        console.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 30000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

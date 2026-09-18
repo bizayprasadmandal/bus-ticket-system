@@ -127,9 +127,18 @@ const startServer = async () => {
     seatLockCleanup.start();
     console.log('✅ Seat lock cleanup cron started (every 2 minutes)');
 
-    app.listen(PORT, () => {
+    const http = require('http');
+    const server = http.createServer(app);
+
+    // Initialize WebSocket service
+    const websocketService = new WebSocketService(server);
+    app.set('websocket', websocketService);
+    console.log('✅ WebSocket service initialized');
+
+    server.listen(PORT, () => {
       console.log(`🚀 Samaya Deluxe API server running on port ${PORT}`);
       console.log(`📍 Health check: http://localhost:${PORT}/health`);
+      console.log(`📡 WebSocket ready for connections`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
     });
   } catch (error) {

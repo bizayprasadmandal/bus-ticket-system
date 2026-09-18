@@ -1,0 +1,25 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to production
+        run: |
+          echo "Deployment steps would go here"
+          echo "Options:"
+          echo "1. Docker deployment"
+          echo "2. AWS ECS/EKS"
+          echo "3. DigitalOcean App Platform"
+          echo "4. Railway"
+          echo "5. Render"
+        env:
+          DEPLOY_TARGET: production

@@ -57,3 +57,6 @@ uploads/
 # Build
 dist/
 build/
+
+# Docker data
+docker/

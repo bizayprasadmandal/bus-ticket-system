@@ -9,13 +9,47 @@ const { handleValidationErrors } = require('../middleware/error');
 
 const router = express.Router();
 
-// Generate JWT token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 };
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone_number, full_name, password]
+ *             properties:
+ *               phone_number:
+ *                 type: string
+ *                 example: "9841123456"
+ *               full_name:
+ *                 type: string
+ *                 example: "Ram Bahadur"
+ *               email:
+ *                 type: string
+ *                 example: "ram@example.com"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *               gender:
+ *                 type: string
+ *                 enum: [MALE, FEMALE, OTHER]
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: User already exists
+ */
 // Register new user
 router.post('/register', userValidation.register, handleValidationErrors, async (req, res) => {
   try {
@@ -86,6 +120,46 @@ router.post('/register', userValidation.register, handleValidationErrors, async 
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login with phone number and password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone_number, password]
+ *             properties:
+ *               phone_number:
+ *                 type: string
+ *                 example: "9841123456"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *                     token:
+ *                       type: string
+ *       401:
+ *         description: Invalid credentials
+ */
 // Login user
 router.post('/login', async (req, res) => {
   try {

@@ -81,7 +81,7 @@ export const bookingAPI = {
   }) => api.post('/bookings', data),
 
   getMyBookings: (params?: { status?: string; page?: number; limit?: number }) =>
-    api.get('/bookings/my', { params }),
+    api.get('/bookings', { params }),
 
   getById: (id: number) => api.get(`/bookings/${id}`),
 

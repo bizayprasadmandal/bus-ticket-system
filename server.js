@@ -104,7 +104,7 @@ const startServer = async () => {
 
     // Sync database models
     const { sequelize } = require('./models');
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Database models synced.');
 
     // Setup automated seat lock cleanup cron (every 2 minutes)

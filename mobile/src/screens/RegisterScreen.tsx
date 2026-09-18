@@ -113,11 +113,11 @@ export default function RegisterScreen({ navigation }: any) {
               {['Male', 'Female', 'Other'].map((g) => (
                 <TouchableOpacity
                   key={g}
-                  style={[styles.genderButton, gender === g.toLowerCase() && styles.genderActive]}
-                  onPress={() => setGender(gender === g.toLowerCase() ? '' : g.toLowerCase())}
+                  style={[styles.genderButton, gender === g.toUpperCase() && styles.genderActive]}
+                  onPress={() => setGender(gender === g.toUpperCase() ? '' : g.toUpperCase())}
                 >
                   <Text
-                    style={[styles.genderText, gender === g.toLowerCase() && styles.genderTextActive]}
+                    style={[styles.genderText, gender === g.toUpperCase() && styles.genderTextActive]}
                   >
                     {g}
                   </Text>

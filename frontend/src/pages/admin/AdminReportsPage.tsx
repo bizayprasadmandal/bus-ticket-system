@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, Download } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { reportAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';

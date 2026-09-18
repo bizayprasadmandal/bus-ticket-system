@@ -182,7 +182,7 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-export interface PaginatedResponse<T> {
+export interface PaginatedResponse {
   current_page: number;
   total_pages: number;
   total_items: number;

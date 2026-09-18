@@ -16,8 +16,6 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: root_password
           MYSQL_DATABASE: bus_gadi_test
-          MYSQL_USER: root
-          MYSQL_PASSWORD: root123
         ports:
           - 3306:3306
         options: >-
@@ -47,7 +45,7 @@ jobs:
           DB_PORT: 3306
           DB_NAME: bus_gadi_test
           DB_USERNAME: root
-          DB_PASSWORD: root123
+          DB_PASSWORD: root_password
           NODE_ENV: test
 
   frontend-build:
@@ -86,7 +84,7 @@ jobs:
       
       - name: Install mobile dependencies
         working-directory: mobile
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       
       - name: Type check mobile
         working-directory: mobile

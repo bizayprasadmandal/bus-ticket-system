@@ -53,7 +53,7 @@ const generateToken = (userId) => {
 // Register new user
 router.post('/register', userValidation.register, handleValidationErrors, async (req, res) => {
   try {
-    const { phone_number, email, full_name, full_name_nepali, gender } = req.body;
+    const { phone_number, email, full_name, full_name_nepali, gender, password } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -69,6 +69,10 @@ router.post('/register', userValidation.register, handleValidationErrors, async 
       });
     }
 
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     // Create user
     const user = await User.create({
       phone_number,
@@ -76,8 +80,8 @@ router.post('/register', userValidation.register, handleValidationErrors, async 
       full_name,
       full_name_nepali,
       gender,
-      firebase_uid: uuidv4(), // Generate unique firebase_uid
-     
+      password: hashedPassword,
+      firebase_uid: uuidv4(),
     });
 
     // Create default customer role
@@ -163,7 +167,7 @@ router.post('/register', userValidation.register, handleValidationErrors, async 
 // Login user
 router.post('/login', async (req, res) => {
   try {
-    const { phone_number, firebase_uid } = req.body;
+    const { phone_number, password, firebase_uid } = req.body;
 
     if (!phone_number && !firebase_uid) {
       return res.status(400).json({
@@ -182,8 +186,7 @@ router.post('/login', async (req, res) => {
           as: 'roles',
           where: { is_active: true },
           required: false,
-          attributes: ['id', 'role', 'operator_id', 'is_active'], // include operator_id here
-
+          attributes: ['id', 'role', 'operator_id', 'is_active'],
         },
       ],
     });
@@ -193,6 +196,17 @@ router.post('/login', async (req, res) => {
         success: false,
         message: 'Invalid credentials',
       });
+    }
+
+    // Verify password if provided (skip for Firebase UID login)
+    if (password && user.password) {
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
     }
 
     if (user.status !== 'ACTIVE') {
@@ -362,6 +376,58 @@ router.post('/refresh', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Token refresh failed',
+      error: error.message,
+    });
+  }
+});
+
+// Change password
+router.put('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    const userId = req.user.id;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required',
+      });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Verify current password
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(current_password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Current password is incorrect',
+        });
+      }
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(new_password, salt);
+
+    await user.update({ password: hashedPassword });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to change password',
       error: error.message,
     });
   }

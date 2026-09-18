@@ -356,60 +356,6 @@ router.get('/:id/location', authenticateToken, commonValidation.idParam, handleV
   }
 });
 
-// Create trip (Operator only)
-router.post('/', authenticateToken, async (req, res) => {
-  try {
-    const { route_id, bus_id, trip_date, departure_time, arrival_time, current_fare } = req.body;
-
-    // Verify user has operator role
-    const userRoles = req.user.roles || [];
-    const isOperator = userRoles.some(role => role.role === 'OPERATOR' && role.is_active);
-    
-    if (!isOperator) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only operators can create trips',
-      });
-    }
-
-    // Verify route and bus belong to the operator
-    const route = await Route.findByPk(route_id);
-    const bus = await Bus.findByPk(bus_id);
-
-    if (!route || !bus) {
-      return res.status(404).json({
-        success: false,
-        message: 'Route or bus not found',
-      });
-    }
-
-    // Create trip
-    const trip = await Trip.create({
-      route_id,
-      bus_id,
-      trip_date,
-      departure_time,
-      arrival_time,
-      current_fare,
-      available_seats: bus.total_seats,
-      status: 'SCHEDULED',
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Trip created successfully',
-      data: { trip },
-    });
-  } catch (error) {
-    console.error('Create trip error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create trip',
-      error: error.message,
-    });
-  }
-});
-
 // Update trip status (Operator/Admin only)
 const VALID_STATUS_TRANSITIONS = {
   SCHEDULED: ['BOARDING', 'CANCELLED'],

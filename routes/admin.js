@@ -76,14 +76,14 @@ router.post('/operators', async (req, res) => {
     }
 
     // Create user account for operator
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       phone_number: contact_phone,
       email,
       full_name: contact_person,
-      password_hash: hashedPassword,
+      password: hashedPassword,
       is_phone_verified: true,
       status: 'ACTIVE',
     });

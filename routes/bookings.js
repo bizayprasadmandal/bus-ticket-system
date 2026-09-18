@@ -31,11 +31,9 @@ const calculateBookingAmounts = (farePerPassenger, totalPassengers) => {
   const total_amount = Math.round((subtotal + tax_amount + service_fee) * 100) / 100;
 
   return {
-    base_fare: farePerPassenger,
-    subtotal,
+    base_amount: farePerPassenger,
     tax_amount,
     service_fee,
-    discount_amount: 0,
     total_amount,
   };
 };

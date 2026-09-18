@@ -30,6 +30,7 @@ const paymentRoutes = require('./routes/payments');
 const seatLockRoutes = require('./routes/seat-locks');
 const walletRoutes = require('./routes/wallets');
 const dashboardRoutes = require('./routes/dashboard');
+const reportRoutes = require('./routes/reports');
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/seat-locks', seatLockRoutes);
 app.use('/api/wallets', walletRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
 
 const PORT = process.env.PORT || 3000;
 

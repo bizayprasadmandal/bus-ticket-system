@@ -411,6 +411,32 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get all buses for logged-in operator
+router.get('/operator/my-buses', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator information not found' });
+    }
+
+    const buses = await Bus.findAll({
+      where: { operator_id: operatorRole.operator_id },
+      order: [['bus_number', 'ASC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Operator buses retrieved successfully',
+      data: { buses, total: buses.length },
+    });
+  } catch (error) {
+    console.error('Get operator buses error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get operator buses', error: error.message });
+  }
+});
+
 // Get bus details by ID, including active trips
 router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
@@ -618,32 +644,6 @@ router.delete('/:id', authenticateToken, requireRole(['OPERATOR']), commonValida
   } catch (error) {
     console.error('Delete bus error:', error);
     res.status(500).json({ success: false, message: 'Failed to delete bus', error: error.message });
-  }
-});
-
-// Get all buses for logged-in operator
-router.get('/operator/my-buses', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
-  try {
-    const userRoles = req.user.roles || [];
-    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
-
-    if (!operatorRole || !operatorRole.operator_id) {
-      return res.status(403).json({ success: false, message: 'Operator information not found' });
-    }
-
-    const buses = await Bus.findAll({
-      where: { operator_id: operatorRole.operator_id },
-      order: [['bus_number', 'ASC']],
-    });
-
-    res.json({
-      success: true,
-      message: 'Operator buses retrieved successfully',
-      data: { buses, total: buses.length },
-    });
-  } catch (error) {
-    console.error('Get operator buses error:', error);
-    res.status(500).json({ success: false, message: 'Failed to get operator buses', error: error.message });
   }
 });
 

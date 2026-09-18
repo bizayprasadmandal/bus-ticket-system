@@ -56,6 +56,42 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get all routes for logged in operator
+router.get('/operator/my-routes', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operator information not found',
+      });
+    }
+
+    const routes = await Route.findAll({
+      where: { operator_id: operatorRole.operator_id },
+      order: [['origin_city', 'ASC'], ['destination_city', 'ASC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Operator routes retrieved successfully',
+      data: {
+        routes,
+        total: routes.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get operator routes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get operator routes',
+      error: error.message,
+    });
+  }
+});
+
 // Get route details by route ID, including upcoming trips
 router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
@@ -297,43 +333,6 @@ router.delete('/:id', authenticateToken, requireRole(['OPERATOR']), commonValida
     res.status(500).json({
       success: false,
       message: 'Failed to delete route',
-      error: error.message,
-    });
-  }
-});
-
-// Get all routes for logged in operator
-router.get('/operator/my-routes', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
-  try {
-    // Get operator ID from user roles
-    const userRoles = req.user.roles || [];
-    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
-
-    if (!operatorRole || !operatorRole.operator_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Operator information not found',
-      });
-    }
-
-    const routes = await Route.findAll({
-      where: { operator_id: operatorRole.operator_id },
-      order: [['origin_city', 'ASC'], ['destination_city', 'ASC']],
-    });
-
-    res.json({
-      success: true,
-      message: 'Operator routes retrieved successfully',
-      data: {
-        routes,
-        total: routes.length,
-      },
-    });
-  } catch (error) {
-    console.error('Get operator routes error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get operator routes',
       error: error.message,
     });
   }

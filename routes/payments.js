@@ -4,51 +4,19 @@ const { v4: uuidv4 } = require('uuid');
 const {
   Payment,
   Booking,
+  User,
   UserWallet,
   WalletTransaction,
 } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { paymentValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const { PaymentGatewayFactory } = require('../services/payment-gateways');
+const { NotificationService } = require('../services/notifications');
+
+const notificationService = new NotificationService();
 
 const router = express.Router();
-
-// Payment gateway simulation helpers
-const simulateEsewaPayment = async (amount, bookingId) => {
-  // Simulate eSewa payment processing
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: Math.random() > 0.1, // 90% success rate
-        transaction_id: `esewa_${uuidv4().substr(0, 8)}`,
-        gateway_response: {
-          status: 'SUCCESS',
-          reference_id: `ESW${Date.now()}`,
-          amount: amount,
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }, 2000); // Simulate 2 second processing time
-  });
-};
-
-const simulateKhaltiPayment = async (amount, bookingId) => {
-  // Simulate Khalti payment processing
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: Math.random() > 0.1, // 90% success rate
-        transaction_id: `khalti_${uuidv4().substr(0, 8)}`,
-        gateway_response: {
-          status: 'COMPLETED',
-          pidx: `KHL${Date.now()}`,
-          amount: amount * 100, // Khalti uses paisa
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }, 1500);
-  });
-};
 
 // Initiate payment
 router.post('/', authenticateToken, paymentValidation.initiate, handleValidationErrors, async (req, res) => {
@@ -100,10 +68,48 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
     
     switch (payment_method) {
       case 'ESEWA':
-        paymentResult = await simulateEsewaPayment(amount, booking_id);
+        try {
+          const esewa = PaymentGatewayFactory.getGateway('ESEWA');
+          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+          paymentResult = {
+            success: true,
+            payment_url: esewa.generatePaymentURL({
+              amount: amount,
+              tax_amount: 0,
+              product_code: `BOOKING_${booking_id}`,
+              success_url: `${baseUrl}/api/payments/${payment.id}/verify?gateway=ESEWA`,
+              failure_url: `${baseUrl}/api/payments/${payment.id}/verify?gateway=ESEWA&status=failed`,
+            }),
+            transaction_id: null,
+          };
+        } catch (err) {
+          paymentResult = { success: false, message: err.message };
+        }
         break;
       case 'KHALTI':
-        paymentResult = await simulateKhaltiPayment(amount, booking_id);
+        try {
+          const khalti = PaymentGatewayFactory.getGateway('KHALTI');
+          const khaltiBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+          const khaltiResult = await khalti.initiatePayment({
+            return_url: `${khaltiBaseUrl}/api/payments/${payment.id}/verify?gateway=KHALTI`,
+            website_url: process.env.WEBSITE_URL || khaltiBaseUrl,
+            amount: amount,
+            purchase_order_id: `BOOKING_${booking_id}`,
+            purchase_order_name: `Bus Booking - ${booking.pnr || booking_id}`,
+            customer_info: {
+              name: req.user.full_name || 'Customer',
+              email: req.user.email || '',
+              phone: req.user.phone_number,
+            },
+          });
+          paymentResult = {
+            success: khaltiResult.success,
+            payment_url: khaltiResult.payment_url || null,
+            transaction_id: khaltiResult.pidx || null,
+          };
+        } catch (err) {
+          paymentResult = { success: false, message: err.message };
+        }
         break;
       case 'WALLET':
         // Handle wallet payment
@@ -117,11 +123,6 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
         paymentResult = {
           success: true,
           transaction_id: `wallet_${uuidv4().substr(0, 8)}`,
-          gateway_response: {
-            status: 'SUCCESS',
-            wallet_balance_before: wallet.balance,
-            wallet_balance_after: wallet.balance - amount,
-          },
         };
         break;
       default:
@@ -129,6 +130,13 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
           success: false,
           message: 'Unsupported payment method',
         });
+    }
+
+    if (!paymentResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: paymentResult.message || 'Payment initiation failed',
+      });
     }
 
     res.json({
@@ -189,15 +197,35 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
       });
     }
 
-    // Simulate payment verification (in real implementation, verify with gateway)
+    // Verify payment with gateway
     let verificationResult;
     
     switch (payment.payment_method) {
       case 'ESEWA':
-        verificationResult = await simulateEsewaPayment(payment.amount, payment.booking_id);
+        try {
+          const esewa = PaymentGatewayFactory.getGateway('ESEWA');
+          const { amt, rid, pid } = req.query;
+          if (amt && rid && pid) {
+            verificationResult = await esewa.verifyPayment({ amt, rid, pid });
+          } else {
+            verificationResult = { success: false, message: 'Missing eSewa verification parameters' };
+          }
+        } catch (err) {
+          verificationResult = { success: false, message: err.message };
+        }
         break;
       case 'KHALTI':
-        verificationResult = await simulateKhaltiPayment(payment.amount, payment.booking_id);
+        try {
+          const khalti = PaymentGatewayFactory.getGateway('KHALTI');
+          const { pidx } = req.query;
+          if (pidx) {
+            verificationResult = await khalti.verifyPayment(pidx);
+          } else {
+            verificationResult = { success: false, message: 'Missing Khalti pidx parameter' };
+          }
+        } catch (err) {
+          verificationResult = { success: false, message: err.message };
+        }
         break;
       case 'WALLET':
         // Process wallet payment
@@ -243,18 +271,30 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
     // Update payment status based on verification
     const paymentStatus = verificationResult.success ? 'SUCCESS' : 'FAILED';
     const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
+    const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;
 
     await payment.update({
       status: paymentStatus,
       gateway_transaction_id: verificationResult.transaction_id,
-      gateway_response: verificationResult.gateway_response,
+      gateway_response: verificationResult.raw_response || verificationResult.gateway_response,
     }, { transaction });
 
     await payment.booking.update({
       payment_status: bookingPaymentStatus,
+      booking_status: bookingStatus,
     }, { transaction });
 
     await transaction.commit();
+
+    // Send payment confirmation notification (non-blocking)
+    if (verificationResult.success) {
+      const user = await User.findByPk(userId);
+      if (user) {
+        notificationService.sendPaymentConfirmation(payment, payment.booking, user).catch(err => {
+          console.error('Failed to send payment notification:', err.message);
+        });
+      }
+    }
 
     res.json({
       success: verificationResult.success,

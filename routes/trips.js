@@ -1,13 +1,70 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const moment = require('moment');
-const { Trip, Route, Bus, Operator, Booking, BusLocation } = require('../models');
+const { Trip, Route, Bus, Operator, Booking, BookingPassenger, BusLocation } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { tripValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/trips/search:
+ *   get:
+ *     summary: Search trips by origin, destination, and date
+ *     tags: [Trips]
+ *     parameters:
+ *       - in: query
+ *         name: origin_city
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Origin city name
+ *         example: Kathmandu
+ *       - in: query
+ *         name: destination_city
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Destination city name
+ *         example: Pokhara
+ *       - in: query
+ *         name: trip_date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Trip date (YYYY-MM-DD)
+ *         example: "2026-09-17"
+ *       - in: query
+ *         name: passengers
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Number of passengers
+ *     responses:
+ *       200:
+ *         description: Trips found successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     trips:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Trip'
+ *                     total:
+ *                       type: integer
+ */
 // Search trips
 router.get('/search', tripValidation.search, handleValidationErrors, async (req, res) => {
   try {

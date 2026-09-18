@@ -1,6 +1,7 @@
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
-const { User, UserRole } = require('../models');
+const { User, UserRole, SeatLock, Booking, BookingPassenger } = require('../models');
+const { Op } = require('sequelize');
 
 class WebSocketService {
   constructor(server) {

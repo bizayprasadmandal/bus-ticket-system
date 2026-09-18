@@ -1,4 +1,5 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const { User, UserAddress, UserRole, UserWallet } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { userValidation, commonValidation } = require('../validators');

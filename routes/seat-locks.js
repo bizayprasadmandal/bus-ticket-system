@@ -1,6 +1,7 @@
 const express = require('express');
 const moment = require('moment');
-const { SeatLock, Trip, User } = require('../models');
+const { SeatLock, Trip, User, Route } = require('../models');
+const { Op } = require('sequelize');
 const { authenticateToken } = require('../middleware/auth');
 const { seatLockValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');

@@ -45,7 +45,7 @@ services:
       - MYSQL_USER=${DB_USER:-root}
       - MYSQL_PASSWORD=${DB_PASSWORD:-root123}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./docker/mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -58,14 +58,10 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./docker/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
-
-volumes:
-  mysql_data:
-  redis_data:

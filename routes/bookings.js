@@ -169,7 +169,7 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
       total_passengers: passengers.length,
       ...amounts,
       payment_status: 'PENDING',
-      booking_status: 'CONFIRMED',
+      booking_status: 'PENDING',
     }, { transaction });
 
     // Create passengers
@@ -466,7 +466,7 @@ router.post('/:id/cancel', authenticateToken, bookingValidation.cancel, handleVa
 });
 
 // Get booking by PNR
-router.get('/pnr/:pnr', async (req, res) => {
+router.get('/pnr/:pnr', authenticateToken, async (req, res) => {
   try {
     const { pnr } = req.params;
 

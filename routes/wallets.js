@@ -117,7 +117,7 @@ router.post('/topup', authenticateToken, async (req, res) => {
       message: 'Wallet topped up successfully',
       data: {
         amount: topupAmount,
-        new_balance: parseFloat(wallet.balance) + topupAmount,
+        new_balance: parseFloat(wallet.balance),
         payment_method,
       },
     });

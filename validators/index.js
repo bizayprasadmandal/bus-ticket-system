@@ -11,9 +11,11 @@ const userValidation = {
       .isEmail()
       .withMessage('Please provide a valid email address'),
     body('full_name')
-      .optional()
       .isLength({ min: 2, max: 100 })
       .withMessage('Full name must be between 2 and 100 characters'),
+    body('password')
+      .isLength({ min: 6 })
+      .withMessage('Password must be at least 6 characters'),
     body('gender')
       .optional()
       .isIn(['MALE', 'FEMALE', 'OTHER'])

@@ -5,6 +5,7 @@ const { Trip, Route, Bus, Operator, Booking, BookingPassenger, BusLocation } = r
 const { authenticateToken } = require('../middleware/auth');
 const { tripValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const cachingService = require('../services/caching');
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ const router = express.Router();
  *                       type: integer
  */
 // Search trips
-router.get('/search', tripValidation.search, handleValidationErrors, async (req, res) => {
+router.get('/search', tripValidation.search, handleValidationErrors, cachingService.cacheMiddleware(300), async (req, res) => {
   try {
     const { origin_city, destination_city, trip_date, passengers = 1 } = req.query;
 

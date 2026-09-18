@@ -3,11 +3,12 @@ const { City } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const cachingService = require('../services/caching');
 
 const router = express.Router();
 
 // Get all cities
-router.get('/', async (req, res) => {
+router.get('/', cachingService.cacheMiddleware(86400), async (req, res) => {
   try {
     const { major_only = false } = req.query;
 

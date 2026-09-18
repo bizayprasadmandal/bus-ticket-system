@@ -4,11 +4,12 @@ const { Route, Operator, Trip } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { routeValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const cachingService = require('../services/caching');
 
 const router = express.Router();
 
 // Get all routes (optionally filtered by operator, origin, destination)
-router.get('/', async (req, res) => {
+router.get('/', cachingService.cacheMiddleware(3600), async (req, res) => {
   try {
     const { operator_id, origin_city, destination_city, is_active = true } = req.query;
 

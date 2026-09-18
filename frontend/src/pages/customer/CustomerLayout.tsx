@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Bus, Home, Ticket, LogOut, Menu, X } from 'lucide-react';
+import { Bus, Home, Ticket, UserCircle, LogOut, Menu, X } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -18,6 +18,7 @@ export default function CustomerLayout() {
   const navLinks = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/my-bookings', icon: Ticket, label: 'My Bookings' },
+    { to: '/profile', icon: UserCircle, label: 'Profile' },
   ];
 
   return (

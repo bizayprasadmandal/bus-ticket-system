@@ -72,15 +72,15 @@ export default function BookingDetailScreen({ route, navigation }: any) {
 
   if (!booking) return null;
 
-  const canCancel = ['CONFIRMED', 'PENDING'].includes(booking.booking_status || booking.status || '');
+  const canCancel = ['CONFIRMED', 'PENDING'].includes(booking.booking_status || '');
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.pnrCard}>
         <Text style={styles.pnrLabel}>PNR Number</Text>
         <Text style={styles.pnrText}>{booking.pnr}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusColors[booking.booking_status || booking.status || ''] || colors.muted }]}>
-          <Text style={styles.statusText}>{booking.booking_status || booking.status}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: statusColors[booking.booking_status] || colors.muted }]}>
+          <Text style={styles.statusText}>{booking.booking_status}</Text>
         </View>
       </View>
 

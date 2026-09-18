@@ -16,7 +16,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     cityAPI.getAll()
-      .then((res) => setCities(res.data.data))
+      .then((res) => setCities(res.data.data.cities || res.data.data))
       .catch(() => toast.error('Failed to load cities'));
   }, []);
 

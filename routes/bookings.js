@@ -18,31 +18,70 @@ const { handleValidationErrors } = require('../middleware/error');
 
 const router = express.Router();
 
-// Helper function to generate PNR
+const TAX_RATE = 0.13; // 13% VAT
+const SERVICE_FEE_PER_PASSENGER = 50; // NPR 50 per passenger
+
+const calculateBookingAmounts = (farePerPassenger, totalPassengers) => {
+  const subtotal = farePerPassenger * totalPassengers;
+  const tax_amount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const service_fee = SERVICE_FEE_PER_PASSENGER * totalPassengers;
+  const total_amount = Math.round((subtotal + tax_amount + service_fee) * 100) / 100;
+
+  return {
+    base_fare: farePerPassenger,
+    subtotal,
+    tax_amount,
+    service_fee,
+    discount_amount: 0,
+    total_amount,
+  };
+};
+
 const generatePNR = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let pnr = '';
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 10; i++) {
     pnr += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return pnr;
 };
 
-// Helper function to calculate booking amounts
-const calculateBookingAmounts = (baseFare, passengerCount) => {
-  const baseAmount = baseFare * passengerCount;
-  const taxAmount = baseAmount * 0.13; // 13% VAT
-  const serviceFee = baseAmount * 0.02; // 2% service fee
-  const totalAmount = baseAmount + taxAmount + serviceFee;
-
-  return {
-    base_amount: parseFloat(baseAmount.toFixed(2)),
-    tax_amount: parseFloat(taxAmount.toFixed(2)),
-    service_fee: parseFloat(serviceFee.toFixed(2)),
-    total_amount: parseFloat(totalAmount.toFixed(2)),
-  };
-};
-
+/**
+ * @swagger
+ * /api/bookings:
+ *   post:
+ *     summary: Create a new booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [trip_id, seats, passengers]
+ *             properties:
+ *               trip_id:
+ *                 type: integer
+ *                 example: 1
+ *               seats:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["1A", "1B"]
+ *               passengers:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/Passenger'
+ *     responses:
+ *       201:
+ *         description: Booking created successfully
+ *       400:
+ *         description: Invalid request or seats unavailable
+ *       401:
+ *         description: Unauthorized
+ */
 // Create booking
 router.post('/', authenticateToken, bookingValidation.create, handleValidationErrors, async (req, res) => {
   const transaction = await sequelize.transaction();

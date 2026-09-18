@@ -12,6 +12,7 @@ import OperatorLayout from './pages/operator/OperatorLayout';
 import OperatorDashboard from './pages/operator/OperatorDashboard';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -35,37 +36,39 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-right" />
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        <Route path="/" element={
-          <ProtectedRoute>
-            <CustomerLayout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<SearchPage />} />
-          <Route path="book/:tripId" element={<BookingPage />} />
-          <Route path="payment/:bookingId" element={<PaymentPage />} />
-          <Route path="my-bookings" element={<MyBookingsPage />} />
-        </Route>
+          <Route path="/" element={
+            <ProtectedRoute>
+              <CustomerLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<SearchPage />} />
+            <Route path="book/:tripId" element={<BookingPage />} />
+            <Route path="payment/:bookingId" element={<PaymentPage />} />
+            <Route path="my-bookings" element={<MyBookingsPage />} />
+          </Route>
 
-        <Route path="/operator" element={
-          <ProtectedRoute allowedRoles={['OPERATOR']}>
-            <OperatorLayout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<OperatorDashboard />} />
-        </Route>
+          <Route path="/operator" element={
+            <ProtectedRoute allowedRoles={['OPERATOR']}>
+              <OperatorLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<OperatorDashboard />} />
+          </Route>
 
-        <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
-            <AdminLayout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<AdminDashboard />} />
-        </Route>
-      </Routes>
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<AdminDashboard />} />
+          </Route>
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

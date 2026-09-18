@@ -1,25 +1,27 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-build]
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
       - uses: actions/checkout@v4
       
       - name: Deploy to production
         run: |
-          echo "Deployment steps would go here"
+          echo "CI passed. Ready to deploy."
+          echo "Configure your deployment target in this file."
+          echo ""
           echo "Options:"
-          echo "1. Docker deployment"
-          echo "2. AWS ECS/EKS"
-          echo "3. DigitalOcean App Platform"
-          echo "4. Railway"
-          echo "5. Render"
-        env:
-          DEPLOY_TARGET: production
+          echo "  - Docker: docker-compose up -d --build"
+          echo "  - Railway: railway up"
+          echo "  - Render: auto-deploy on push to main"
+          echo "  - AWS ECS: aws ecs update-service"

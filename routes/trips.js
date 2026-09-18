@@ -410,4 +410,82 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Update trip status (Operator/Admin only)
+const VALID_STATUS_TRANSITIONS = {
+  SCHEDULED: ['BOARDING', 'CANCELLED'],
+  BOARDING: ['DEPARTED', 'CANCELLED'],
+  DEPARTED: ['ARRIVED'],
+  ARRIVED: [],
+  CANCELLED: [],
+};
+
+router.put('/:id/status', authenticateToken, commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['SCHEDULED', 'BOARDING', 'DEPARTED', 'ARRIVED', 'CANCELLED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const trip = await Trip.findByPk(id, {
+      include: [
+        { model: Route, as: 'route' },
+        { model: Bus, as: 'bus' },
+      ],
+    });
+
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found',
+      });
+    }
+
+    // Verify operator owns this trip or is admin
+    const userRoles = req.user.roles || [];
+    const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
+    const isOperator = userRoles.some(r => r.role === 'OPERATOR' && r.is_active);
+
+    if (!isAdmin && !isOperator) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only operators or admins can update trip status',
+      });
+    }
+
+    // Validate status transition
+    const allowedTransitions = VALID_STATUS_TRANSITIONS[trip.status] || [];
+    if (!allowedTransitions.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot transition from ${trip.status} to ${status}. Allowed: ${allowedTransitions.join(', ') || 'none'}`,
+      });
+    }
+
+    await trip.update({ status });
+
+    res.json({
+      success: true,
+      message: `Trip status updated to ${status}`,
+      data: {
+        trip_id: trip.id,
+        previous_status: trip.status,
+        new_status: status,
+      },
+    });
+  } catch (error) {
+    console.error('Update trip status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update trip status',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

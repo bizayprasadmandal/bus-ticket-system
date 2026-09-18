@@ -86,8 +86,12 @@ export default function BookingConfirmScreen({ route, navigation }: any) {
           phone_number: p.phone_number.trim() || undefined,
         })),
       });
-      setPnr(response.data.booking.pnr);
-      setSuccess(true);
+      const booking = response.data.data?.booking || response.data.booking;
+      navigation.navigate('Payment', {
+        bookingId: booking.id,
+        amount: totalFare,
+        pnr: booking.pnr,
+      });
     } catch (error: any) {
       Alert.alert('Booking Failed', error.response?.data?.message || 'Please try again');
     } finally {

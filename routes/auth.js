@@ -6,6 +6,10 @@ const { User, UserRole, UserWallet } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { userValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const cachingService = require('../services/caching');
+const { NotificationService } = require('../services/notifications');
+
+const notificationService = new NotificationService();
 
 const router = express.Router();
 
@@ -291,19 +295,21 @@ router.post('/send-otp', async (req, res) => {
       });
     }
 
-    // TODO: Implement actual OTP sending logic with SMS gateway
+    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    
-    // In production, save OTP to cache/database with expiration
-    // For now, return OTP in response (remove in production)
-    
+    // Store OTP in cache with 5-minute TTL
+    await cachingService.cacheOTP(phone_number, otp, 300);
+
+    // Send OTP via SMS
+    const smsResult = await notificationService.sendOTP(phone_number, otp);
+
     res.json({
       success: true,
-      message: "ok" ,
-    
+      message: 'OTP sent successfully',
       data: {
-        // Remove this in production
+        sms_sent: smsResult.success,
+        // Only return OTP in development for testing
         otp: process.env.NODE_ENV === 'development' ? otp : undefined,
       },
     });
@@ -329,14 +335,26 @@ router.post('/verify-otp', async (req, res) => {
       });
     }
 
-    // TODO: Implement actual OTP verification logic
-    // For now, accept any 6-digit OTP
-    if (otp.length !== 6) {
+    // Get OTP from cache
+    const cachedOTP = await cachingService.getCachedOTP(phone_number);
+
+    if (!cachedOTP) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.',
+      });
+    }
+
+    // Verify OTP
+    if (cachedOTP.otp !== otp) {
       return res.status(400).json({
         success: false,
         message: 'Invalid OTP',
       });
     }
+
+    // Delete OTP from cache after successful verification
+    await cachingService.invalidateOTP(phone_number);
 
     // Update user phone verification status
     const user = await User.findOne({ where: { phone_number } });

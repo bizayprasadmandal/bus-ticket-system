@@ -25,6 +25,7 @@ export interface Trip {
   arrival_time: string;
   current_fare: number;
   available_seats: number;
+  total_seats: number;
   status: string;
   route: Route;
   bus: Bus;
@@ -33,13 +34,15 @@ export interface Trip {
 
 export interface Route {
   id: number;
-  route_name: string;
+  route_name?: string;
   origin_city: string;
   destination_city: string;
   distance_km: number;
-  estimated_duration_minutes: number;
+  estimated_duration: string;
+  estimated_duration_minutes?: number;
   base_fare: number;
   stops?: string[];
+  is_active?: boolean;
 }
 
 export interface Bus {
@@ -52,6 +55,7 @@ export interface Bus {
   amenities?: string[];
   images?: string[];
   status: string;
+  operator_id?: number;
 }
 
 export interface Operator {
@@ -59,7 +63,11 @@ export interface Operator {
   company_name: string;
   company_name_nepali?: string;
   logo_url?: string;
+  contact_person?: string;
+  contact_phone?: string;
+  email?: string;
   status: string;
+  created_at?: string;
 }
 
 export interface Booking {
@@ -76,10 +84,13 @@ export interface Booking {
   total_amount: number;
   payment_status: string;
   booking_status: string;
+  status?: string;
   cancellation_reason?: string;
   refund_amount?: number;
   booking_date: string;
+  created_at: string;
   trip?: Trip;
+  user?: User;
   passengers?: BookingPassenger[];
 }
 
@@ -103,6 +114,8 @@ export interface Payment {
   currency: string;
   status: string;
   gateway_transaction_id?: string;
+  created_at?: string;
+  booking?: { pnr: string; total_amount: number; payment_status: string };
 }
 
 export interface City {
@@ -111,6 +124,56 @@ export interface City {
   name_nepali?: string;
   province?: string;
   is_major_city: boolean;
+}
+
+export interface SeatLock {
+  id: number;
+  trip_id: number;
+  user_id: number;
+  seat_numbers: string[];
+  locked_at: string;
+  expires_at: string;
+  trip?: Trip;
+}
+
+export interface WalletBalance {
+  balance: number;
+  total_earned: number;
+  total_spent: number;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  id: number;
+  transaction_type: string;
+  amount: number;
+  description: string;
+  reference_id?: number;
+  reference_type?: string;
+  created_at: string;
+}
+
+export interface TripSeatLayout {
+  seat_layout: any;
+  total_seats: number;
+  available_seats: string[];
+  booked_seats: string[];
+  locked_seats: string[];
+}
+
+export interface DashboardStats {
+  total_bookings?: number;
+  completed_trips?: number;
+  total_spent?: number;
+  upcoming_trips_count?: number;
+  total_routes?: number;
+  total_buses?: number;
+  today_trips_count?: number;
+  monthly_bookings?: number;
+  monthly_revenue?: number;
+  total_users?: number;
+  total_operators?: number;
+  monthly_commission?: number;
 }
 
 export interface ApiResponse<T> {
@@ -124,4 +187,15 @@ export interface PaginatedResponse<T> {
   total_pages: number;
   total_items: number;
   items_per_page: number;
+}
+
+export interface ReportData {
+  total_revenue?: number;
+  total_bookings?: number;
+  average_fare?: number;
+  revenue_by_operator?: any[];
+  bookings?: any[];
+  operators?: any[];
+  users?: any[];
+  total_users?: number;
 }

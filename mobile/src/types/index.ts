@@ -102,3 +102,31 @@ export interface City {
   province?: string;
   is_major_city: boolean;
 }
+
+export interface Payment {
+  id: number;
+  booking_id: number;
+  payment_method: string;
+  amount: number;
+  currency: string;
+  status: string;
+  gateway_transaction_id?: string;
+  created_at?: string;
+}
+
+export interface WalletBalance {
+  balance: number;
+  total_earned: number;
+  total_spent: number;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  id: number;
+  transaction_type: string;
+  amount: number;
+  description: string;
+  reference_id?: number;
+  reference_type?: string;
+  created_at: string;
+}

@@ -316,9 +316,9 @@ export default function SearchPage() {
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
                   Journey Date
                 </label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-red-500 shrink-0" />
-                  <span className="text-sm font-medium text-gray-800">
+                <div className="relative flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-red-500 shrink-0 relative z-10" />
+                  <span className="text-sm font-medium text-gray-800 relative z-10 pointer-events-none">
                     {formatDisplayDate(tripDate)}
                   </span>
                   <input
@@ -326,7 +326,7 @@ export default function SearchPage() {
                     value={tripDate}
                     onChange={(e) => setTripDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="absolute opacity-0 w-0 h-0"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                   />
                 </div>
                 <div className="flex gap-1.5 mt-1.5 flex-wrap">

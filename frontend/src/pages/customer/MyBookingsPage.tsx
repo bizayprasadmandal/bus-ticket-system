@@ -1,17 +1,51 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Ticket, Calendar, MapPin, Users } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Ticket,
+  Calendar,
+  Clock,
+  Bus,
+  Users,
+  Search,
+  Armchair,
+} from 'lucide-react';
 import { bookingAPI } from '../../api';
 import type { Booking } from '../../types';
 import toast from 'react-hot-toast';
+
+const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  CONFIRMED: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  PENDING: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+  CANCELLED: { bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
+  COMPLETED: { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+};
+
+const STRIP_COLORS: Record<string, string> = {
+  CONFIRMED: 'bg-emerald-500',
+  PENDING: 'bg-amber-500',
+  CANCELLED: 'bg-red-500',
+  COMPLETED: 'bg-gray-400',
+};
+
+const FILTER_TABS = ['ALL', 'UPCOMING', 'COMPLETED', 'CANCELLED'] as const;
+
+function mapStatus(filter: string, booking: Booking): boolean {
+  if (filter === 'ALL') return true;
+  const s = booking.booking_status;
+  if (filter === 'UPCOMING') return s === 'CONFIRMED' || s === 'PENDING';
+  return s === filter;
+}
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [filter, setFilter] = useState('ALL');
+  const [filter, setFilter] = useState<string>('ALL');
 
   useEffect(() => {
-    bookingAPI.getAll()
+    bookingAPI
+      .getAll()
       .then((res) => setBookings(res.data.data.bookings || res.data.data))
       .catch(() => toast.error('Failed to load bookings'))
       .finally(() => setIsLoading(false));
@@ -19,146 +53,224 @@ export default function MyBookingsPage() {
 
   const toggleExpand = (id: number) => setExpandedId((prev) => (prev === id ? null : id));
 
-  const statusStyle = (status: string) => {
-    switch (status) {
-      case 'CONFIRMED': return 'bg-green-100 text-green-700 border-green-200';
-      case 'PENDING': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'CANCELLED': return 'bg-red-100 text-red-700 border-red-200';
-      case 'COMPLETED': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  };
+  const filtered = bookings.filter((b) => mapStatus(filter, b));
 
-  const filtered = bookings.filter((b) => {
-    if (filter === 'ALL') return true;
-    return b.booking_status === filter;
-  });
-
-  const counts = {
+  const counts: Record<string, number> = {
     ALL: bookings.length,
-    CONFIRMED: bookings.filter((b) => b.booking_status === 'CONFIRMED').length,
-    PENDING: bookings.filter((b) => b.booking_status === 'PENDING').length,
+    UPCOMING: bookings.filter(
+      (b) => b.booking_status === 'CONFIRMED' || b.booking_status === 'PENDING'
+    ).length,
     COMPLETED: bookings.filter((b) => b.booking_status === 'COMPLETED').length,
     CANCELLED: bookings.filter((b) => b.booking_status === 'CANCELLED').length,
   };
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center py-16">
-        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4" />
-        <p className="text-gray-500 font-medium">Loading bookings...</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="w-14 h-14 border-4 border-[#d84e55]/20 border-t-[#d84e55] rounded-full animate-spin mb-4" />
+        <p className="text-gray-500 font-medium text-sm">Loading your bookings...</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>My Bookings</h1>
-        <p className="text-gray-500 mt-1">View and manage your trips</p>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {Object.entries(counts).map(([key, count]) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-              filter === key
-                ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
-                : 'bg-white text-gray-500 border border-gray-200 hover:border-primary-200 hover:text-primary-600'
-            }`}
+    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="mb-5">
+          <h1
+            className="text-2xl font-bold text-gray-900"
+            style={{ fontFamily: 'var(--font-heading)' }}
           >
-            {key.charAt(0) + key.slice(1).toLowerCase()} ({count})
-          </button>
-        ))}
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center py-16">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <Ticket className="h-10 w-10 text-gray-300" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-600 mb-1">No bookings found</h3>
-          <p className="text-sm text-gray-400">Start by searching for a trip!</p>
+            My Bookings
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">View and manage your trips</p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((booking) => (
-            <div key={booking.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
-              <div className="p-5 cursor-pointer" onClick={() => toggleExpand(booking.id)}>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    {/* Ticket stub */}
-                    <div className="w-14 h-14 bg-primary-50 rounded-xl flex flex-col items-center justify-center border border-primary-100">
-                      <span className="text-[10px] text-primary-400 font-medium">PNR</span>
-                      <span className="text-xs font-bold text-primary-700 font-mono">{booking.pnr}</span>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${statusStyle(booking.booking_status)}`}>
-                          {booking.booking_status}
-                        </span>
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${statusStyle(booking.payment_status)}`}>
-                          {booking.payment_status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-800 font-bold">
-                        <MapPin className="h-3.5 w-3.5 text-primary-500" />
-                        {booking.trip?.route?.origin_city} → {booking.trip?.route?.destination_city}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {booking.trip?.trip_date}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {booking.total_passengers} pax
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary-600">NPR {booking.total_amount}</p>
-                    </div>
-                    <div className="w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center border border-gray-200">
-                      {expandedId === booking.id ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Expanded details */}
-              {expandedId === booking.id && booking.passengers && booking.passengers.length > 0 && (
-                <div className="border-t border-gray-100 px-5 py-4 bg-gray-50/50">
-                  <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary-500" />
-                    Passengers
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {booking.passengers.map((p) => (
-                      <div key={p.id} className="bg-white rounded-xl p-3 border border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <span className="w-8 h-8 bg-primary-50 text-primary-700 rounded-full flex items-center justify-center text-xs font-bold border border-primary-100">
-                            {p.seat_number}
-                          </span>
-                          <div>
-                            <p className="font-semibold text-gray-800 text-sm">{p.passenger_name}</p>
-                            <p className="text-xs text-gray-500">{p.age} yrs &middot; {p.gender} &middot; {p.id_type}: {p.id_number}</p>
+        {/* Filter Tabs - redBus pill style */}
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1 no-scrollbar">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 ${
+                filter === tab
+                  ? 'text-white shadow-md'
+                  : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'
+              }`}
+              style={
+                filter === tab
+                  ? { backgroundColor: '#d84e55', boxShadow: '0 4px 12px rgba(216,78,85,0.3)' }
+                  : {}
+              }
+            >
+              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              <span className="ml-1.5 text-[10px] opacity-80">({counts[tab]})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center py-20">
+            <div className="w-28 h-28 bg-white rounded-full flex items-center justify-center mb-5 border border-gray-100 shadow-sm">
+              <div className="w-20 h-20 bg-[#d84e55]/5 rounded-full flex items-center justify-center">
+                <Ticket className="h-10 w-10 text-[#d84e55]/40" />
+              </div>
+            </div>
+            <h3
+              className="text-lg font-bold text-gray-700 mb-1"
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
+              No bookings found
+            </h3>
+            <p className="text-sm text-gray-400 text-center max-w-xs">
+              You haven't made any bookings yet. Search for a route to get started!
+            </p>
+            <button
+              className="mt-5 px-6 py-2.5 text-white text-sm font-bold rounded-full transition-all"
+              style={{ backgroundColor: '#d84e55' }}
+              onClick={() => (window.location.href = '/search')}
+            >
+              <span className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Search Buses
+              </span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((booking) => {
+              const status = booking.booking_status || 'CONFIRMED';
+              const colors = STATUS_COLORS[status] || STATUS_COLORS.CONFIRMED;
+              const stripColor = STRIP_COLORS[status] || STRIP_COLORS.CONFIRMED;
+              const isExpanded = expandedId === booking.id;
+
+              return (
+                <div
+                  key={booking.id}
+                  className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-shadow duration-200 hover:shadow-md"
+                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                >
+                  <div className="flex">
+                    {/* Left colored strip */}
+                    <div className={`w-1.5 flex-shrink-0 ${stripColor}`} />
+
+                    {/* Content */}
+                    <div className="flex-1 p-4 cursor-pointer" onClick={() => toggleExpand(booking.id)}>
+                      <div className="flex items-start justify-between gap-3">
+                        {/* Left: Route & Info */}
+                        <div className="flex-1 min-w-0">
+                          {/* Route */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm font-bold text-gray-900 truncate">
+                              {booking.trip?.route?.origin_city}
+                            </span>
+                            <span className="text-[#d84e55]">
+                              <svg width="16" height="8" viewBox="0 0 16 8" fill="none">
+                                <path
+                                  d="M1 4h12M11 1l3 3-3 3"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </span>
+                            <span className="text-sm font-bold text-gray-900 truncate">
+                              {booking.trip?.route?.destination_city}
+                            </span>
+                          </div>
+
+                          {/* Date, Time, Bus */}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {booking.trip?.trip_date}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {booking.trip?.departure_time || '--:--'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Bus className="h-3 w-3" />
+                              {booking.trip?.bus?.bus_type || 'Standard'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {booking.total_passengers} {booking.total_passengers === 1 ? 'Passenger' : 'Passengers'}
+                            </span>
+                          </div>
+
+                          {/* PNR + Status */}
+                          <div className="flex items-center gap-2 mt-2.5">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-100">
+                              <Armchair className="h-3 w-3 text-gray-400" />
+                              <span className="text-xs font-bold text-gray-600 font-mono">
+                                PNR: {booking.pnr}
+                              </span>
+                            </span>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${colors.bg} ${colors.text}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
+                              <span className="text-xs font-bold">{status}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Right: Amount & Expand */}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <p className="text-lg font-extrabold text-gray-900">
+                            NPR {booking.total_amount?.toLocaleString()}
+                          </p>
+                          <div className="w-7 h-7 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
+                            {isExpanded ? (
+                              <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                            )}
                           </div>
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
+
+                  {/* Expanded Passengers */}
+                  {isExpanded && booking.passengers && booking.passengers.length > 0 && (
+                    <div className="border-t border-gray-100 bg-gray-50/60">
+                      <div className="px-5 py-3.5">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5" />
+                          Passenger Details
+                        </h4>
+                        <div className="space-y-2">
+                          {booking.passengers.map((p) => (
+                            <div
+                              key={p.id}
+                              className="bg-white rounded-lg p-3 border border-gray-100 flex items-center gap-3"
+                            >
+                              <span className="w-8 h-8 bg-[#d84e55]/10 text-[#d84e55] rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {p.seat_number}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-800 truncate">
+                                  {p.passenger_name}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {p.age} yrs &middot; {p.gender} &middot; {p.id_type}: {p.id_number}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

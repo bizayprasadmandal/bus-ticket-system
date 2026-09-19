@@ -32,44 +32,19 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-700 via-primary-600 to-primary-800 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/5 rounded-full" />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-xl mb-4">
-            <Bus className="h-9 w-9 text-primary-600" />
+    <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-[#d84e55] rounded-full mb-4">
+              <Bus className="h-7 w-7 text-white" />
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+              Create your account
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>Samaya Deluxe</h1>
-          <p className="text-primary-200 mt-1 text-sm">Create your account to start booking</p>
-        </div>
-
-        {/* Register Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-1">Create Account</h2>
-          <p className="text-gray-500 text-sm mb-5">Fill in your details to get started</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number *</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="tel"
-                  value={phone_number}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="9841123456"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm bg-gray-50 focus:bg-white"
-                  required
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
               <div className="relative">
@@ -79,7 +54,22 @@ export default function RegisterPage() {
                   value={full_name}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Your full name"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm bg-gray-50 focus:bg-white"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] transition-all text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="tel"
+                  value={phone_number}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="9841123456"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] transition-all text-sm"
                   required
                 />
               </div>
@@ -94,7 +84,7 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 6 characters"
-                  className="w-full pl-10 pr-12 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm bg-gray-50 focus:bg-white"
+                  className="w-full pl-10 pr-12 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] transition-all text-sm"
                   required
                   minLength={6}
                 />
@@ -117,7 +107,7 @@ export default function RegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm bg-gray-50 focus:bg-white"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] transition-all text-sm"
                 />
               </div>
             </div>
@@ -130,10 +120,10 @@ export default function RegisterPage() {
                     key={g}
                     type="button"
                     onClick={() => setGender(gender === g ? '' : g)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
                       gender === g
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
+                        ? 'border-[#d84e55] bg-[#d84e55]/5 text-[#d84e55]'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
                     }`}
                   >
                     {g.charAt(0) + g.slice(1).toLowerCase()}
@@ -145,7 +135,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 disabled:opacity-50 transition-all shadow-lg shadow-primary-600/25 hover:shadow-xl hover:shadow-primary-600/30 active:scale-[0.98] mt-2"
+              className="w-full bg-[#d84e55] text-white py-2.5 rounded-lg font-semibold hover:bg-[#c4434b] disabled:opacity-50 transition-all text-sm"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -159,9 +149,9 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="text-center mt-5 text-sm text-gray-500">
+          <p className="text-center mt-6 text-sm text-gray-500">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700 transition-colors">
+            <Link to="/login" className="text-[#d84e55] font-semibold hover:text-[#c4434b] transition-colors">
               Sign In
             </Link>
           </p>

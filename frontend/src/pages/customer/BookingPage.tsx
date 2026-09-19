@@ -61,7 +61,7 @@ export default function BookingPage() {
           tripAPI.getById(Number(tripId)),
           tripAPI.getSeats(Number(tripId)),
         ]);
-        setTrip(tripRes.data.data);
+        setTrip(tripRes.data.data.trip || tripRes.data.data);
         setSeatLayout(seatRes.data.data);
       } catch {
         toast.error('Failed to load trip details');

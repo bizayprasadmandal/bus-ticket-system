@@ -111,6 +111,24 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
           paymentResult = { success: false, message: err.message };
         }
         break;
+      case 'CONNECTIPS':
+        try {
+          const connectips = PaymentGatewayFactory.getGateway('CONNECTIPS');
+          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+          const connectipsRequest = connectips.generatePaymentRequest({
+            amount: amount,
+            reference_id: `BOOKING_${booking_id}`,
+            remarks: `Bus Booking - ${booking.pnr || booking_id}`,
+          });
+          paymentResult = {
+            success: true,
+            payment_url: `${connectips.baseUrl}/connectipswebws/api/creditor/purchase`,
+            transaction_id: null,
+          };
+        } catch (err) {
+          paymentResult = { success: false, message: err.message };
+        }
+        break;
       case 'WALLET':
         // Handle wallet payment
         const wallet = await UserWallet.findOne({ where: { user_id: userId } });
@@ -147,8 +165,7 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
         status: 'PENDING',
         payment_method,
         amount,
-        // Return payment URL for redirect (in real implementation)
-        payment_url: paymentResult.success ? `/api/payments/${payment.id}/verify` : null,
+        payment_url: paymentResult.payment_url || null,
       },
     });
   } catch (error) {
@@ -161,7 +178,147 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
   }
 });
 
-// Verify payment
+// Public callback endpoint for payment gateway redirects (no auth required)
+router.get('/:id/callback', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const gateway = req.query.gateway || req.query.payment_method || '';
+
+    // Forward to the frontend callback page with all query params
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const queryParams = new URLSearchParams(req.query).toString();
+    res.redirect(`${frontendUrl}/payment/callback/${id}?${queryParams}`);
+  } catch (error) {
+    console.error('Payment callback redirect error:', error);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/payment/callback/${req.params.id}?error=callback_failed`);
+  }
+});
+
+// Public verify endpoint for gateway callbacks (no auth - called by gateway redirect)
+router.get('/:id/verify', async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+
+    const payment = await Payment.findOne({
+      where: { id },
+      include: [{ model: Booking, as: 'booking' }],
+      transaction,
+    });
+
+    if (!payment) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+
+    if (payment.status !== 'PENDING') {
+      await transaction.rollback();
+      // Still redirect to frontend success page
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      return res.redirect(`${frontendUrl}/payment/callback/${id}?status=already_processed`);
+    }
+
+    let verificationResult;
+
+    switch (payment.payment_method) {
+      case 'ESEWA': {
+        try {
+          const esewa = PaymentGatewayFactory.getGateway('ESEWA');
+          const { amt, rid, pid } = req.query;
+          if (amt && rid && pid) {
+            verificationResult = await esewa.verifyPayment({ amt, rid, pid });
+          } else {
+            verificationResult = { success: false, message: 'Missing eSewa parameters' };
+          }
+        } catch (err) {
+          verificationResult = { success: false, message: err.message };
+        }
+        break;
+      }
+      case 'KHALTI': {
+        try {
+          const khalti = PaymentGatewayFactory.getGateway('KHALTI');
+          const { pidx } = req.query;
+          if (pidx) {
+            verificationResult = await khalti.verifyPayment(pidx);
+          } else {
+            verificationResult = { success: false, message: 'Missing Khalti pidx' };
+          }
+        } catch (err) {
+          verificationResult = { success: false, message: err.message };
+        }
+        break;
+      }
+      case 'CONNECTIPS': {
+        try {
+          const connectips = PaymentGatewayFactory.getGateway('CONNECTIPS');
+          const { TXNID } = req.query;
+          if (TXNID) {
+            verificationResult = await connectips.verifyPayment(TXNID);
+          } else {
+            verificationResult = { success: false, message: 'Missing ConnectIPS transaction ID' };
+          }
+        } catch (err) {
+          verificationResult = { success: false, message: err.message };
+        }
+        break;
+      }
+      default:
+        verificationResult = { success: false, message: 'Unknown payment method' };
+    }
+
+    const paymentStatus = verificationResult.success ? 'SUCCESS' : 'FAILED';
+    const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
+    const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;
+
+    await payment.update({
+      status: paymentStatus,
+      gateway_transaction_id: verificationResult.transaction_id,
+      gateway_response: verificationResult.raw_response || verificationResult.gateway_response,
+    }, { transaction });
+
+    await payment.booking.update({
+      payment_status: bookingPaymentStatus,
+      booking_status: bookingStatus,
+    }, { transaction });
+
+    // Release seats back if payment failed
+    if (!verificationResult.success) {
+      const trip = await Trip.findByPk(payment.booking.trip_id, { transaction });
+      if (trip) {
+        await trip.update({
+          available_seats: trip.available_seats + payment.booking.total_passengers,
+        }, { transaction });
+      }
+    }
+
+    await transaction.commit();
+
+    // Send notification (non-blocking)
+    if (verificationResult.success) {
+      const user = await User.findByPk(payment.booking.user_id);
+      if (user) {
+        notificationService.sendPaymentConfirmation(payment, payment.booking, user).catch(err => {
+          console.error('Failed to send payment notification:', err.message);
+        });
+      }
+    }
+
+    // Redirect to frontend callback page
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const status = verificationResult.success ? 'success' : 'failed';
+    res.redirect(`${frontendUrl}/payment/callback/${id}?status=${status}`);
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Verify payment callback error:', error);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/payment/callback/${req.params.id}?error=verification_failed`);
+  }
+});
+
+// Verify payment (POST - for frontend-initiated verification with auth)
 router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleValidationErrors, async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -222,6 +379,19 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
             verificationResult = await khalti.verifyPayment(pidx);
           } else {
             verificationResult = { success: false, message: 'Missing Khalti pidx parameter' };
+          }
+        } catch (err) {
+          verificationResult = { success: false, message: err.message };
+        }
+        break;
+      case 'CONNECTIPS':
+        try {
+          const connectips = PaymentGatewayFactory.getGateway('CONNECTIPS');
+          const { TXNID } = req.query;
+          if (TXNID) {
+            verificationResult = await connectips.verifyPayment(TXNID);
+          } else {
+            verificationResult = { success: false, message: 'Missing ConnectIPS transaction ID' };
           }
         } catch (err) {
           verificationResult = { success: false, message: err.message };

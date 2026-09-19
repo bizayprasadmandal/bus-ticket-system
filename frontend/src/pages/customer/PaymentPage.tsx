@@ -141,6 +141,26 @@ export default function PaymentPage() {
             <span className="text-gray-500">Passengers</span>
             <span className="font-medium">{booking.total_passengers}</span>
           </div>
+          {booking.base_amount && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Base fare</span>
+                <span className="font-medium">NPR {booking.base_amount} × {booking.total_passengers}</span>
+              </div>
+              {booking.tax_amount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Tax (13%)</span>
+                  <span className="font-medium">NPR {booking.tax_amount}</span>
+                </div>
+              )}
+              {booking.service_fee > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Service fee</span>
+                  <span className="font-medium">NPR {booking.service_fee}</span>
+                </div>
+              )}
+            </>
+          )}
           <hr className="border-gray-100" />
           <div className="flex justify-between text-lg">
             <span className="font-bold text-gray-800">Total Amount</span>

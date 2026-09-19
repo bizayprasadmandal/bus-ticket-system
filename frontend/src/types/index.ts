@@ -76,7 +76,7 @@ export interface Booking {
   user_id: number;
   trip_id: number;
   total_passengers: number;
-  base_fare: number;
+  base_amount: number;
   subtotal: number;
   tax_amount: number;
   service_fee: number;

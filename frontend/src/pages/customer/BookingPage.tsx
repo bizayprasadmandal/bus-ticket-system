@@ -81,12 +81,13 @@ export default function BookingPage() {
     }
     setIsSubmitting(true);
     try {
+      const idTypeMap: Record<string, string> = { citizenship: 'CITIZENSHIP', passport: 'PASSPORT', license: 'DRIVING_LICENSE' };
       const passengerData = passengers.map((p, i) => ({
         seat_number: selectedSeats[i],
         passenger_name: p.name,
         age: Number(p.age),
-        gender: p.gender,
-        id_type: p.id_type,
+        gender: p.gender.toUpperCase(),
+        id_type: idTypeMap[p.id_type] || p.id_type.toUpperCase(),
         id_number: p.id_number,
       }));
       const response = await bookingAPI.create({
@@ -367,7 +368,7 @@ export default function BookingPage() {
                 className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all shadow-lg shadow-green-600/25"
               >
                 <CreditCard className="h-4 w-4" />
-                {isSubmitting ? 'Processing...' : `Pay NPR ${fare * selectedSeats.length}`}
+                {isSubmitting ? 'Processing...' : `Pay NPR ${Math.round((fare * selectedSeats.length * 1.13 + 50 * selectedSeats.length) * 100) / 100}`}
               </button>
             )}
           </div>
@@ -396,10 +397,20 @@ export default function BookingPage() {
                   <span className="text-gray-600">Base fare</span>
                   <span className="font-medium">NPR {fare} × {selectedSeats.length}</span>
                 </div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Tax (13%)</span>
+                  <span className="font-medium">NPR {Math.round(fare * selectedSeats.length * 0.13 * 100) / 100}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Service fee</span>
+                  <span className="font-medium">NPR {50 * selectedSeats.length}</span>
+                </div>
                 <hr className="border-primary-100 my-2" />
                 <div className="flex justify-between">
                   <span className="font-bold text-gray-800">Total</span>
-                  <span className="text-xl font-bold text-primary-600">NPR {fare * selectedSeats.length}</span>
+                  <span className="text-xl font-bold text-primary-600">
+                    NPR {Math.round((fare * selectedSeats.length * 1.13 + 50 * selectedSeats.length) * 100) / 100}
+                  </span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown } from 'lucide-react';
+import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -141,6 +141,58 @@ export default function CustomerLayout() {
           </Link>
         </div>
       </nav>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-gray-300 hidden md:block">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="grid grid-cols-4 gap-8">
+            {/* Brand */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Bus className="h-5 w-5 text-[#d84e55]" />
+                <span className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>Samaya Deluxe</span>
+              </div>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Your trusted partner for comfortable and safe bus travel across Nepal.
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Quick Links</h3>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/" className="hover:text-white transition-colors">Home</Link></li>
+                <li><Link to="/my-bookings" className="hover:text-white transition-colors">My Bookings</Link></li>
+                <li><Link to="/profile" className="hover:text-white transition-colors">My Profile</Link></li>
+              </ul>
+            </div>
+
+            {/* Top Routes */}
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Top Routes</h3>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/search?from=Kathmandu&to=Pokhara" className="hover:text-white transition-colors">Kathmandu → Pokhara</Link></li>
+                <li><Link to="/search?from=Kathmandu&to=Chitwan" className="hover:text-white transition-colors">Kathmandu → Chitwan</Link></li>
+                <li><Link to="/search?from=Pokhara&to=Kathmandu" className="hover:text-white transition-colors">Pokhara → Kathmandu</Link></li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Contact Us</h3>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-[#d84e55]" /> 01-4XXXXXX</li>
+                <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-[#d84e55]" /> support@samayadeluxe.com</li>
+                <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-[#d84e55]" /> Kathmandu, Nepal</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 mt-8 pt-6 text-center text-sm text-gray-500">
+            &copy; {new Date().getFullYear()} Samaya Deluxe. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

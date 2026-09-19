@@ -269,6 +269,18 @@ router.get('/:id/verify', async (req, res) => {
         verificationResult = { success: false, message: 'Unknown payment method' };
     }
 
+    // Validate amount to prevent payment tampering
+    if (verificationResult.success && verificationResult.amount) {
+      const paidAmount = parseFloat(verificationResult.amount);
+      const expectedAmount = parseFloat(payment.amount);
+      if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+        verificationResult = {
+          success: false,
+          message: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
+        };
+      }
+    }
+
     const paymentStatus = verificationResult.success ? 'SUCCESS' : 'FAILED';
     const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
     const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;

@@ -482,13 +482,22 @@ router.post('/:id/cancel', authenticateToken, bookingValidation.cancel, handleVa
   }
 });
 
-// Get booking by PNR
+// Get booking by PNR - scoped to authenticated user (prevents IDOR)
 router.get('/pnr/:pnr', authenticateToken, async (req, res) => {
   try {
     const { pnr } = req.params;
+    const userId = req.user.id;
+    const userRoles = req.user.roles || [];
+    const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
+    const isOperator = userRoles.some(r => r.role === 'OPERATOR' && r.is_active);
+
+    const whereClause = { pnr: pnr.toUpperCase() };
+    if (!isAdmin && !isOperator) {
+      whereClause.user_id = userId;
+    }
 
     const booking = await Booking.findOne({
-      where: { pnr: pnr.toUpperCase() },
+      where: whereClause,
       include: [
         {
           model: BookingPassenger,
@@ -498,14 +507,8 @@ router.get('/pnr/:pnr', authenticateToken, async (req, res) => {
           model: Trip,
           as: 'trip',
           include: [
-            {
-              model: Route,
-              as: 'route',
-            },
-            {
-              model: Bus,
-              as: 'bus',
-            },
+            { model: Route, as: 'route' },
+            { model: Bus, as: 'bus' },
           ],
         },
         {

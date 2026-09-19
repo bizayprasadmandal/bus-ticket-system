@@ -2,7 +2,7 @@ const express = require('express');
 const moment = require('moment');
 const { SeatLock, Trip, User, Route } = require('../models');
 const { Op } = require('sequelize');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 const { seatLockValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 
@@ -238,8 +238,8 @@ router.put('/:id/extend', authenticateToken, commonValidation.idParam, handleVal
   }
 });
 
-// Clean up expired locks (background job endpoint - could be called by cron)
-router.post('/cleanup-expired', async (req, res) => {
+// Clean up expired locks (admin only - cron job handles this automatically)
+router.post('/cleanup-expired', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const result = await SeatLock.update(
       { status: 'RELEASED' },

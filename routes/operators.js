@@ -1,9 +1,8 @@
 const express = require('express');
-const { Operator, Bus, Route } = require('../models');
+const { Operator, Bus, Route, UserRole } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { operatorValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
-const {  UserRole } = require('../models');
 
 
 const router = express.Router();
@@ -113,6 +112,21 @@ router.post('/register', authenticateToken, operatorValidation.register, handleV
       return res.status(409).json({
         success: false,
         message: 'Operator with this license number already exists',
+      });
+    }
+
+    // Check if user already has a pending or approved operator registration
+    const existingUserRole = await UserRole.findOne({
+      where: {
+        user_id: req.user.id,
+        role: 'OPERATOR',
+      },
+    });
+
+    if (existingUserRole) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already have an operator account',
       });
     }
 

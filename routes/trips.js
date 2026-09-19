@@ -306,10 +306,14 @@ router.get('/:id/seats', commonValidation.idParam, handleValidationErrors, async
   }
 });
 
-// Get trip location (real-time tracking)
+// Get trip location (real-time tracking) - requires booking on this trip or operator/admin role
 router.get('/:id/location', authenticateToken, commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
+    const userRoles = req.user.roles || [];
+    const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
+    const isOperator = userRoles.some(r => r.role === 'OPERATOR' && r.is_active);
 
     const trip = await Trip.findByPk(id);
     if (!trip) {
@@ -317,6 +321,19 @@ router.get('/:id/location', authenticateToken, commonValidation.idParam, handleV
         success: false,
         message: 'Trip not found',
       });
+    }
+
+    // Customers must have a booking on this trip
+    if (!isAdmin && !isOperator) {
+      const hasBooking = await Booking.findOne({
+        where: { trip_id: id, user_id: userId, booking_status: ['CONFIRMED', 'COMPLETED'] },
+      });
+      if (!hasBooking) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have a booking on this trip',
+        });
+      }
     }
 
     // Get latest location
@@ -395,13 +412,26 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
     // Verify operator owns this trip or is admin
     const userRoles = req.user.roles || [];
     const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
-    const isOperator = userRoles.some(r => r.role === 'OPERATOR' && r.is_active);
+    const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
 
-    if (!isAdmin && !isOperator) {
+    if (!isAdmin && !operatorRole) {
       return res.status(403).json({
         success: false,
         message: 'Only operators or admins can update trip status',
       });
+    }
+
+    // If operator, verify they own this trip
+    if (!isAdmin && operatorRole) {
+      const tripWithBus = await Trip.findByPk(id, {
+        include: [{ model: Bus, as: 'bus', attributes: ['operator_id'] }],
+      });
+      if (!tripWithBus || tripWithBus.bus.operator_id !== operatorRole.operator_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update status of your own trips',
+        });
+      }
     }
 
     // Validate status transition

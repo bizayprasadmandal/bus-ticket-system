@@ -15,7 +15,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
 // Dashboard overview for customers
-router.get('/customer', authenticateToken, async (req, res) => {
+router.get('/customer', authenticateToken, requireRole(['CUSTOMER']), async (req, res) => {
   try {
     const userId = req.user.id;
     const currentDate = new Date();

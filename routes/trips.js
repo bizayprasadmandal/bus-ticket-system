@@ -9,6 +9,26 @@ const cachingService = require('../services/caching');
 
 const router = express.Router();
 
+function safeParseJSON(val) {
+  if (val === null || val === undefined) return val;
+  if (typeof val !== 'string') return val;
+  try {
+    const parsed = JSON.parse(val);
+    return safeParseJSON(parsed);
+  } catch {
+    return val;
+  }
+}
+
+function normalizeBus(bus) {
+  if (!bus) return bus;
+  const data = bus.toJSON ? bus.toJSON() : bus;
+  data.seat_layout = safeParseJSON(data.seat_layout);
+  data.amenities = safeParseJSON(data.amenities);
+  data.images = safeParseJSON(data.images);
+  return data;
+}
+
 /**
  * @swagger
  * /api/trips/search:
@@ -105,44 +125,44 @@ router.get('/search', tripValidation.search, handleValidationErrors, cachingServ
       order: [['departure_time', 'ASC']],
     });
 
+    const normalizedTrips = trips.map(trip => ({
+      id: trip.id,
+      trip_date: trip.trip_date,
+      departure_time: trip.departure_time,
+      arrival_time: trip.arrival_time,
+      current_fare: trip.current_fare,
+      available_seats: trip.available_seats,
+      status: trip.status,
+      route: {
+        id: trip.route.id,
+        route_name: trip.route.route_name,
+        origin_city: trip.route.origin_city,
+        destination_city: trip.route.destination_city,
+        distance_km: trip.route.distance_km,
+        estimated_duration_minutes: trip.route.estimated_duration_minutes,
+        stops: trip.route.stops,
+      },
+      bus: {
+        id: trip.bus.id,
+        bus_number: trip.bus.bus_number,
+        bus_model: trip.bus.bus_model,
+        bus_type: trip.bus.bus_type,
+        total_seats: trip.bus.total_seats,
+        ...normalizeBus(trip.bus),
+      },
+      operator: {
+        id: trip.route.operator.id,
+        company_name: trip.route.operator.company_name,
+        company_name_nepali: trip.route.operator.company_name_nepali,
+        logo_url: trip.route.operator.logo_url,
+      },
+    }));
+
     res.json({
       success: true,
       message: 'Trips found successfully',
       data: {
-        trips: trips.map(trip => ({
-          id: trip.id,
-          trip_date: trip.trip_date,
-          departure_time: trip.departure_time,
-          arrival_time: trip.arrival_time,
-          current_fare: trip.current_fare,
-          available_seats: trip.available_seats,
-          status: trip.status,
-          route: {
-            id: trip.route.id,
-            route_name: trip.route.route_name,
-            origin_city: trip.route.origin_city,
-            destination_city: trip.route.destination_city,
-            distance_km: trip.route.distance_km,
-            estimated_duration_minutes: trip.route.estimated_duration_minutes,
-            stops: trip.route.stops,
-          },
-          bus: {
-            id: trip.bus.id,
-            bus_number: trip.bus.bus_number,
-            bus_model: trip.bus.bus_model,
-            bus_type: trip.bus.bus_type,
-            total_seats: trip.bus.total_seats,
-            seat_layout: trip.bus.seat_layout,
-            amenities: trip.bus.amenities,
-            images: trip.bus.images,
-          },
-          operator: {
-            id: trip.route.operator.id,
-            company_name: trip.route.operator.company_name,
-            company_name_nepali: trip.route.operator.company_name_nepali,
-            logo_url: trip.route.operator.logo_url,
-          },
-        })),
+        trips: normalizedTrips,
         total: trips.length,
       },
     });
@@ -223,7 +243,7 @@ router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req,
           conductor_name: trip.conductor_name,
           conductor_phone: trip.conductor_phone,
           route: trip.route,
-          bus: trip.bus,
+          bus: normalizeBus(trip.bus),
           operator: trip.route.operator,
           booked_seats: bookedSeats,
         },
@@ -290,7 +310,7 @@ router.get('/:id/seats', commonValidation.idParam, handleValidationErrors, async
       success: true,
       message: 'Seat layout retrieved successfully',
       data: {
-        seat_layout: trip.bus.seat_layout,
+        seat_layout: normalizeBus(trip.bus).seat_layout,
         total_seats: trip.bus.total_seats,
         available_seats: trip.available_seats,
         booked_seats: bookedSeats,

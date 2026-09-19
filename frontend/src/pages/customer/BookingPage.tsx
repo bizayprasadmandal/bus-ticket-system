@@ -198,7 +198,12 @@ export default function BookingPage() {
   const serviceFee = 50 * selectedSeats.length;
   const totalAmount = Math.round((baseTotal + gst + serviceFee) * 100) / 100;
 
-  const amenities: string[] = trip.bus?.amenities || [];
+  const rawAmenities = trip.bus?.amenities;
+  const amenities: string[] = Array.isArray(rawAmenities)
+    ? rawAmenities
+    : typeof rawAmenities === 'string'
+    ? (() => { try { return JSON.parse(rawAmenities); } catch { return []; } })()
+    : [];
 
   return (
     <div style={{ background: '#f0f0f0', minHeight: '100vh', fontFamily: 'Inter' }}>

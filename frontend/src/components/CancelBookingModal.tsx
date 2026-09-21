@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../api/axios';
+import api from '../api';
 
 interface CancelBookingModalProps {
   bookingId: number;

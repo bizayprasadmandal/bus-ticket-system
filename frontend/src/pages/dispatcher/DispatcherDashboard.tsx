@@ -129,7 +129,7 @@ export default function DispatcherDashboard() {
           <h3 className="text-lg font-semibold text-gray-800">Today's Trips</h3>
           <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
         </div>
-        {stats.today_trips?.length > 0 ? (
+        {stats.today_trips && stats.today_trips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: TripItem) => (
               <div key={trip.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Ticket, MapPin, ArrowRight, Clock, RefreshCw, Loader2, Users, IndianRupee } from 'lucide-react';
-import { api } from '../../api';
+import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
@@ -95,7 +95,7 @@ export default function CounterAgentDashboard() {
           <h3 className="text-lg font-semibold text-gray-800">Available Trips for Today</h3>
           <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
         </div>
-        {stats.today_trips?.length > 0 ? (
+        {stats.today_trips && stats.today_trips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: any, i: number) => (
               <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">

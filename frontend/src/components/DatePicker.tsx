@@ -6,6 +6,7 @@ interface DatePickerProps {
   min?: string;
   max?: string;
   label?: string;
+  placeholder?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -16,6 +17,7 @@ export default function DatePicker({
   min,
   max,
   label,
+  placeholder = 'Select date',
   disabled = false,
   className = '',
 }: DatePickerProps) {
@@ -33,6 +35,7 @@ export default function DatePicker({
           onChange={(e) => onChange(e.target.value)}
           min={min}
           max={max}
+          placeholder={placeholder}
           disabled={disabled}
           className={`w-full px-3 py-2.5 pr-10 border rounded-lg text-sm font-medium transition-all outline-none ${
             disabled

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Search,
   MapPin,
@@ -11,6 +11,7 @@ import {
   CreditCard,
   CheckCircle,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { tripAPI, bookingAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
 import toast from 'react-hot-toast';
@@ -43,7 +44,7 @@ function CityDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState(value);
-  const ref = useState<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setFilter(value);
@@ -51,7 +52,7 @@ function CityDropdown({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      const el = (ref as any)[0];
+      const el = ref.current;
       if (el && !el.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -103,6 +104,7 @@ function CityDropdown({
 }
 
 export default function CounterAgentBookPage() {
+  const navigate = useNavigate();
   const [cities, setCities] = useState<City[]>([]);
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');

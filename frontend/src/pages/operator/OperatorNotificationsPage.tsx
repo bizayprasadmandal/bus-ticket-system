@@ -1,88 +1,22 @@
-import { useState } from 'react';
-import { Bell, AlertTriangle, Calendar, DollarSign, CheckCircle, Clock, Trash2, Filter } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Bell, AlertTriangle, Calendar, DollarSign, CheckCircle, Clock, Trash2, Filter, Loader2 } from 'lucide-react';
+import api from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 interface Notification {
   id: number;
-  type: 'cancellation' | 'low_occupancy' | 'schedule_change' | 'payment';
+  type: 'cancellation' | 'low_occupancy' | 'schedule_change';
   title: string;
   description: string;
   timestamp: string;
   read: boolean;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    type: 'cancellation',
-    title: 'Booking Cancelled',
-    description: 'Booking PNR-20240301-A1B2C3 has been cancelled by the customer. Route: Kathmandu → Pokhara on Mar 15, 2024.',
-    timestamp: '2024-03-10T14:30:00Z',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'low_occupancy',
-    title: 'Low Occupancy Warning',
-    description: 'Trip #456 (Kathmandu → Chitwan, Mar 18) has only 25% seats sold (5/20). Consider adjusting pricing or promotion.',
-    timestamp: '2024-03-10T12:00:00Z',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'payment',
-    title: 'Payment Received',
-    description: 'NPR 12,500 received for booking PNR-20240309-X9Y8Z7. Payment confirmed via eSewa.',
-    timestamp: '2024-03-09T16:45:00Z',
-    read: true,
-  },
-  {
-    id: 4,
-    type: 'schedule_change',
-    title: 'Schedule Updated',
-    description: 'Trip #789 departure time changed from 10:00 AM to 11:30 AM due to bus maintenance. Affected date: Mar 20, 2024.',
-    timestamp: '2024-03-09T09:15:00Z',
-    read: true,
-  },
-  {
-    id: 5,
-    type: 'cancellation',
-    title: 'Booking Cancelled',
-    description: 'Booking PNR-20240308-M4N5O6 has been cancelled. Route: Pokhara → Lumbini on Mar 22, 2024. Refund of NPR 3,200 processed.',
-    timestamp: '2024-03-08T11:20:00Z',
-    read: true,
-  },
-  {
-    id: 6,
-    type: 'low_occupancy',
-    title: 'Low Occupancy Alert',
-    description: 'Trip #321 (Lumbini → Kathmandu, Mar 25) has only 15% seats sold (3/20). Consider running promotions.',
-    timestamp: '2024-03-08T08:00:00Z',
-    read: false,
-  },
-  {
-    id: 7,
-    type: 'payment',
-    title: 'Payment Received',
-    description: 'NPR 8,750 received for booking PNR-20240307-P8Q9R0. Payment confirmed via Khalti.',
-    timestamp: '2024-03-07T15:30:00Z',
-    read: true,
-  },
-  {
-    id: 8,
-    type: 'schedule_change',
-    title: 'Trip Added',
-    description: 'New trip #450 (Kathmandu → Biratnagar) has been added for Mar 28, 2024 at 06:00 AM.',
-    timestamp: '2024-03-07T10:00:00Z',
-    read: true,
-  },
-];
-
 const typeConfig: Record<string, { icon: any; color: string; bgColor: string }> = {
   cancellation: { icon: AlertTriangle, color: 'text-red-600', bgColor: 'bg-red-50' },
   low_occupancy: { icon: Clock, color: 'text-amber-600', bgColor: 'bg-amber-50' },
   schedule_change: { icon: Calendar, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-  payment: { icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-50' },
 };
 
 const typeFilters = [
@@ -90,12 +24,67 @@ const typeFilters = [
   { id: 'cancellation', label: 'Cancellations', icon: AlertTriangle },
   { id: 'low_occupancy', label: 'Low Occupancy', icon: Clock },
   { id: 'schedule_change', label: 'Schedule', icon: Calendar },
-  { id: 'payment', label: 'Payments', icon: DollarSign },
 ];
 
 export default function OperatorNotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState('');
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/dashboard/operator/notifications');
+      const data = res.data.data;
+
+      const mapped: Notification[] = [];
+
+      (data.recent_cancellations || []).forEach((b: any) => {
+        mapped.push({
+          id: `cancel-${b.id}` as any,
+          type: 'cancellation',
+          title: 'Booking Cancelled',
+          description: `Booking for ${b.user?.full_name || 'Customer'} on ${b.trip?.route?.origin_city || ''} → ${b.trip?.route?.destination_city || ''} (${b.trip?.trip_date || ''}) was cancelled. NPR ${b.total_amount} refund processed.`,
+          timestamp: b.booking_date,
+          read: false,
+        });
+      });
+
+      (data.low_occupancy_trips || []).forEach((t: any) => {
+        mapped.push({
+          id: `low-${t.id}` as any,
+          type: 'low_occupancy',
+          title: 'Low Occupancy Warning',
+          description: `Trip #${t.id} (${t.route?.origin_city || ''} → ${t.route?.destination_city || ''}, ${t.trip_date}) has only ${t.occupancy_rate}% seats booked (${t.booked_seats}/${t.bus?.total_seats || t.total_seats}).`,
+          timestamp: t.trip_date,
+          read: false,
+        });
+      });
+
+      (data.schedule_changes || []).forEach((t: any) => {
+        mapped.push({
+          id: `schedule-${t.id}` as any,
+          type: 'schedule_change',
+          title: 'Schedule Updated',
+          description: `Trip #${t.id} (${t.route?.origin_city || ''} → ${t.route?.destination_city || ''}) on ${t.trip_date} at ${t.departure_time} was updated. Status: ${t.status}.`,
+          timestamp: t.updated_at,
+          read: false,
+        });
+      });
+
+      mapped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setNotifications(mapped);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch {
+      toast.error('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(fetchData, 30000);
 
   const filteredNotifications = filter === 'all'
     ? notifications
@@ -142,15 +131,20 @@ export default function OperatorNotificationsPage() {
             {unreadCount > 0 ? `You have ${unreadCount} unread notification(s)` : 'All caught up!'}
           </p>
         </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={markAllAsRead}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-[#d84e55] bg-[#d84e55]/5 border border-[#d84e55]/20 rounded-lg hover:bg-[#d84e55]/10 transition-colors"
-          >
-            <CheckCircle className="h-4 w-4" />
-            Mark All as Read
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated}</span>
+          )}
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-[#d84e55] bg-[#d84e55]/5 border border-[#d84e55]/20 rounded-lg hover:bg-[#d84e55]/10 transition-colors"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Mark All as Read
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -178,68 +172,74 @@ export default function OperatorNotificationsPage() {
       </div>
 
       {/* Notifications List */}
-      <div className="space-y-3">
-        {filteredNotifications.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-            <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No notifications to display</p>
-          </div>
-        ) : (
-          filteredNotifications.map((notification) => {
-            const config = typeConfig[notification.type];
-            const Icon = config.icon;
-            return (
-              <div
-                key={notification.id}
-                className={`bg-white rounded-xl shadow-sm border p-4 transition-all hover:shadow-md ${
-                  notification.read ? 'border-gray-100' : 'border-[#d84e55]/30 bg-[#d84e55]/[0.02]'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <Icon className={`h-5 w-5 ${config.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className={`text-sm font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
-                            {notification.title}
-                          </h3>
-                          {!notification.read && (
-                            <span className="w-2 h-2 bg-[#d84e55] rounded-full flex-shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
-                      </div>
-                      <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                        {formatTimestamp(notification.timestamp)}
-                      </span>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-[#d84e55]" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredNotifications.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+              <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No notifications to display</p>
+            </div>
+          ) : (
+            filteredNotifications.map((notification) => {
+              const config = typeConfig[notification.type];
+              const Icon = config.icon;
+              return (
+                <div
+                  key={notification.id}
+                  className={`bg-white rounded-xl shadow-sm border p-4 transition-all hover:shadow-md ${
+                    notification.read ? 'border-gray-100' : 'border-[#d84e55]/30 bg-[#d84e55]/[0.02]'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`w-10 h-10 ${config.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <Icon className={`h-5 w-5 ${config.color}`} />
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      {!notification.read && (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className={`text-sm font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
+                              {notification.title}
+                            </h3>
+                            {!notification.read && (
+                              <span className="w-2 h-2 bg-[#d84e55] rounded-full flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
+                        </div>
+                        <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                          {formatTimestamp(notification.timestamp)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        {!notification.read && (
+                          <button
+                            onClick={() => markAsRead(notification.id)}
+                            className="text-xs text-[#d84e55] hover:underline font-medium"
+                          >
+                            Mark as read
+                          </button>
+                        )}
                         <button
-                          onClick={() => markAsRead(notification.id)}
-                          className="text-xs text-[#d84e55] hover:underline font-medium"
+                          onClick={() => deleteNotification(notification.id)}
+                          className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
                         >
-                          Mark as read
+                          <Trash2 className="h-3 w-3" />
+                          Delete
                         </button>
-                      )}
-                      <button
-                        onClick={() => deleteNotification(notification.id)}
-                        className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Delete
-                      </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { DollarSign, Plus, Edit2, Trash2, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { DollarSign, Plus, Edit2, Trash2, X, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react';
 import { fareRuleAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 const RULE_TYPES = [
@@ -55,20 +56,23 @@ export default function OperatorFareRulesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FareRuleForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('');
 
-  useEffect(() => { loadRules(); }, []);
-
-  const loadRules = async () => {
+  const loadRules = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fareRuleAPI.getAll();
       setRules(res.data.data.fare_rules || []);
+      setLastUpdated(new Date().toLocaleTimeString());
     } catch {
       toast.error('Failed to load fare rules');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { loadRules(); }, [loadRules]);
+  useAutoRefresh(loadRules, 30000);
 
   const openCreate = () => {
     setEditingId(null);
@@ -160,13 +164,24 @@ export default function OperatorFareRulesPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Manage peak hours, seasonal, and discount fare rules</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          style={{ backgroundColor: '#d84e55' }}
-        >
-          <Plus className="h-4 w-4" /> Create Rule
-        </button>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated}</span>
+          )}
+          <button
+            onClick={() => loadRules()}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ backgroundColor: '#d84e55' }}
+          >
+            <Plus className="h-4 w-4" /> Create Rule
+          </button>
+        </div>
       </div>
 
       {loading ? (

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Users, Plus, Search, Trash2, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Users, Plus, Search, Trash2, X, RefreshCw } from 'lucide-react';
 import { operatorStaffAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 const ROLE_OPTIONS = [
@@ -26,20 +27,23 @@ export default function OperatorStaffPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ phone_number: '', full_name: '', role: 'DRIVER' });
   const [submitting, setSubmitting] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('');
 
-  useEffect(() => { loadStaff(); }, []);
-
-  const loadStaff = async () => {
+  const loadStaff = useCallback(async () => {
     setLoading(true);
     try {
       const res = await operatorStaffAPI.getMyStaff();
       setStaff(res.data.data.staff || []);
+      setLastUpdated(new Date().toLocaleTimeString());
     } catch {
       toast.error('Failed to load staff');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { loadStaff(); }, [loadStaff]);
+  useAutoRefresh(loadStaff, 30000);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,13 +93,24 @@ export default function OperatorStaffPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Manage your dispatchers, drivers, conductors, and counter agents</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          style={{ backgroundColor: '#d84e55' }}
-        >
-          <Plus className="h-4 w-4" /> Add Staff
-        </button>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated}</span>
+          )}
+          <button
+            onClick={() => loadStaff()}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ backgroundColor: '#d84e55' }}
+          >
+            <Plus className="h-4 w-4" /> Add Staff
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

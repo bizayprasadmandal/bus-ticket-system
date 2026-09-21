@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw } from 'lucide-react';
 import { operatorBookingAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';

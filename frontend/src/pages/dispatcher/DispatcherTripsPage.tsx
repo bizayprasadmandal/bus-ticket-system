@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Calendar, Search, ChevronLeft, ChevronRight, Clock, Bus, MapPin, RefreshCw, ArrowRight } from 'lucide-react';
-import { operatorTripAPI } from '../../api';
+import { dispatcherTripAPI } from '../../api';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -28,7 +28,7 @@ export default function DispatcherTripsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const tripsRes = await operatorTripAPI.getMyTrips();
+      const tripsRes = await dispatcherTripAPI.getMyTrips();
       setTrips(tripsRes.data.data.trips || []);
     } catch {
       toast.error('Failed to load trips');

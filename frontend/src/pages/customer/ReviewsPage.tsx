@@ -1,0 +1,240 @@
+import { useState, useEffect } from 'react';
+import { reviewAPI } from '../../api';
+import toast from 'react-hot-toast';
+
+interface Review {
+  id: number;
+  rating: number;
+  title: string;
+  comment: string;
+  is_anonymous: boolean;
+  created_at: string;
+  user: { id: number; full_name: string };
+  trip?: {
+    id: number;
+    trip_date: string;
+    departure_time: string;
+    route?: {
+      origin?: { name: string };
+      destination?: { name: string };
+    };
+  };
+}
+
+function StarRating({ rating, onRate, interactive = false }: { rating: number; onRate?: (r: number) => void; interactive?: boolean }) {
+  const [hover, setHover] = useState(0);
+
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type={interactive ? 'button' : undefined}
+          className={`text-2xl ${interactive ? 'cursor-pointer' : 'cursor-default'} ${
+            star <= (hover || rating) ? 'text-yellow-400' : 'text-gray-300'
+          }`}
+          onClick={() => interactive && onRate?.(star)}
+          onMouseEnter={() => interactive && setHover(star)}
+          onMouseLeave={() => interactive && setHover(0)}
+          disabled={!interactive}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export default function ReviewsPage() {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [title, setTitle] = useState('');
+  const [comment, setComment] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [tripId, setTripId] = useState('');
+  const [activeTab, setActiveTab] = useState<'write' | 'my'>('write');
+
+  useEffect(() => {
+    loadMyReviews();
+  }, []);
+
+  const loadMyReviews = async () => {
+    try {
+      setLoading(true);
+      const res = await reviewAPI.getMyReviews();
+      setReviews(res.data.data || []);
+    } catch (err: any) {
+      toast.error('Failed to load reviews');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tripId) {
+      toast.error('Please enter a Trip ID');
+      return;
+    }
+    if (rating === 0) {
+      toast.error('Please select a rating');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await reviewAPI.create({
+        trip_id: parseInt(tripId),
+        rating,
+        title,
+        comment,
+        is_anonymous: isAnonymous,
+      });
+      toast.success('Review submitted successfully!');
+      setRating(0);
+      setTitle('');
+      setComment('');
+      setIsAnonymous(false);
+      setTripId('');
+      loadMyReviews();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this review?')) return;
+    try {
+      await reviewAPI.delete(id);
+      toast.success('Review deleted');
+      loadMyReviews();
+    } catch {
+      toast.error('Failed to delete review');
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Reviews & Ratings</h1>
+
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6 border-b">
+        <button
+          className={`pb-2 px-4 font-medium ${activeTab === 'write' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('write')}
+        >
+          Write a Review
+        </button>
+        <button
+          className={`pb-2 px-4 font-medium ${activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('my')}
+        >
+          My Reviews
+        </button>
+      </div>
+
+      {activeTab === 'write' && (
+        <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Trip ID</label>
+            <input
+              type="number"
+              value={tripId}
+              onChange={(e) => setTripId(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Enter the Trip ID you want to review"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Rating *</label>
+            <StarRating rating={rating} onRate={setRating} interactive />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Summarize your experience"
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+              rows={4}
+              placeholder="Tell others about your experience..."
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="anonymous"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              className="rounded"
+            />
+            <label htmlFor="anonymous" className="text-sm text-gray-600">Post anonymously</label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || rating === 0}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? 'Submitting...' : 'Submit Review'}
+          </button>
+        </form>
+      )}
+
+      {activeTab === 'my' && (
+        <div>
+          {loading ? (
+            <p className="text-gray-500">Loading reviews...</p>
+          ) : reviews.length === 0 ? (
+            <p className="text-gray-500">You haven't written any reviews yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div key={review.id} className="bg-white shadow rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <StarRating rating={review.rating} />
+                      {review.title && <h3 className="font-medium mt-1">{review.title}</h3>}
+                      {review.trip && (
+                        <p className="text-sm text-gray-500">
+                          {review.trip.route?.origin?.name} → {review.trip.route?.destination?.name} | {new Date(review.trip.trip_date).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDelete(review.id)}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  {review.comment && <p className="text-gray-700 mt-2">{review.comment}</p>}
+                  <p className="text-xs text-gray-400 mt-2">{new Date(review.created_at).toLocaleDateString()}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

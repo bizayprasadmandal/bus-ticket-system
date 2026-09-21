@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, Download, TrendingUp, Users, Bus, Ticket, DollarSign, Calendar } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { reportAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
@@ -197,6 +198,22 @@ export default function AdminReportsPage() {
 
               {data.revenue_by_operator?.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue Trend</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={data.revenue_by_operator}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="company_name" tick={{ fontSize: 12 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="total_revenue" stroke="#3B82F6" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="total_bookings" stroke="#d84e55" strokeWidth={2} dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {data.revenue_by_operator?.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Operator</h3>
                   <div className="space-y-4">
                     {data.revenue_by_operator.map((op: any, i: number) => {
@@ -240,6 +257,22 @@ export default function AdminReportsPage() {
                   </div>
                 </div>
               </div>
+
+              {data.bookings?.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Bookings Trend</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={data.bookings}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="bookings" fill="#d84e55" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
               {data.bookings?.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -338,6 +371,51 @@ export default function AdminReportsPage() {
                   </div>
                 </div>
               </div>
+
+              {data.users?.length > 0 && (() => {
+                const roleCounts: Record<string, number> = {};
+                data.users.forEach((u: any) => {
+                  const role = u.role || 'UNKNOWN';
+                  roleCounts[role] = (roleCounts[role] || 0) + 1;
+                });
+                const pieData = Object.entries(roleCounts).map(([name, value]) => ({ name, value }));
+                const PIE_COLORS = ['#d84e55', '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899'];
+                if (pieData.length > 0) {
+                  return (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">User Role Distribution</h3>
+                      <div className="flex flex-col md:flex-row items-center gap-6">
+                        <ResponsiveContainer width="100%" height={250}>
+                          <PieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={90}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {pieData.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex flex-wrap gap-3 justify-center">
+                          {pieData.map((entry: any, index: number) => (
+                            <div key={entry.name} className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                              <span className="text-sm text-gray-600">{entry.name}: {entry.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {data.users?.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

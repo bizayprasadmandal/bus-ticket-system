@@ -5,9 +5,28 @@ class EsewaService {
   constructor() {
     this.merchantCode = process.env.ESEWA_MERCHANT_CODE;
     this.secretKey = process.env.ESEWA_SECRET_KEY;
-    this.baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://esewa.com.np/epay/main'
-      : 'https://uat.esewa.com.np/epay/main';
+    this.baseUrl = process.env.ESEWA_BASE_URL || (process.env.NODE_ENV === 'production'
+      ? 'https://epay.esewa.com.np/epay/main'
+      : 'https://rc-epay.esewa.com.np/epay/main');
+  }
+
+  // eSewa v1 checkout page - eSewa ignores payment params served on the bare host,
+  // so the URL must always point at /epay/main
+  getPaymentBaseUrl() {
+    const url = (this.baseUrl || '').replace(/\/+$/, '');
+    return url.endsWith('/epay/main') ? url : `${url}/epay/main`;
+  }
+
+  // v1 transaction verification (transrec) lives on a different host than checkout:
+  // rc-epay.esewa.com.np -> rc.esewa.com.np, epay.esewa.com.np -> esewa.com.np
+  getVerifyBaseUrl() {
+    if (process.env.ESEWA_VERIFY_URL) {
+      return process.env.ESEWA_VERIFY_URL.replace(/\/+$/, '');
+    }
+    return this.baseUrl
+      .replace(/\/epay\/main\/?$/, '')
+      .replace('//rc-epay.', '//rc.')
+      .replace('//epay.', '//');
   }
 
   // Generate payment URL for eSewa
@@ -37,7 +56,7 @@ class EsewaService {
       fu: failure_url,
     });
 
-    return `${this.baseUrl}?${params.toString()}`;
+    return `${this.getPaymentBaseUrl()}?${params.toString()}`;
   }
 
   // Verify payment with eSewa
@@ -49,7 +68,7 @@ class EsewaService {
         pid, // Product ID
       } = verificationData;
 
-      const verifyUrl = `${this.baseUrl.replace('/main', '')}/epay/transrec`;
+      const verifyUrl = `${this.getVerifyBaseUrl()}/epay/transrec`;
       
       const params = new URLSearchParams({
         amt,
@@ -72,6 +91,7 @@ class EsewaService {
         return {
           success: true,
           transaction_id: rid,
+          amount: parseFloat(amt),
           message: 'Payment verified successfully',
           raw_response: responseText,
         };
@@ -84,6 +104,84 @@ class EsewaService {
       }
     } catch (error) {
       console.error('eSewa verification error:', error);
+      return {
+        success: false,
+        message: 'Payment verification failed',
+        error: error.message,
+      };
+    }
+  }
+
+  // eSewa ePay v2: verify the base64-encoded signed response passed to success/failure URLs
+  async verifyV2Response(dataParam) {
+    try {
+      const decoded = JSON.parse(Buffer.from(dataParam, 'base64').toString('utf8'));
+      const {
+        transaction_code,
+        status,
+        total_amount,
+        transaction_uuid,
+        product_code,
+        signed_field_names,
+        signature,
+      } = decoded;
+
+      // Verify the response signature (HMAC-SHA256 over signed fields, in declared order)
+      if (signed_field_names && signature && this.secretKey) {
+        const message = signed_field_names
+          .split(',')
+          .map((field) => `${field}=${decoded[field]}`)
+          .join(',');
+        const expected = this.generateSignature(message);
+        if (expected !== signature) {
+          return {
+            success: false,
+            message: 'eSewa response signature mismatch',
+            raw_response: decoded,
+          };
+        }
+      }
+
+      if (status !== 'COMPLETE') {
+        return {
+          success: false,
+          status,
+          message: `eSewa status: ${status}`,
+          raw_response: decoded,
+        };
+      }
+
+      // Cross-check with eSewa's status check API before trusting the redirect
+      let refId = transaction_code;
+      try {
+        const statusUrl = `${this.getVerifyBaseUrl()}/api/epay/transaction/status/` +
+          `?product_code=${encodeURIComponent(product_code)}` +
+          `&total_amount=${encodeURIComponent(total_amount)}` +
+          `&transaction_uuid=${encodeURIComponent(transaction_uuid)}`;
+        const res = await axios.get(statusUrl, { timeout: 30000 });
+        if (res.data && res.data.status && res.data.status !== 'COMPLETE') {
+          return {
+            success: false,
+            status: res.data.status,
+            message: `eSewa status check: ${res.data.status}`,
+            raw_response: res.data,
+          };
+        }
+        if (res.data && res.data.ref_id) refId = res.data.ref_id;
+      } catch (statusErr) {
+        console.error('eSewa status check error:', statusErr.message);
+        // Status check unreachable: proceed with the signed redirect response
+      }
+
+      return {
+        success: true,
+        transaction_id: refId,
+        amount: parseFloat(total_amount),
+        message: 'Payment verified successfully',
+        raw_response: decoded,
+      };
+    } catch (error) {
+      console.error('eSewa v2 verification error:', error);
       return {
         success: false,
         message: 'Payment verification failed',
@@ -125,7 +223,7 @@ class KhaltiService {
       const payload = {
         return_url,
         website_url,
-        amount: parseInt(amount * 100), // Convert to paisa
+        amount: Math.round(amount * 100), // Convert to paisa
         purchase_order_id,
         purchase_order_name,
         customer_info: {
@@ -230,7 +328,7 @@ class KhaltiService {
         `${this.baseUrl}/epayment/refund/`,
         {
           pidx,
-          amount: parseInt(amount * 100), // Convert to paisa
+          amount: Math.round(amount * 100), // Convert to paisa
           remarks,
         },
         {

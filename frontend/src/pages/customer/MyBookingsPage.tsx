@@ -9,10 +9,12 @@ import {
   Users,
   Search,
   Armchair,
+  XCircle,
 } from 'lucide-react';
 import { bookingAPI } from '../../api';
 import type { Booking } from '../../types';
 import toast from 'react-hot-toast';
+import CancelBookingModal from '../../components/CancelBookingModal';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   CONFIRMED: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
@@ -42,6 +44,7 @@ export default function MyBookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>('ALL');
+  const [cancelBookingId, setCancelBookingId] = useState<number | null>(null);
 
   useEffect(() => {
     bookingAPI
@@ -52,6 +55,13 @@ export default function MyBookingsPage() {
   }, []);
 
   const toggleExpand = (id: number) => setExpandedId((prev) => (prev === id ? null : id));
+
+  const handleCancelled = () => {
+    bookingAPI
+      .getAll()
+      .then((res) => setBookings(res.data.data.bookings || res.data.data))
+      .catch(() => {});
+  };
 
   const filtered = bookings.filter((b) => mapStatus(filter, b));
 
@@ -262,6 +272,15 @@ export default function MyBookingsPage() {
                             </div>
                           ))}
                         </div>
+                        {status === 'CONFIRMED' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCancelBookingId(booking.id); }}
+                            className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#d84e55] bg-[#d84e55]/5 hover:bg-[#d84e55]/10 rounded-full transition-colors"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Cancel Booking
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -271,6 +290,14 @@ export default function MyBookingsPage() {
           </div>
         )}
       </div>
+      {cancelBookingId && (
+        <CancelBookingModal
+          bookingId={cancelBookingId}
+          isOpen={true}
+          onClose={() => setCancelBookingId(null)}
+          onCancelled={handleCancelled}
+        />
+      )}
     </div>
   );
 }

@@ -42,6 +42,8 @@
     "sequelize": "^6.32.1",
     "sharp": "^0.32.5",
     "socket.io": "^4.7.2",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
     "twilio": "^4.15.0",
     "uuid": "^9.0.0",
     "winston": "^3.10.0",

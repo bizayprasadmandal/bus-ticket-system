@@ -177,3 +177,25 @@ export const adminUserAPI = {
   getById: (id: number) => api.get(`/admin/users/${id}`),
   updateStatus: (id: number, is_active: boolean) => api.put(`/admin/users/${id}/status`, { is_active }),
 };
+
+export const reviewAPI = {
+  create: (data: any) => api.post('/reviews', data),
+  getTripReviews: (tripId: number, params?: any) => api.get(`/reviews/trip/${tripId}`, { params }),
+  getOperatorReviews: (operatorId: number, params?: any) => api.get(`/reviews/operator/${operatorId}`, { params }),
+  getMyReviews: (params?: any) => api.get('/reviews/my-reviews', { params }),
+  delete: (id: number) => api.delete(`/reviews/${id}`),
+};
+
+export const operatorStaffAPI = {
+  getMyStaff: () => api.get('/operators/staff'),
+  addStaff: (data: any) => api.post('/operators/staff', data),
+  removeStaff: (id: number) => api.delete(`/operators/staff/${id}`),
+};
+
+export const fareRuleAPI = {
+  getAll: (params?: any) => api.get('/fare-rules', { params }),
+  create: (data: any) => api.post('/fare-rules', data),
+  update: (id: number, data: any) => api.put(`/fare-rules/${id}`, data),
+  delete: (id: number) => api.delete(`/fare-rules/${id}`),
+  calculate: (tripId: number) => api.get(`/fare-rules/calculate/${tripId}`),
+};

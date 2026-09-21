@@ -32,6 +32,8 @@ const walletRoutes = require('./routes/wallets');
 const dashboardRoutes = require('./routes/dashboard');
 const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
+const reviewRoutes = require('./routes/reviews');
+const fareRuleRoutes = require('./routes/fare-rules');
 
 const app = express();
 
@@ -83,6 +85,8 @@ app.use('/api/wallets', walletRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/fare-rules', fareRuleRoutes);
 
 const PORT = process.env.PORT || 3000;
 

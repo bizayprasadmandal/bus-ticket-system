@@ -2,6 +2,7 @@ const express = require('express');
 const { sequelize } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment');
+const { Op } = require('sequelize');
 const {
   Booking,
   BookingPassenger,
@@ -11,6 +12,8 @@ const {
   User,
   SeatLock,
   Payment,
+  WalletTransaction,
+  UserWallet,
 } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { bookingValidation, commonValidation } = require('../validators');
@@ -385,80 +388,95 @@ router.get('/:id', authenticateToken, commonValidation.idParam, handleValidation
   }
 });
 
-// Cancel booking
-router.post('/:id/cancel', authenticateToken, bookingValidation.cancel, handleValidationErrors, async (req, res) => {
+// POST /bookings/:id/cancel - Cancel a booking and process refund
+router.post('/:id/cancel', authenticateToken, async (req, res) => {
   const transaction = await sequelize.transaction();
-
   try {
     const { id } = req.params;
-    const { cancellation_reason } = req.body;
+    const { reason } = req.body;
     const userId = req.user.id;
 
     const booking = await Booking.findOne({
-      where: { 
-        id,
-        user_id: userId,
-      },
-      include: [
-        {
-          model: Trip,
-          as: 'trip',
-        },
-      ],
+      where: { id, user_id: userId },
+      include: [{ model: Trip, as: 'trip', include: [{ model: Route, as: 'route' }] }],
       transaction,
     });
 
     if (!booking) {
       await transaction.rollback();
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found',
-      });
+      return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
     if (booking.booking_status === 'CANCELLED') {
       await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: 'Booking is already cancelled',
-      });
+      return res.status(400).json({ success: false, message: 'Booking already cancelled' });
     }
 
-    // Check if cancellation is allowed (e.g., not too close to departure)
-    const tripDateTime = moment(`${booking.trip.trip_date} ${booking.trip.departure_time}`);
-    const now = moment();
-    const hoursUntilDeparture = tripDateTime.diff(now, 'hours');
-
-    if (hoursUntilDeparture < 2) {
+    if (booking.booking_status === 'COMPLETED') {
       await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot cancel booking less than 2 hours before departure',
-      });
+      return res.status(400).json({ success: false, message: 'Cannot cancel completed booking' });
     }
 
-    // Calculate refund amount (could be based on cancellation policy)
-    const refundPercentage = hoursUntilDeparture >= 24 ? 0.9 : 0.75; // 90% if >24h, 75% if 2-24h
-    const refundAmount = booking.total_amount * refundPercentage;
+    // Calculate refund (80% if cancelled 24+ hours before departure, 50% if <24 hours, 0% if departed)
+    const tripDate = new Date(booking.trip.trip_date);
+    const departureTime = booking.trip.departure_time ? booking.trip.departure_time.split(':').slice(0, 2).join(':') : '00:00';
+    const departureDateTime = new Date(`${tripDate.toISOString().split('T')[0]}T${departureTime}:00`);
+    const hoursUntilDeparture = (departureDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+    
+    let refundPercentage = 0;
+    if (hoursUntilDeparture >= 24) refundPercentage = 0.80;
+    else if (hoursUntilDeparture > 0) refundPercentage = 0.50;
+    
+    const refundAmount = parseFloat(booking.total_amount) * refundPercentage;
 
     // Update booking
     await booking.update({
       booking_status: 'CANCELLED',
-      cancellation_reason,
+      cancellation_reason: reason || 'Customer request',
       refund_amount: refundAmount,
+      payment_status: refundAmount > 0 ? 'REFUNDED' : 'FAILED',
     }, { transaction });
 
-    // Update trip available seats
-    await booking.trip.update({
-      available_seats: booking.trip.available_seats + booking.total_passengers,
-    }, { transaction });
+    // Release seats
+    const trip = await Trip.findByPk(booking.trip_id, { transaction });
+    if (trip) {
+      await trip.update({
+        available_seats: trip.available_seats + booking.total_passengers,
+      }, { transaction });
+    }
+
+    // Refund to wallet if applicable
+    if (refundAmount > 0) {
+      const wallet = await UserWallet.findOne({ where: { user_id: userId }, transaction });
+      if (wallet) {
+        await wallet.update({
+          balance: parseFloat(wallet.balance) + refundAmount,
+          total_earned: parseFloat(wallet.total_earned) + refundAmount,
+        }, { transaction });
+
+        await WalletTransaction.create({
+          wallet_id: wallet.id,
+          transaction_type: 'CREDIT',
+          amount: refundAmount,
+          description: `Refund for cancelled booking PNR: ${booking.pnr}`,
+          reference_id: booking.id,
+          reference_type: 'REFUND',
+        }, { transaction });
+      }
+    }
+
+    // Update seat locks
+    await SeatLock.update(
+      { status: 'RELEASED' },
+      { where: { trip_id: booking.trip_id, user_id: userId, status: { [Op.in]: ['LOCKED', 'BOOKED'] } }, transaction }
+    );
 
     await transaction.commit();
 
     // Send cancellation notification (non-blocking)
-    const cancelUser = await User.findByPk(userId);
-    if (cancelUser) {
-      notificationService.sendBookingCancellation(booking, cancelUser, refundAmount).catch(err => {
+    const user = await User.findByPk(userId);
+    if (user) {
+      notificationService.sendBookingCancellation(booking, user, refundAmount).catch(err => {
         console.error('Failed to send cancellation notification:', err.message);
       });
     }
@@ -467,18 +485,16 @@ router.post('/:id/cancel', authenticateToken, bookingValidation.cancel, handleVa
       success: true,
       message: 'Booking cancelled successfully',
       data: {
+        booking_id: booking.id,
         refund_amount: refundAmount,
+        refund_percentage: refundPercentage * 100,
         booking_status: 'CANCELLED',
       },
     });
   } catch (error) {
     await transaction.rollback();
     console.error('Cancel booking error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to cancel booking',
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: 'Failed to cancel booking', error: error.message });
   }
 });
 

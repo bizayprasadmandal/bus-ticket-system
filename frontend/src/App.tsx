@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
+import { LanguageProvider } from './i18n/LanguageContext';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import CustomerLayout from './pages/customer/CustomerLayout';
@@ -10,12 +11,17 @@ import MyBookingsPage from './pages/customer/MyBookingsPage';
 import PaymentPage from './pages/customer/PaymentPage';
 import PaymentCallbackPage from './pages/customer/PaymentCallbackPage';
 import ProfilePage from './pages/customer/ProfilePage';
+import ReviewsPage from './pages/customer/ReviewsPage';
+import WalletPage from './pages/customer/WalletPage';
+import TripTrackingPage from './pages/customer/TripTrackingPage';
 import OperatorLayout from './pages/operator/OperatorLayout';
 import OperatorDashboard from './pages/operator/OperatorDashboard';
 import OperatorBusesPage from './pages/operator/OperatorBusesPage';
 import OperatorRoutesPage from './pages/operator/OperatorRoutesPage';
 import OperatorTripsPage from './pages/operator/OperatorTripsPage';
 import OperatorBookingsPage from './pages/operator/OperatorBookingsPage';
+import OperatorStaffPage from './pages/operator/OperatorStaffPage';
+import OperatorFareRulesPage from './pages/operator/OperatorFareRulesPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOperatorsPage from './pages/admin/AdminOperatorsPage';
@@ -60,6 +66,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 function App() {
   return (
     <BrowserRouter>
+      <LanguageProvider>
       <Toaster position="top-right" />
       <ErrorBoundary>
         <Routes>
@@ -76,7 +83,10 @@ function App() {
             <Route path="payment/:bookingId" element={<PaymentPage />} />
             <Route path="payment/callback/:paymentId" element={<PaymentCallbackPage />} />
             <Route path="my-bookings" element={<MyBookingsPage />} />
+            <Route path="wallet" element={<WalletPage />} />
+            <Route path="reviews" element={<ReviewsPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="tracking/:tripId" element={<TripTrackingPage />} />
           </Route>
 
           <Route path="/operator" element={
@@ -89,6 +99,8 @@ function App() {
             <Route path="routes" element={<OperatorRoutesPage />} />
             <Route path="trips" element={<OperatorTripsPage />} />
             <Route path="bookings" element={<OperatorBookingsPage />} />
+            <Route path="staff" element={<OperatorStaffPage />} />
+            <Route path="fare-rules" element={<OperatorFareRulesPage />} />
           </Route>
 
           <Route path="/dispatcher" element={
@@ -143,6 +155,7 @@ function App() {
           </Route>
         </Routes>
       </ErrorBoundary>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

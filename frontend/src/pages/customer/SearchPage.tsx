@@ -3,6 +3,7 @@ import { Search, MapPin, ArrowLeftRight, ChevronRight, ChevronDown, Bus, Shield,
 import { tripAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
 import DatePicker from '../../components/DatePicker';
+import AmenityBadge from '../../components/AmenityBadge';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 
@@ -33,6 +34,7 @@ export default function SearchPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [recentSearches, setRecentSearches] = useState(getRecentSearches());
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
 
   const [originOpen, setOriginOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -102,6 +104,32 @@ export default function SearchPage() {
     d.setDate(d.getDate() + days);
     setTripDate(d.toISOString().split('T')[0]);
   };
+
+  const toggleAmenity = (amenity: string) => {
+    setSelectedAmenities((prev) =>
+      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
+    );
+  };
+
+  const allAmenities = Array.from(
+    new Set(
+      results.flatMap((t: any) => {
+        try {
+          const amenities = typeof t.bus?.amenities === 'string' ? JSON.parse(t.bus.amenities) : (t.bus?.amenities || []);
+          return Array.isArray(amenities) ? amenities : [];
+        } catch { return []; }
+      })
+    )
+  );
+
+  const filteredResults = selectedAmenities.length === 0
+    ? results
+    : results.filter((t: any) => {
+        try {
+          const amenities = typeof t.bus?.amenities === 'string' ? JSON.parse(t.bus.amenities) : (t.bus?.amenities || []);
+          return selectedAmenities.every((a) => amenities.includes(a));
+        } catch { return false; }
+      });
 
   const formatDisplayDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -415,7 +443,7 @@ export default function SearchPage() {
                       {origin} → {destination}
                     </h2>
                     <p className="text-sm text-gray-500">
-                      {results.length} buses found ·{' '}
+                      {filteredResults.length} buses found ·{' '}
                       {formatDisplayDate(tripDate)}
                     </p>
                   </div>
@@ -424,14 +452,34 @@ export default function SearchPage() {
                     onClick={() => {
                       setHasSearched(false);
                       setResults([]);
+                      setSelectedAmenities([]);
                     }}
                     className="text-sm text-red-500 hover:text-red-600 font-medium"
                   >
                     Clear search
                   </button>
                 </div>
+
+                {/* Amenities Filter */}
+                {allAmenities.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Filter by Amenities</p>
+                    <div className="flex flex-wrap gap-2">
+                      {allAmenities.map((amenity) => (
+                        <AmenityBadge
+                          key={amenity}
+                          amenity={amenity}
+                          size="md"
+                          selected={selectedAmenities.includes(amenity)}
+                          onClick={() => toggleAmenity(amenity)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3">
-                  {results.map((trip: any) => {
+                  {filteredResults.map((trip: any) => {
                     const badge = getBusTypeBadge(trip.bus?.bus_type);
                     return (
                       <div
@@ -458,6 +506,16 @@ export default function SearchPage() {
                                 >
                                   {badge.label}
                                 </span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(() => {
+                                    try {
+                                      const amenities = typeof trip.bus?.amenities === 'string' ? JSON.parse(trip.bus.amenities) : (trip.bus?.amenities || []);
+                                      return Array.isArray(amenities) ? amenities.slice(0, 3).map((a: string) => (
+                                        <AmenityBadge key={a} amenity={a} size="sm" />
+                                      )) : null;
+                                    } catch { return null; }
+                                  })()}
+                                </div>
                               </div>
                             </div>
 

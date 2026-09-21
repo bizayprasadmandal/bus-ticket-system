@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
+import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown, Phone, Mail, MapPin, Wallet, Star } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
+import LanguageToggle from '../../components/LanguageToggle';
 
 export default function CustomerLayout() {
   const { logout, user } = useAuthStore();
@@ -19,6 +20,8 @@ export default function CustomerLayout() {
   const navLinks = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/my-bookings', icon: Ticket, label: 'My Bookings' },
+    { to: '/wallet', icon: Wallet, label: 'Wallet' },
+    { to: '/reviews', icon: Star, label: 'Reviews' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -55,7 +58,9 @@ export default function CustomerLayout() {
               ))}
             </nav>
 
-            <div className="relative">
+            <div className="flex items-center gap-3">
+              <LanguageToggle />
+              <div className="relative">
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2"
@@ -102,6 +107,7 @@ export default function CustomerLayout() {
                 </>
               )}
             </div>
+            </div>
           </div>
         </div>
       </header>
@@ -129,6 +135,24 @@ export default function CustomerLayout() {
           >
             <Ticket className="h-5 w-5" />
             <span className="text-[10px] font-medium">Bookings</span>
+          </Link>
+          <Link
+            to="/wallet"
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
+              isActive('/wallet') ? 'text-[#d84e55]' : 'text-gray-500'
+            }`}
+          >
+            <Wallet className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Wallet</span>
+          </Link>
+          <Link
+            to="/reviews"
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
+              isActive('/reviews') ? 'text-[#d84e55]' : 'text-gray-500'
+            }`}
+          >
+            <Star className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Reviews</span>
           </Link>
           <Link
             to="/profile"

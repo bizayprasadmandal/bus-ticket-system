@@ -17,6 +17,8 @@ const UserAddress = require('./UserAddress');
 const UserRole = require('./UserRole');
 const UserWallet = require('./UserWallet');
 const WalletTransaction = require('./WalletTransaction');
+const Review = require('./Review');
+const FareRule = require('./FareRule');
 
 // Define associations based on SQL foreign key relationships
 
@@ -78,6 +80,20 @@ UserWallet.hasMany(WalletTransaction, { foreignKey: 'wallet_id', as: 'transactio
 // WalletTransaction associations
 WalletTransaction.belongsTo(UserWallet, { foreignKey: 'wallet_id', as: 'wallet' });
 
+// Review associations
+User.hasMany(Review, { foreignKey: 'user_id', as: 'reviews' });
+Trip.hasMany(Review, { foreignKey: 'trip_id', as: 'reviews' });
+Operator.hasMany(Review, { foreignKey: 'operator_id', as: 'reviews' });
+Review.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Review.belongsTo(Trip, { foreignKey: 'trip_id', as: 'trip' });
+Review.belongsTo(Operator, { foreignKey: 'operator_id', as: 'operator' });
+
+// FareRule associations
+Operator.hasMany(FareRule, { foreignKey: 'operator_id', as: 'fareRules' });
+Route.hasMany(FareRule, { foreignKey: 'route_id', as: 'fareRules' });
+FareRule.belongsTo(Operator, { foreignKey: 'operator_id', as: 'operator' });
+FareRule.belongsTo(Route, { foreignKey: 'route_id', as: 'route' });
+
 // Export all models
 module.exports = {
   sequelize,
@@ -96,4 +112,6 @@ module.exports = {
   UserRole,
   UserWallet,
   WalletTransaction,
+  Review,
+  FareRule,
 };

@@ -133,6 +133,10 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
         // Handle wallet payment
         const wallet = await UserWallet.findOne({ where: { user_id: userId } });
         if (!wallet || wallet.balance < amount) {
+          await payment.update({
+            status: 'FAILED',
+            gateway_response: 'Insufficient wallet balance',
+          });
           return res.status(400).json({
             success: false,
             message: 'Insufficient wallet balance',
@@ -151,6 +155,11 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
     }
 
     if (!paymentResult.success) {
+      // Mark the orphan PENDING payment as FAILED so it can't be verified later
+      await payment.update({
+        status: 'FAILED',
+        gateway_response: paymentResult.message || 'Payment initiation failed',
+      });
       return res.status(400).json({
         success: false,
         message: paymentResult.message || 'Payment initiation failed',
@@ -222,12 +231,15 @@ router.get('/:id/verify', async (req, res) => {
 
     let verificationResult;
 
-    switch (payment.payment_method) {
-      case 'ESEWA': {
+    switch (payment.payment_method) {      case 'ESEWA': {
         try {
           const esewa = PaymentGatewayFactory.getGateway('ESEWA');
-          const { amt, rid, pid } = req.query;
-          if (amt && rid && pid) {
+          const { amt, rid, pid, data } = req.query;
+          if (data) {
+            // eSewa ePay v2: base64-encoded signed response in the data param
+            verificationResult = await esewa.verifyV2Response(data);
+          } else if (amt && rid && pid) {
+            // eSewa ePay v1 legacy format
             verificationResult = await esewa.verifyPayment({ amt, rid, pid });
           } else {
             verificationResult = { success: false, message: 'Missing eSewa parameters' };

@@ -1,5 +1,6 @@
 const express = require('express');
-const { Operator, Bus, Route, UserRole } = require('../models');
+const { Op } = require('sequelize');
+const { Operator, Bus, Route, UserRole, User } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { operatorValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
@@ -318,6 +319,93 @@ router.get('/admin/pending', authenticateToken, requireRole(['SUPER_ADMIN']), as
       message: 'Failed to get pending operators',
       error: error.message,
     });
+  }
+});
+
+// GET /operators/staff - Get staff members for the operator
+router.get('/staff', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator not found' });
+    }
+
+    const staffRoles = await UserRole.findAll({
+      where: { operator_id: operatorRole.operator_id, role: { [Op.in]: ['DISPATCHER', 'DRIVER', 'CONDUCTOR', 'COUNTER_AGENT'] } },
+      include: [{ model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] }],
+    });
+
+    res.json({ success: true, data: { staff: staffRoles } });
+  } catch (error) {
+    console.error('Get staff error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get staff' });
+  }
+});
+
+// POST /operators/staff - Add staff member
+router.post('/staff', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Operator not found' });
+    }
+
+    const { phone_number, full_name, role } = req.body;
+    if (!phone_number || !role) {
+      return res.status(400).json({ success: false, message: 'Phone and role are required' });
+    }
+    if (!['DISPATCHER', 'DRIVER', 'CONDUCTOR', 'COUNTER_AGENT'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ where: { phone_number } });
+    if (!user) {
+      user = await User.create({
+        phone_number,
+        full_name: full_name || phone_number,
+        password: '$2b$10$default', // Will need password reset
+        status: 'ACTIVE',
+        is_phone_verified: false,
+      });
+    }
+
+    // Check if role already assigned
+    const existing = await UserRole.findOne({ where: { user_id: user.id, role, operator_id: operatorRole.operator_id } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Staff member already has this role' });
+    }
+
+    const staffRole = await UserRole.create({
+      user_id: user.id,
+      role,
+      operator_id: operatorRole.operator_id,
+      is_active: true,
+    });
+
+    res.json({ success: true, data: { staff: staffRole, user } });
+  } catch (error) {
+    console.error('Add staff error:', error);
+    res.status(500).json({ success: false, message: 'Failed to add staff' });
+  }
+});
+
+// DELETE /operators/staff/:id - Remove staff member
+router.delete('/staff/:id', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
+    if (!operatorRole) return res.status(403).json({ success: false, message: 'Operator not found' });
+
+    const staffRole = await UserRole.findOne({ where: { id: req.params.id, operator_id: operatorRole.operator_id } });
+    if (!staffRole) return res.status(404).json({ success: false, message: 'Staff not found' });
+
+    await staffRole.update({ is_active: false });
+    res.json({ success: true, message: 'Staff removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to remove staff' });
   }
 });
 

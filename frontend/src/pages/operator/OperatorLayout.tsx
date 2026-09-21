@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bus, Route, Calendar, Ticket, LogOut, Menu, X, ChevronRight, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Bus, Route, Calendar, Ticket, LogOut, Menu, X, ChevronRight, ExternalLink, Users, DollarSign } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,8 @@ const navItems = [
   { to: '/operator/routes', label: 'Routes', icon: Route },
   { to: '/operator/trips', label: 'Trips', icon: Calendar },
   { to: '/operator/bookings', label: 'Bookings', icon: Ticket },
+  { to: '/operator/staff', label: 'Staff', icon: Users },
+  { to: '/operator/fare-rules', label: 'Fare Rules', icon: DollarSign },
 ];
 
 export default function OperatorLayout() {

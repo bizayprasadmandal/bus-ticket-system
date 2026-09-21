@@ -562,7 +562,7 @@ router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER']), async 
             model: Bus,
             as: 'bus',
           },
-        },
+        ],
         order: [['departure_time', 'DESC']],
         limit: 10,
       }),

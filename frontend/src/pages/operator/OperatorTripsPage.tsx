@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Calendar, X } from 'lucide-react';
 import { operatorTripAPI, operatorBusAPI, operatorRouteAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
+import Dropdown from '../../components/Dropdown';
+import DatePicker from '../../components/DatePicker';
 import toast from 'react-hot-toast';
 
 interface TripItem {
@@ -119,15 +121,33 @@ export default function OperatorTripsPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <select value={form.bus_id || ''} onChange={(e) => setForm({ ...form, bus_id: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-lg" required>
-                <option value="">Select Bus</option>
-                {buses.map((b) => <option key={b.id} value={b.id}>{b.bus_number} - {b.bus_type}</option>)}
-              </select>
-              <select value={form.route_id || ''} onChange={(e) => setForm({ ...form, route_id: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-lg" required>
-                <option value="">Select Route</option>
-                {routes.map((r) => <option key={r.id} value={r.id}>{r.origin_city} → {r.destination_city}</option>)}
-              </select>
-              <input type="date" value={form.trip_date} onChange={(e) => setForm({ ...form, trip_date: e.target.value })} className="w-full px-3 py-2 border rounded-lg" required />
+              <Dropdown
+                label="Select Bus"
+                value={form.bus_id ? String(form.bus_id) : ''}
+                onChange={(val) => setForm({ ...form, bus_id: Number(val) })}
+                options={buses.map((b) => ({
+                  value: String(b.id),
+                  label: `${b.bus_number} - ${b.bus_type}`,
+                }))}
+                placeholder="Select Bus"
+              />
+              <Dropdown
+                label="Select Route"
+                value={form.route_id ? String(form.route_id) : ''}
+                onChange={(val) => setForm({ ...form, route_id: Number(val) })}
+                options={routes.map((r) => ({
+                  value: String(r.id),
+                  label: `${r.origin_city} → ${r.destination_city}`,
+                }))}
+                placeholder="Select Route"
+              />
+              <DatePicker
+                label="Trip Date"
+                value={form.trip_date}
+                onChange={(val) => setForm({ ...form, trip_date: val })}
+                min={new Date().toISOString().split('T')[0]}
+                placeholder="Select trip date"
+              />
               <input type="time" value={form.departure_time} onChange={(e) => setForm({ ...form, departure_time: e.target.value })} className="w-full px-3 py-2 border rounded-lg" required />
               <input type="number" placeholder="Fare (NPR)" value={form.current_fare || ''} onChange={(e) => setForm({ ...form, current_fare: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-lg" min={0} required />
               <input type="number" placeholder="Available Seats" value={form.available_seats} onChange={(e) => setForm({ ...form, available_seats: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-lg" min={1} required />

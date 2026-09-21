@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, Calendar, ArrowLeftRight, ChevronRight, Bus, Shield, CreditCard, Headphones, Star, Clock } from 'lucide-react';
+import { Search, MapPin, ArrowLeftRight, ChevronRight, ChevronDown, Bus, Shield, CreditCard, Headphones, Star, Clock } from 'lucide-react';
 import { tripAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
+import DatePicker from '../../components/DatePicker';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 
@@ -203,19 +204,22 @@ export default function SearchPage() {
     );
     return (
       <div className="relative w-full">
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => {
-            setFilter(e.target.value);
-            if (!isOpen) setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder={placeholder}
-          className="w-full px-4 py-3.5 text-sm font-medium text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              if (!isOpen) setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder}
+            className="w-full px-3 py-2.5 pr-8 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20"
+          />
+          <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
         {isOpen && filtered.length > 0 && (
-          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-xl shadow-xl z-50 max-h-[240px] overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
             {filtered.map((city) => (
               <button
                 key={city.id}
@@ -225,12 +229,12 @@ export default function SearchPage() {
                   setFilter(city.name);
                   setOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-[#d84e55]/10 hover:text-[#d84e55] transition-colors text-left"
               >
                 <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                {city.name}
+                <span className="flex-1">{city.name}</span>
                 {city.province && (
-                  <span className="text-xs text-gray-400 ml-auto">
+                  <span className="text-xs text-gray-400">
                     {city.province}
                   </span>
                 )}
@@ -313,22 +317,13 @@ export default function SearchPage() {
 
               {/* DATE */}
               <div className="flex-1 lg:flex-[0.7] px-5 py-3 border-b lg:border-b-0 lg:border-r border-gray-100">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
-                  Journey Date
-                </label>
-                <div className="relative flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-red-500 shrink-0 relative z-10" />
-                  <span className="text-sm font-medium text-gray-800 relative z-10 pointer-events-none">
-                    {formatDisplayDate(tripDate)}
-                  </span>
-                  <input
-                    type="date"
-                    value={tripDate}
-                    onChange={(e) => setTripDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                  />
-                </div>
+                <DatePicker
+                  label="Journey Date"
+                  value={tripDate}
+                  onChange={setTripDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  placeholder="Select date"
+                />
                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
                   {[
                     { label: 'Today', days: 0 },

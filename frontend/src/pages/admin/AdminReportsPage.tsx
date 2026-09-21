@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Download, TrendingUp, Users, Bus, Ticket, DollarSign, Calendar } from 'lucide-react';
 import { reportAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
 export default function AdminReportsPage() {
-  const [activeReport, setActiveReport] = useState('bookings');
+  const [activeReport, setActiveReport] = useState('revenue');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
@@ -33,108 +33,366 @@ export default function AdminReportsPage() {
   };
 
   const reports = [
-    { id: 'bookings', label: 'Bookings' },
-    { id: 'revenue', label: 'Revenue' },
-    { id: 'operators', label: 'Operators' },
-    { id: 'users', label: 'Users' },
+    { id: 'revenue', label: 'Revenue', icon: DollarSign },
+    { id: 'bookings', label: 'Bookings', icon: Ticket },
+    { id: 'operators', label: 'Operators', icon: Bus },
+    { id: 'users', label: 'Users', icon: Users },
   ];
 
+  const exportToCSV = (csvData: any[], filename: string) => {
+    if (!csvData || csvData.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+    const headers = Object.keys(csvData[0]);
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(h => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast.success('Exported successfully');
+  };
+
+  const handleExport = () => {
+    switch (activeReport) {
+      case 'revenue':
+        exportToCSV(data?.revenue_by_operator || [], 'revenue_by_operator');
+        break;
+      case 'bookings':
+        exportToCSV(data?.bookings || [], 'bookings_report');
+        break;
+      case 'operators':
+        exportToCSV(data?.operators || [], 'operators_report');
+        break;
+      case 'users':
+        exportToCSV(data?.users || [], 'users_report');
+        break;
+    }
+  };
+
+  const getBarWidth = (value: number, max: number) => {
+    if (max === 0) return '0%';
+    return `${(value / max) * 100}%`;
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="h-6 w-6 text-blue-600" /> Reports</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-blue-600" /> Reports
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Analyze bookings, revenue, and user activity</p>
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={!data}
+          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        {reports.map((r) => (
-          <button key={r.id} onClick={() => setActiveReport(r.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeReport === r.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>
-            {r.label}
-          </button>
-        ))}
-        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="px-3 py-2 border rounded-lg text-sm" />
-        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="px-3 py-2 border rounded-lg text-sm" />
+      {/* Report Tabs and Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            {reports.map((r) => {
+              const Icon = r.icon;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => setActiveReport(r.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeReport === r.id
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-gray-400" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                placeholder="From"
+              />
+            </div>
+            <span className="text-gray-400">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              placeholder="To"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="text-sm text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {loading ? (
         <TableSkeleton rows={5} cols={4} />
       ) : (
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="space-y-6">
+          {/* Revenue Report */}
           {activeReport === 'revenue' && data && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-blue-600">NPR {data.total_revenue?.toLocaleString() || 0}</p>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl p-5 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Revenue</p>
+                      <p className="text-2xl font-bold text-gray-800">NPR {(data.total_revenue || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Total Bookings</p>
-                  <p className="text-2xl font-bold text-green-600">{data.total_bookings || 0}</p>
+                <div className="bg-white rounded-xl p-5 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Ticket className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Bookings</p>
+                      <p className="text-2xl font-bold text-gray-800">{(data.total_bookings || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Avg. Fare</p>
-                  <p className="text-2xl font-bold text-purple-600">NPR {data.average_fare?.toLocaleString() || 0}</p>
+                <div className="bg-white rounded-xl p-5 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Avg. Fare</p>
+                      <p className="text-2xl font-bold text-gray-800">NPR {(data.average_fare || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
+
               {data.revenue_by_operator?.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-3">Revenue by Operator</h3>
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50"><tr><th className="px-4 py-2 text-left">Operator</th><th className="px-4 py-2 text-right">Bookings</th><th className="px-4 py-2 text-right">Revenue</th></tr></thead>
-                    <tbody className="divide-y">
-                      {data.revenue_by_operator.map((op: any, i: number) => (
-                        <tr key={i}><td className="px-4 py-2">{op.company_name}</td><td className="px-4 py-2 text-right">{op.total_bookings}</td><td className="px-4 py-2 text-right">NPR {op.total_revenue?.toLocaleString()}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Operator</h3>
+                  <div className="space-y-4">
+                    {data.revenue_by_operator.map((op: any, i: number) => {
+                      const maxRevenue = Math.max(...data.revenue_by_operator.map((o: any) => o.total_revenue || 0));
+                      return (
+                        <div key={i} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">{op.company_name}</span>
+                            <span className="text-sm text-gray-500">NPR {(op.total_revenue || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div
+                              className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                              style={{ width: getBarWidth(op.total_revenue || 0, maxRevenue) }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>{op.total_bookings} bookings</span>
+                            <span>{op.percentage || 0}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
-            </div>
+            </>
           )}
+
+          {/* Bookings Report */}
           {activeReport === 'bookings' && data && (
-            <div>
-              <p className="text-sm text-gray-600 mb-4">Total: {data.total_bookings || 0} bookings</p>
+            <>
+              <div className="bg-white rounded-xl p-5 border border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Ticket className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Total Bookings</p>
+                    <p className="text-2xl font-bold text-gray-800">{(data.total_bookings || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
               {data.bookings?.length > 0 && (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50"><tr><th className="px-4 py-2 text-left">PNR</th><th className="px-4 py-2 text-left">Passenger</th><th className="px-4 py-2 text-right">Amount</th><th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2 text-left">Date</th></tr></thead>
-                  <tbody className="divide-y">
-                    {data.bookings.map((b: any) => (
-                      <tr key={b.id}><td className="px-4 py-2 font-mono">{b.pnr}</td><td className="px-4 py-2">{b.passenger_name}</td><td className="px-4 py-2 text-right">NPR {b.total_amount}</td><td className="px-4 py-2"><span className={`px-2 py-1 rounded text-xs ${b.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{b.status}</span></td><td className="px-4 py-2">{b.trip_date}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">PNR</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Passenger</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Phone</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {data.bookings.map((b: any) => (
+                          <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 font-mono text-blue-600 font-medium">{b.pnr}</td>
+                            <td className="px-4 py-3 text-gray-800">{b.passenger_name}</td>
+                            <td className="px-4 py-3 text-gray-600">{b.passenger_phone}</td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {b.total_amount?.toLocaleString()}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                                b.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
+                                b.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                                b.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {b.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{b.trip_date}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
           )}
+
+          {/* Operators Report */}
           {activeReport === 'operators' && data && (
-            <div>
+            <>
               {data.operators?.length > 0 && (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50"><tr><th className="px-4 py-2 text-left">Operator</th><th className="px-4 py-2 text-right">Buses</th><th className="px-4 py-2 text-right">Trips</th><th className="px-4 py-2 text-right">Bookings</th><th className="px-4 py-2 text-right">Revenue</th></tr></thead>
-                  <tbody className="divide-y">
-                    {data.operators.map((op: any, i: number) => (
-                      <tr key={i}><td className="px-4 py-2">{op.company_name}</td><td className="px-4 py-2 text-right">{op.total_buses}</td><td className="px-4 py-2 text-right">{op.total_trips}</td><td className="px-4 py-2 text-right">{op.total_bookings}</td><td className="px-4 py-2 text-right">NPR {op.total_revenue?.toLocaleString()}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Operator</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">Buses</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">Trips</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">Bookings</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {data.operators.map((op: any, i: number) => (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <Bus className="h-4 w-4 text-blue-600" />
+                                </div>
+                                <span className="font-medium text-gray-800">{op.company_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-600">{op.total_buses}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">{op.total_trips}</td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-800">{op.total_bookings}</td>
+                            <td className="px-4 py-3 text-right font-medium text-green-600">NPR {(op.total_revenue || 0).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
           )}
+
+          {/* Users Report */}
           {activeReport === 'users' && data && (
-            <div>
-              <p className="text-sm text-gray-600 mb-4">Total Users: {data.total_users || 0}</p>
+            <>
+              <div className="bg-white rounded-xl p-5 border border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Total Users</p>
+                    <p className="text-2xl font-bold text-gray-800">{(data.total_users || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
               {data.users?.length > 0 && (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50"><tr><th className="px-4 py-2 text-left">Name</th><th className="px-4 py-2 text-left">Phone</th><th className="px-4 py-2 text-left">Email</th><th className="px-4 py-2 text-left">Role</th><th className="px-4 py-2 text-right">Bookings</th></tr></thead>
-                  <tbody className="divide-y">
-                    {data.users.map((u: any) => (
-                      <tr key={u.id}><td className="px-4 py-2">{u.full_name}</td><td className="px-4 py-2">{u.phone_number}</td><td className="px-4 py-2">{u.email || '-'}</td><td className="px-4 py-2">{u.role}</td><td className="px-4 py-2 text-right">{u.total_bookings}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">User</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Phone</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Email</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">Role</th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600">Bookings</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {data.users.map((u: any) => (
+                          <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                  <span className="text-gray-600 font-medium text-xs">
+                                    {u.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  </span>
+                                </div>
+                                <span className="font-medium text-gray-800">{u.full_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{u.phone_number}</td>
+                            <td className="px-4 py-3 text-gray-600">{u.email || '-'}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                u.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-700' :
+                                u.role === 'OPERATOR' ? 'bg-blue-100 text-blue-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {u.role?.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-800">{u.total_bookings}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
+            </>
+          )}
+
+          {!data && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+              <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No data available for the selected filters</p>
             </div>
           )}
-          {!data && <p className="text-center text-gray-500">No data available</p>}
         </div>
       )}
     </div>

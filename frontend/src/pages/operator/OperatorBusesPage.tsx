@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Bus, X } from 'lucide-react';
 import { operatorBusAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
+import Dropdown from '../../components/Dropdown';
 import toast from 'react-hot-toast';
 
 interface BusItem {
@@ -137,12 +138,18 @@ export default function OperatorBusesPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <input placeholder="Bus Number" value={form.bus_number} onChange={(e) => setForm({ ...form, bus_number: e.target.value })} className="w-full px-3 py-2 border rounded-lg" required />
               <input placeholder="Bus Model" value={form.bus_model} onChange={(e) => setForm({ ...form, bus_model: e.target.value })} className="w-full px-3 py-2 border rounded-lg" required />
-              <select value={form.bus_type} onChange={(e) => setForm({ ...form, bus_type: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
-                <option value="AC">AC</option>
-                <option value="DELUXE">Deluxe</option>
-                <option value="SLEEPER">Sleeper</option>
-                <option value="VIP">VIP</option>
-              </select>
+              <Dropdown
+                label="Bus Type"
+                value={form.bus_type}
+                onChange={(val) => setForm({ ...form, bus_type: val })}
+                options={[
+                  { value: 'AC', label: 'AC' },
+                  { value: 'DELUXE', label: 'Deluxe' },
+                  { value: 'SLEEPER', label: 'Sleeper' },
+                  { value: 'VIP', label: 'VIP' },
+                ]}
+                placeholder="Select bus type"
+              />
               <input type="number" placeholder="Total Seats" value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: Number(e.target.value) })} className="w-full px-3 py-2 border rounded-lg" min={1} required />
               <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
                 {editingBus ? 'Update' : 'Create'}

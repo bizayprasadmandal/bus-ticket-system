@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -13,7 +13,7 @@ const navItems = [
 ];
 
 export default function AdminLayout() {
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +26,34 @@ export default function AdminLayout() {
 
   const isActive = (item: typeof navItems[0]) =>
     item.end ? location.pathname === item.to : location.pathname.startsWith(item.to);
+
+  const getBreadcrumbs = () => {
+    const path = location.pathname;
+    const segments = path.split('/').filter(Boolean);
+    const breadcrumbs = [{ label: 'Admin', path: '/admin' }];
+
+    if (segments.length > 1) {
+      const page = segments[1];
+      const pageLabels: Record<string, string> = {
+        operators: 'Operators',
+        users: 'Users',
+        reports: 'Reports',
+        'api-docs': 'API Documentation',
+      };
+      if (pageLabels[page]) {
+        breadcrumbs.push({ label: pageLabels[page], path: path });
+      }
+    }
+
+    return breadcrumbs;
+  };
+
+  const breadcrumbs = getBreadcrumbs();
+
+  const getUserInitials = () => {
+    if (!user?.full_name) return 'A';
+    return user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -43,8 +71,17 @@ export default function AdminLayout() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
+        {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b">
-          <h1 className="text-lg font-bold text-blue-600">Admin Panel</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">AD</span>
+            </div>
+            <div>
+              <h1 className="text-sm font-bold text-gray-800">Admin Panel</h1>
+              <p className="text-xs text-gray-400">Samaya Deluxe</p>
+            </div>
+          </div>
           <button
             className="lg:hidden p-1 text-gray-500 hover:text-gray-700"
             onClick={() => setSidebarOpen(false)}
@@ -52,6 +89,8 @@ export default function AdminLayout() {
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => (
             <Link
@@ -69,7 +108,18 @@ export default function AdminLayout() {
             </Link>
           ))}
         </nav>
+
+        {/* User Info */}
         <div className="p-4 border-t">
+          <div className="flex items-center gap-3 mb-3 px-3 py-2">
+            <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
+              <span className="text-blue-600 font-semibold text-sm">{getUserInitials()}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800 truncate">{user?.full_name || 'Admin'}</p>
+              <p className="text-xs text-gray-400 truncate">{user?.email || 'Super Admin'}</p>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition"
@@ -93,7 +143,32 @@ export default function AdminLayout() {
           <h1 className="ml-3 text-lg font-bold text-blue-600">Admin Panel</h1>
         </div>
 
-        <main className="flex-1 p-8 overflow-auto">
+        {/* Top bar with breadcrumbs */}
+        <div className="hidden lg:flex h-14 bg-white border-b items-center justify-between px-6">
+          <nav className="flex items-center gap-2 text-sm">
+            {breadcrumbs.map((crumb, index) => (
+              <div key={crumb.path} className="flex items-center gap-2">
+                {index > 0 && <ChevronRight className="h-4 w-4 text-gray-300" />}
+                <span className={index === breadcrumbs.length - 1 ? 'text-gray-800 font-medium' : 'text-gray-400'}>
+                  {crumb.label}
+                </span>
+              </div>
+            ))}
+          </nav>
+          <div className="flex items-center gap-4">
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Site
+            </a>
+          </div>
+        </div>
+
+        <main className="flex-1 p-6 lg:p-8 overflow-auto">
           <Outlet />
         </main>
       </div>

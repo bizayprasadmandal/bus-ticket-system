@@ -16,7 +16,18 @@ export default function LoginPage() {
     try {
       await login(phone_number, password);
       toast.success('Login successful!');
-      navigate('/');
+      
+      // Get user from store after login
+      const user = useAuthStore.getState().user;
+      const roles = user?.roles?.map(r => r.role) || [];
+      
+      if (roles.includes('SUPER_ADMIN')) {
+        navigate('/admin');
+      } else if (roles.includes('OPERATOR')) {
+        navigate('/operator');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
     }

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { tripAPI, bookingAPI } from '../../api';
 import type { Trip } from '../../types';
+import Dropdown from '../../components/Dropdown';
 import toast from 'react-hot-toast';
 
 interface Passenger {
@@ -692,27 +693,17 @@ export default function BookingPage() {
 
                       {/* ID Type + Number */}
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <select
+                        <Dropdown
                           value={passengers[i]?.id_type || 'citizenship'}
-                          onChange={(e) =>
-                            updatePassenger(i, 'id_type', e.target.value)
-                          }
-                          style={{
-                            padding: '10px 8px',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            outline: 'none',
-                            background: '#fff',
-                            fontFamily: 'Inter',
-                            cursor: 'pointer',
-                            minWidth: '100px',
-                          }}
-                        >
-                          <option value="citizenship">Citizenship</option>
-                          <option value="passport">Passport</option>
-                          <option value="license">License</option>
-                        </select>
+                          onChange={(val) => updatePassenger(i, 'id_type', val)}
+                          options={[
+                            { value: 'citizenship', label: 'Citizenship' },
+                            { value: 'passport', label: 'Passport' },
+                            { value: 'license', label: 'License' },
+                          ]}
+                          placeholder="Select ID type"
+                          className="flex-1"
+                        />
                         <input
                           placeholder="ID number"
                           value={passengers[i]?.id_number || ''}

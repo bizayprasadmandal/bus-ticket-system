@@ -106,6 +106,27 @@ export const dashboardAPI = {
   getCounterAgent: () => api.get('/dashboard/counter-agent'),
 };
 
+export const dispatcherTripAPI = {
+  getMyTrips: () => api.get('/trips/dispatcher/my-trips'),
+};
+
+export const driverTripAPI = {
+  getMyTrips: () => api.get('/trips/driver/my-trips'),
+  updateStatus: (id: number, status: string) => api.put(`/trips/${id}/status`, { status }),
+};
+
+export const conductorTripAPI = {
+  getMyTrips: () => api.get('/trips/conductor/my-trips'),
+};
+
+export const conductorBookingAPI = {
+  getMyBookings: (params?: any) => api.get('/bookings/conductor/my-bookings', { params }),
+};
+
+export const counterAgentBookingAPI = {
+  getMyBookings: (params?: any) => api.get('/bookings/counter-agent/my-bookings', { params }),
+};
+
 export const reportAPI = {
   getBookings: (params?: any) => api.get('/reports/bookings', { params }),
   getRevenue: (params?: any) => api.get('/reports/revenue', { params }),

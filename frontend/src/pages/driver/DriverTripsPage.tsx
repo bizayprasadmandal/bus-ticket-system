@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Calendar, Search, Clock, Bus, MapPin, ArrowRight, RefreshCw, Play, CheckCircle2 } from 'lucide-react';
-import { operatorTripAPI } from '../../api';
+import { driverTripAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
@@ -22,7 +22,7 @@ export default function DriverTripsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await operatorTripAPI.getMyTrips();
+      const res = await driverTripAPI.getMyTrips();
       setTrips(res.data.data.trips || []);
     } catch {
       toast.error('Failed to load trips');
@@ -47,7 +47,7 @@ export default function DriverTripsPage() {
 
   const handleStatusUpdate = async (id: number, status: string) => {
     try {
-      await operatorTripAPI.updateStatus(id, status);
+      await driverTripAPI.updateStatus(id, status);
       toast.success(`Trip marked as ${status.toLowerCase()}`);
       loadData();
     } catch (err: any) {

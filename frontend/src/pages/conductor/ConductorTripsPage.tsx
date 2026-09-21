@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Clock, Bus, Users, MapPin, ArrowRight, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
-import { operatorTripAPI, operatorBookingAPI } from '../../api';
+import { conductorTripAPI, conductorBookingAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
@@ -31,7 +31,7 @@ export default function ConductorTripsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const tripsRes = await operatorTripAPI.getMyTrips();
+      const tripsRes = await conductorTripAPI.getMyTrips();
       const rawTrips: TripItem[] = tripsRes.data.data.trips || [];
 
       const today = new Date().toISOString().split('T')[0];
@@ -47,7 +47,7 @@ export default function ConductorTripsPage() {
 
       for (const trip of tripsWithPassengers) {
         try {
-          const bookingsRes = await operatorBookingAPI.getMyBookings({ trip_id: trip.id });
+          const bookingsRes = await conductorBookingAPI.getMyBookings({ trip_id: trip.id });
           const bookings = bookingsRes.data.data.bookings || [];
           const allPassengers: PassengerItem[] = [];
           bookings.forEach((b: any) => {
@@ -81,7 +81,7 @@ export default function ConductorTripsPage() {
     if (trip && trip.passengers.length === 0) {
       setLoadingPassengers(tripId);
       try {
-        const bookingsRes = await operatorBookingAPI.getMyBookings({ trip_id: tripId });
+        const bookingsRes = await conductorBookingAPI.getMyBookings({ trip_id: tripId });
         const bookings = bookingsRes.data.data.bookings || [];
         const allPassengers: PassengerItem[] = [];
         bookings.forEach((b: any) => {

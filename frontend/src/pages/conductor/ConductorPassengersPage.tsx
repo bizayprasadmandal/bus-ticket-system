@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Ticket, MapPin, Phone, Users, Loader2, CheckCircle, RefreshCw } from 'lucide-react';
-import { operatorBookingAPI } from '../../api';
+import { conductorBookingAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
@@ -35,7 +35,7 @@ export default function ConductorPassengersPage() {
 
   const loadBookings = useCallback(async () => {
     try {
-      const res = await operatorBookingAPI.getMyBookings();
+      const res = await conductorBookingAPI.getMyBookings();
       setBookings(res.data.data.bookings || []);
     } catch {
       toast.error('Failed to load passengers');

@@ -576,4 +576,70 @@ router.get('/operator/my-bookings', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /bookings/conductor/my-bookings - Get bookings for conductor's operator
+router.get('/conductor/my-bookings', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const conductorRole = userRoles.find(role => role.role === 'CONDUCTOR' && role.is_active);
+
+    if (!conductorRole || !conductorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Conductor operator information not found' });
+    }
+
+    const bookings = await Booking.findAll({
+      include: [
+        {
+          model: Trip,
+          as: 'trip',
+          include: [{ model: Bus, as: 'bus', where: { operator_id: conductorRole.operator_id }, required: true }],
+        },
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Conductor bookings retrieved successfully',
+      data: { bookings, total: bookings.length },
+    });
+  } catch (error) {
+    console.error('Get conductor bookings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get conductor bookings', error: error.message });
+  }
+});
+
+// GET /bookings/counter-agent/my-bookings - Get bookings for counter agent's operator
+router.get('/counter-agent/my-bookings', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const counterAgentRole = userRoles.find(role => role.role === 'COUNTER_AGENT' && role.is_active);
+
+    if (!counterAgentRole || !counterAgentRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Counter agent operator information not found' });
+    }
+
+    const bookings = await Booking.findAll({
+      include: [
+        {
+          model: Trip,
+          as: 'trip',
+          include: [{ model: Bus, as: 'bus', where: { operator_id: counterAgentRole.operator_id }, required: true }],
+        },
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Counter agent bookings retrieved successfully',
+      data: { bookings, total: bookings.length },
+    });
+  } catch (error) {
+    console.error('Get counter agent bookings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get counter agent bookings', error: error.message });
+  }
+});
+
 module.exports = router;

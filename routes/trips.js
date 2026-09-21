@@ -513,6 +513,93 @@ router.get('/operator/my-trips', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /trips/dispatcher/my-trips - Get trips for logged-in dispatcher
+router.get('/dispatcher/my-trips', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const dispatcherRole = userRoles.find(role => role.role === 'DISPATCHER' && role.is_active);
+
+    if (!dispatcherRole || !dispatcherRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Dispatcher operator information not found' });
+    }
+
+    const trips = await Trip.findAll({
+      include: [
+        { model: Bus, as: 'bus', where: { operator_id: dispatcherRole.operator_id }, required: true },
+        { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
+      ],
+      order: [['trip_date', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Dispatcher trips retrieved successfully',
+      data: { trips, total: trips.length },
+    });
+  } catch (error) {
+    console.error('Get dispatcher trips error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get dispatcher trips', error: error.message });
+  }
+});
+
+// GET /trips/driver/my-trips - Get trips for logged-in driver
+router.get('/driver/my-trips', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const driverRole = userRoles.find(role => role.role === 'DRIVER' && role.is_active);
+
+    if (!driverRole || !driverRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Driver operator information not found' });
+    }
+
+    const trips = await Trip.findAll({
+      include: [
+        { model: Bus, as: 'bus', where: { operator_id: driverRole.operator_id }, required: true },
+        { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
+      ],
+      order: [['trip_date', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Driver trips retrieved successfully',
+      data: { trips, total: trips.length },
+    });
+  } catch (error) {
+    console.error('Get driver trips error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get driver trips', error: error.message });
+  }
+});
+
+// GET /trips/conductor/my-trips - Get trips for logged-in conductor
+router.get('/conductor/my-trips', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const conductorRole = userRoles.find(role => role.role === 'CONDUCTOR' && role.is_active);
+
+    if (!conductorRole || !conductorRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Conductor operator information not found' });
+    }
+
+    const trips = await Trip.findAll({
+      include: [
+        { model: Bus, as: 'bus', where: { operator_id: conductorRole.operator_id }, required: true },
+        { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
+      ],
+      order: [['trip_date', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      message: 'Conductor trips retrieved successfully',
+      data: { trips, total: trips.length },
+    });
+  } catch (error) {
+    console.error('Get conductor trips error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get conductor trips', error: error.message });
+  }
+});
+
 // POST /trips - Create a new trip (Operator only)
 router.post('/', authenticateToken, async (req, res) => {
   try {

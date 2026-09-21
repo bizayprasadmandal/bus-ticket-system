@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw } from 'lucide-react';
-import { operatorBookingAPI } from '../../api';
+import { counterAgentBookingAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
@@ -40,7 +40,7 @@ export default function CounterAgentBookingsPage() {
 
   const loadBookings = useCallback(async () => {
     try {
-      const res = await operatorBookingAPI.getMyBookings();
+      const res = await counterAgentBookingAPI.getMyBookings();
       setBookings(res.data.data.bookings || []);
     } catch {
       toast.error('Failed to load bookings');

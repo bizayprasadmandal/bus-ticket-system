@@ -569,6 +569,13 @@ router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER']), async 
       }),
     ]);
 
+    // Get actual bus list for the operator
+    const buses = await Bus.findAll({
+      where: { operator_id: operatorId, status: 'ACTIVE' },
+      attributes: ['id', 'bus_number', 'bus_type', 'total_seats', 'bus_model', 'status'],
+      order: [['bus_number', 'ASC']],
+    });
+
     res.json({
       success: true,
       message: 'Dispatcher dashboard data retrieved successfully',
@@ -582,6 +589,7 @@ router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER']), async 
         },
         today_trips: todayTrips,
         available_buses: availableBuses,
+        available_buses_list: buses,
         recent_status_changes: recentStatusChanges,
       },
     });

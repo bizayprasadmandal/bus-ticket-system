@@ -71,11 +71,20 @@ export default function DispatcherTripsPage() {
     SCHEDULED: 'bg-blue-100 text-blue-700',
     BOARDING: 'bg-amber-100 text-amber-700',
     DEPARTED: 'bg-purple-100 text-purple-700',
+    ARRIVED: 'bg-teal-100 text-teal-700',
     COMPLETED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
   };
 
-  const statusOptions = ['SCHEDULED', 'BOARDING', 'DEPARTED', 'COMPLETED', 'CANCELLED'];
+  const nextStatusMap: Record<string, string[]> = {
+    SCHEDULED: ['BOARDING', 'CANCELLED'],
+    BOARDING: ['DEPARTED', 'CANCELLED'],
+    DEPARTED: ['ARRIVED'],
+  };
+
+  const getNextStatuses = (currentStatus: string): string[] => {
+    return nextStatusMap[currentStatus] || [];
+  };
 
   const stats = {
     total: trips.length,
@@ -152,7 +161,7 @@ export default function DispatcherTripsPage() {
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="ALL">All Status</option>
-            {statusOptions.map((s) => (
+            {Object.keys(statusColors).map((s) => (
               <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
             ))}
           </select>
@@ -209,15 +218,20 @@ export default function DispatcherTripsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <select
-                        value={trip.status}
-                        onChange={(e) => handleStatusUpdate(trip.id, e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      >
-                        {statusOptions.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                      {getNextStatuses(trip.status).length > 0 ? (
+                        <select
+                          defaultValue=""
+                          onChange={(e) => { if (e.target.value) handleStatusUpdate(trip.id, e.target.value); }}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        >
+                          <option value="" disabled>Update</option>
+                          {getNextStatuses(trip.status).map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -1,8 +1,8 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const moment = require('moment');
-const { Trip, Route, Bus, Operator, Booking, BookingPassenger, BusLocation } = require('../models');
-const { authenticateToken } = require('../middleware/auth');
+const { Trip, Route, Bus, Operator, Booking, BookingPassenger, BusLocation, User } = require('../models');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 const { tripValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const cachingService = require('../services/caching');
@@ -429,24 +429,26 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
       });
     }
 
-    // Verify operator owns this trip or is admin
+    // Verify operator owns this trip or is admin or dispatcher
     const userRoles = req.user.roles || [];
     const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
     const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
+    const dispatcherRole = userRoles.find(r => r.role === 'DISPATCHER' && r.is_active);
 
-    if (!isAdmin && !operatorRole) {
+    if (!isAdmin && !operatorRole && !dispatcherRole) {
       return res.status(403).json({
         success: false,
-        message: 'Only operators or admins can update trip status',
+        message: 'Only operators, dispatchers, or admins can update trip status',
       });
     }
 
-    // If operator, verify they own this trip
-    if (!isAdmin && operatorRole) {
+    // If operator or dispatcher, verify they own this trip
+    if (!isAdmin && (operatorRole || dispatcherRole)) {
       const tripWithBus = await Trip.findByPk(id, {
         include: [{ model: Bus, as: 'bus', attributes: ['operator_id'] }],
       });
-      if (!tripWithBus || tripWithBus.bus.operator_id !== operatorRole.operator_id) {
+      const ownerId = operatorRole ? operatorRole.operator_id : dispatcherRole.operator_id;
+      if (!tripWithBus || tripWithBus.bus.operator_id !== ownerId) {
         return res.status(403).json({
           success: false,
           message: 'You can only update status of your own trips',
@@ -481,6 +483,100 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
       message: 'Failed to update trip status',
       error: error.message,
     });
+  }
+});
+
+// Assign crew (driver/conductor) to a trip
+router.put('/:id/assign-crew', authenticateToken, requireRole(['OPERATOR', 'SUPER_ADMIN', 'DISPATCHER']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { driver_name, driver_phone, conductor_name, conductor_phone } = req.body;
+
+    const trip = await Trip.findByPk(id);
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    // Update crew fields
+    if (driver_name !== undefined) trip.driver_name = driver_name;
+    if (driver_phone !== undefined) trip.driver_phone = driver_phone;
+    if (conductor_name !== undefined) trip.conductor_name = conductor_name;
+    if (conductor_phone !== undefined) trip.conductor_phone = conductor_phone;
+
+    await trip.save();
+
+    res.json({
+      success: true,
+      message: 'Crew assigned successfully',
+      data: { trip },
+    });
+  } catch (error) {
+    console.error('Assign crew error:', error);
+    res.status(500).json({ success: false, message: 'Failed to assign crew', error: error.message });
+  }
+});
+
+// Get passenger manifest for a trip
+router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER_ADMIN', 'DISPATCHER', 'CONDUCTOR']), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const trip = await Trip.findByPk(id, {
+      include: [
+        { model: Route, as: 'route', attributes: ['route_name', 'origin_city', 'destination_city'] },
+        { model: Bus, as: 'bus', attributes: ['bus_number', 'bus_type'] },
+      ],
+    });
+
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    // Get all bookings for this trip
+    const bookings = await Booking.findAll({
+      where: { trip_id: id, booking_status: { [Op.in]: ['CONFIRMED', 'PENDING'] } },
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'] },
+        { model: BookingPassenger, as: 'passengers' },
+      ],
+      order: [['booking_date', 'ASC']],
+    });
+
+    // Flatten passengers
+    const passengers = [];
+    for (const booking of bookings) {
+      for (const p of (booking.passengers || [])) {
+        passengers.push({
+          booking_id: booking.id,
+          pnr: booking.pnr,
+          passenger_name: p.passenger_name || p.name,
+          seat_number: p.seat_number,
+          phone: booking.user?.phone_number || '',
+          booking_status: booking.booking_status,
+          payment_status: booking.payment_status,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        trip: {
+          id: trip.id,
+          route: trip.route,
+          bus: trip.bus,
+          trip_date: trip.trip_date,
+          departure_time: trip.departure_time,
+          status: trip.status,
+        },
+        passengers,
+        total_passengers: passengers.length,
+        total_bookings: bookings.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get passengers error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get passengers', error: error.message });
   }
 });
 

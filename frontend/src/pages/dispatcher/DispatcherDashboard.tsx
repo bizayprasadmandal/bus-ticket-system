@@ -14,13 +14,23 @@ interface TripItem {
   route?: { id: number; origin_city: string; destination_city: string };
 }
 
+interface BusItem {
+  id: number;
+  bus_number: string;
+  bus_model: string;
+  bus_type: string;
+  total_seats: number;
+  status: string;
+}
+
 interface DashboardStats {
-  total_trips_today?: number;
+  total_trips?: number;
   boarding?: number;
   departed?: number;
   completed?: number;
   scheduled?: number;
   today_trips?: TripItem[];
+  available_buses_list?: BusItem[];
   [key: string]: any;
 }
 
@@ -52,7 +62,7 @@ export default function DispatcherDashboard() {
   };
 
   const statCards = [
-    { label: 'Total Trips Today', value: stats.total_trips_today ?? 0, icon: Calendar, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { label: 'Total Trips Today', value: stats.total_trips ?? 0, icon: Calendar, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { label: 'Boarding', value: stats.boarding ?? 0, icon: Users, color: 'text-amber-600', bgColor: 'bg-amber-50' },
     { label: 'Departed', value: stats.departed ?? 0, icon: PlayCircle, color: 'text-purple-600', bgColor: 'bg-purple-50' },
     { label: 'Completed', value: stats.completed ?? 0, icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
@@ -175,6 +185,32 @@ export default function DispatcherDashboard() {
           </div>
         )}
       </div>
+
+      {/* Available Buses */}
+      {stats.available_buses_list && stats.available_buses_list.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Available Buses</h3>
+            <Link to="/dispatcher/buses" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {stats.available_buses_list.map((bus) => (
+              <div key={bus.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Bus className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-800 text-sm">{bus.bus_number}</p>
+                  <p className="text-xs text-gray-500">{bus.bus_type} · {bus.total_seats} seats</p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${bus.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  {bus.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

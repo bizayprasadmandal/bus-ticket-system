@@ -53,6 +53,9 @@ import DispatcherLayout from './pages/dispatcher/DispatcherLayout';
 import DispatcherDashboard from './pages/dispatcher/DispatcherDashboard';
 import DispatcherTripsPage from './pages/dispatcher/DispatcherTripsPage';
 import DispatcherBusesPage from './pages/dispatcher/DispatcherBusesPage';
+import DispatcherCrewPage from './pages/dispatcher/DispatcherCrewPage';
+import DispatcherPassengersPage from './pages/dispatcher/DispatcherPassengersPage';
+import DispatcherSchedulePage from './pages/dispatcher/DispatcherSchedulePage';
 import DriverLayout from './pages/driver/DriverLayout';
 import DriverDashboard from './pages/driver/DriverDashboard';
 import DriverTripsPage from './pages/driver/DriverTripsPage';
@@ -137,7 +140,10 @@ function App() {
           }>
             <Route index element={<DispatcherDashboard />} />
             <Route path="trips" element={<DispatcherTripsPage />} />
+            <Route path="schedule" element={<DispatcherSchedulePage />} />
             <Route path="buses" element={<DispatcherBusesPage />} />
+            <Route path="crew" element={<DispatcherCrewPage />} />
+            <Route path="passengers" element={<DispatcherPassengersPage />} />
           </Route>
 
           <Route path="/driver" element={

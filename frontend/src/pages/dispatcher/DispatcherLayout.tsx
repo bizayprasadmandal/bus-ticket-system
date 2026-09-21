@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bus, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Bus, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Users, ClipboardList } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
 const navItems = [
   { to: '/dispatcher', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/dispatcher/trips', label: 'Trips', icon: Calendar },
+  { to: '/dispatcher/schedule', label: 'Schedule', icon: ClipboardList },
   { to: '/dispatcher/buses', label: 'Buses', icon: Bus },
+  { to: '/dispatcher/crew', label: 'Crew', icon: Users },
+  { to: '/dispatcher/passengers', label: 'Passengers', icon: Users },
 ];
 
 export default function DispatcherLayout() {

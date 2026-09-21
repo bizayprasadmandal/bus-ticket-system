@@ -27,8 +27,10 @@ export default function DispatcherBusesPage() {
   const fetchBuses = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/dashboard/dispatcher');
-      setBuses(res.data.data?.available_buses_list || []);
+      const params: Record<string, any> = {};
+      if (statusFilter !== 'ALL') params.status = statusFilter;
+      const res = await api.get('/buses', { params });
+      setBuses(res.data.data?.items || res.data.data || []);
     } catch {
       setBuses([]);
     } finally {
@@ -36,7 +38,7 @@ export default function DispatcherBusesPage() {
     }
   };
 
-  useEffect(() => { fetchBuses(); }, []);
+  useEffect(() => { fetchBuses(); }, [statusFilter]);
   useAutoRefresh(fetchBuses, 30000);
 
   const filtered = useMemo(() => {

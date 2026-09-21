@@ -108,6 +108,10 @@ export const dashboardAPI = {
 
 export const dispatcherTripAPI = {
   getMyTrips: () => api.get('/trips/dispatcher/my-trips'),
+  updateStatus: (id: number, status: string) => api.put(`/trips/${id}/status`, { status }),
+  assignCrew: (id: number, data: { driver_name?: string; driver_phone?: string; conductor_name?: string; conductor_phone?: string }) =>
+    api.put(`/trips/${id}/assign-crew`, data),
+  getPassengers: (id: number) => api.get(`/trips/${id}/passengers`),
 };
 
 export const driverTripAPI = {

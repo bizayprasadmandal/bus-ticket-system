@@ -40,7 +40,7 @@ export default function AdminRefundPage() {
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
       const res = await api.get('/admin/bookings', { params });
-      const bookings = res.data.data.bookings || res.data.data || [];
+      const bookings = res.data.data.items || [];
       const refundsList: RefundItem[] = bookings
         .filter((b: any) => b.refund_status || b.refund_amount)
         .map((b: any) => ({

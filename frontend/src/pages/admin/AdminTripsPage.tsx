@@ -36,8 +36,8 @@ export default function AdminTripsPage() {
       if (statusFilter !== 'ALL') params.status = statusFilter;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
-      const res = await api.get('/trips', { params });
-      setTrips(res.data.data.trips || res.data.data || []);
+      const res = await api.get('/admin/trips', { params });
+      setTrips(res.data.data.items || []);
     } catch {
       toast.error('Failed to load trips');
     } finally {

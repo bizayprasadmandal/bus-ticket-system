@@ -30,8 +30,8 @@ export default function AdminReviewsPage() {
       const params: any = {};
       if (searchQuery) params.search = searchQuery;
       if (ratingFilter !== 'ALL') params.rating = ratingFilter;
-      const res = await api.get('/reviews', { params });
-      setReviews(res.data.data.reviews || res.data.data || []);
+      const res = await api.get('/admin/reviews', { params });
+      setReviews(res.data.data.items || []);
     } catch {
       toast.error('Failed to load reviews');
     } finally {

@@ -37,8 +37,8 @@ export default function AdminWalletsPage() {
     try {
       const params: any = {};
       if (searchQuery) params.search = searchQuery;
-      const res = await api.get('/wallets', { params });
-      setWallets(res.data.data.wallets || res.data.data || []);
+      const res = await api.get('/admin/wallets', { params });
+      setWallets(res.data.data.items || []);
     } catch {
       toast.error('Failed to load wallets');
     } finally {

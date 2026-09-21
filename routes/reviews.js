@@ -179,12 +179,7 @@ router.get('/my-reviews', authenticateToken, async (req, res) => {
       include: [
         { model: Trip, as: 'trip', attributes: ['id', 'trip_date', 'departure_time'],
           include: [
-            { model: Route, as: 'route', attributes: ['id'],
-              include: [
-                { model: City, as: 'origin', attributes: ['id', 'name'] },
-                { model: City, as: 'destination', attributes: ['id', 'name'] },
-              ]
-            }
+            { model: Route, as: 'route', attributes: ['id', 'origin_city', 'destination_city'] },
           ]
         },
       ],

@@ -294,7 +294,7 @@ router.get('/', authenticateToken, commonValidation.pagination, handleValidation
         {
           model: Payment,
           as: 'payments',
-          order: [['created_at', 'DESC']],
+          order: [['booking_date', 'DESC']],
           limit: 1,
         },
       ],
@@ -359,7 +359,7 @@ router.get('/:id', authenticateToken, commonValidation.idParam, handleValidation
         {
           model: Payment,
           as: 'payments',
-          order: [['created_at', 'DESC']],
+          order: [['booking_date', 'DESC']],
         },
       ],
     });
@@ -578,7 +578,7 @@ router.get('/operator/my-bookings', authenticateToken, async (req, res) => {
         },
         { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
       ],
-      order: [['created_at', 'DESC']],
+      order: [['booking_date', 'DESC']],
     });
 
     res.json({
@@ -611,7 +611,7 @@ router.get('/conductor/my-bookings', authenticateToken, async (req, res) => {
         },
         { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
       ],
-      order: [['created_at', 'DESC']],
+      order: [['booking_date', 'DESC']],
     });
 
     res.json({
@@ -644,7 +644,7 @@ router.get('/counter-agent/my-bookings', authenticateToken, async (req, res) => 
         },
         { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
       ],
-      order: [['created_at', 'DESC']],
+      order: [['booking_date', 'DESC']],
     });
 
     res.json({

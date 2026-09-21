@@ -1,5 +1,6 @@
 const express = require('express');
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 const {
   Booking,
   Trip,
@@ -1055,7 +1056,8 @@ router.get('/operator/revenue', authenticateToken, requireRole(['OPERATOR']), as
       }),
 
       // Average booking value
-      Booking.avg('total_amount', {
+      Booking.findOne({
+        attributes: [[sequelize.fn('AVG', sequelize.col('Booking.total_amount')), 'avg_amount']],
         where: {
           payment_status: 'COMPLETED',
           booking_date: { [Op.gte]: thirtyDaysAgo },
@@ -1064,11 +1066,14 @@ router.get('/operator/revenue', authenticateToken, requireRole(['OPERATOR']), as
           {
             model: Trip,
             as: 'trip',
+            required: true,
             include: [
               { model: Route, as: 'route', where: { operator_id: operatorId } },
             ],
           },
         ],
+        raw: true,
+        nest: true,
       }),
 
       // Cancelled bookings revenue lost
@@ -1098,7 +1103,7 @@ router.get('/operator/revenue', authenticateToken, requireRole(['OPERATOR']), as
         summary: {
           total_revenue: parseFloat(totalRevenue || 0),
           total_bookings: totalBookings,
-          average_booking_value: parseFloat(averageBookingValue || 0),
+          average_booking_value: parseFloat(averageBookingValue?.avg_amount || 0),
           cancelled_revenue_lost: parseFloat(cancelledRevenue || 0),
         },
       },
@@ -1182,7 +1187,7 @@ router.get('/operator/notifications', authenticateToken, requireRole(['OPERATOR'
           },
           { model: Bus, as: 'bus', attributes: ['id', 'bus_number', 'total_seats'] },
         ],
-        attributes: ['id', 'trip_date', 'departure_time', 'available_seats', 'total_seats'],
+        attributes: ['id', 'trip_date', 'departure_time', 'available_seats'],
         order: [['trip_date', 'ASC'], ['departure_time', 'ASC']],
       }).then(trips => {
         return trips
@@ -1201,10 +1206,10 @@ router.get('/operator/notifications', authenticateToken, requireRole(['OPERATOR'
           .slice(0, 10);
       }),
 
-      // Schedule changes (trips updated in the last 24 hours)
+      // Schedule changes (trips created in the last 24 hours)
       Trip.findAll({
         where: {
-          updated_at: { [Op.gte]: new Date(currentDate.getTime() - (24 * 60 * 60 * 1000)) },
+          created_at: { [Op.gte]: new Date(currentDate.getTime() - (24 * 60 * 60 * 1000)) },
           trip_date: { [Op.gte]: todayStr },
         },
         include: [
@@ -1216,8 +1221,8 @@ router.get('/operator/notifications', authenticateToken, requireRole(['OPERATOR'
           },
           { model: Bus, as: 'bus', attributes: ['id', 'bus_number'] },
         ],
-        attributes: ['id', 'trip_date', 'departure_time', 'status', 'available_seats', 'updated_at'],
-        order: [['updated_at', 'DESC']],
+        attributes: ['id', 'trip_date', 'departure_time', 'status', 'available_seats', 'created_at'],
+        order: [['created_at', 'DESC']],
         limit: 10,
       }),
     ]);

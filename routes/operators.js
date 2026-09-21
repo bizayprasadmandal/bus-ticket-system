@@ -44,50 +44,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get operator details
-router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const operator = await Operator.findByPk(id, {
-      include: [
-        {
-          model: Bus,
-          as: 'buses',
-          where: { status: 'ACTIVE' },
-          required: false,
-        },
-        {
-          model: Route,
-          as: 'routes',
-          where: { is_active: true },
-          required: false,
-        },
-      ],
-    });
-
-    if (!operator) {
-      return res.status(404).json({
-        success: false,
-        message: 'Operator not found',
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Operator details retrieved successfully',
-      data: { operator },
-    });
-  } catch (error) {
-    console.error('Get operator error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get operator details',
-      error: error.message,
-    });
-  }
-});
-
 // Register as operator
 router.post('/register', authenticateToken, operatorValidation.register, handleValidationErrors, async (req, res) => {
   try {
@@ -519,6 +475,50 @@ router.put('/profile', authenticateToken, requireRole(['OPERATOR']), async (req,
     res.status(500).json({
       success: false,
       message: 'Failed to update operator profile',
+      error: error.message,
+    });
+  }
+});
+
+// Get operator details (MUST be after all named routes to avoid conflicts)
+router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const operator = await Operator.findByPk(id, {
+      include: [
+        {
+          model: Bus,
+          as: 'buses',
+          where: { status: 'ACTIVE' },
+          required: false,
+        },
+        {
+          model: Route,
+          as: 'routes',
+          where: { is_active: true },
+          required: false,
+        },
+      ],
+    });
+
+    if (!operator) {
+      return res.status(404).json({
+        success: false,
+        message: 'Operator not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Operator details retrieved successfully',
+      data: { operator },
+    });
+  } catch (error) {
+    console.error('Get operator error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get operator details',
       error: error.message,
     });
   }

@@ -132,9 +132,9 @@ export default function CounterAgentLayout() {
               </nav>
             </div>
             <div className="flex items-center gap-4">
-              <a href="/" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              <Link to="/" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                 <ExternalLink className="h-4 w-4" /> View Site
-              </a>
+              </Link>
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
                 <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
                   <span className="text-amber-600 font-semibold text-xs">

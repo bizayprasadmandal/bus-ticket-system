@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronUp,
@@ -40,6 +41,7 @@ function mapStatus(filter: string, booking: Booking): boolean {
 }
 
 export default function MyBookingsPage() {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -140,7 +142,7 @@ export default function MyBookingsPage() {
             <button
               className="mt-5 px-6 py-2.5 text-white text-sm font-bold rounded-full transition-all"
               style={{ backgroundColor: '#d84e55' }}
-              onClick={() => (window.location.href = '/search')}
+              onClick={() => navigate('/search')}
             >
               <span className="flex items-center gap-2">
                 <Search className="h-4 w-4" />

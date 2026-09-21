@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Users, UserCog, Ticket, DollarSign, Bus, Route, CreditCard, TrendingUp, RefreshCw, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { dashboardAPI } from '../../api';
 import toast from 'react-hot-toast';
@@ -125,19 +126,22 @@ export default function AdminDashboard() {
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">{card.label}</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{card.value}</p>
+        {statCards.map((card) => {
+          const href = card.label === 'Total Users' ? '/admin/users' : card.label === 'Operators' ? '/admin/operators' : card.label === 'Total Bookings' ? '/admin/reports' : '#';
+          return (
+            <Link to={href} key={card.label} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow block">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">{card.label}</p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">{card.value}</p>
+                </div>
+                <div className={`p-3 rounded-xl ${card.lightColor}`}>
+                  <card.icon className={`h-6 w-6 ${card.color.replace('bg-', 'text-')}`} />
+                </div>
               </div>
-              <div className={`p-3 rounded-xl ${card.lightColor}`}>
-                <card.icon className={`h-6 w-6 ${card.color.replace('bg-', 'text-')}`} />
-              </div>
-            </div>
-          </div>
-        ))}
+            </Link>
+          );
+        })}
       </div>
 
       {/* System Stats */}
@@ -170,7 +174,7 @@ export default function AdminDashboard() {
             <div className="p-8 text-center text-gray-500">No recent activity</div>
           ) : (
             activities.slice(0, 10).map((activity) => (
-              <div key={activity.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
+              <div key={activity.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex-shrink-0">
                   <div className={`w-2 h-2 rounded-full ${
                     activity.booking_status === 'COMPLETED' ? 'bg-green-500' :

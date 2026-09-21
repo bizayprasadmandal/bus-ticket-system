@@ -63,6 +63,7 @@ export default function TripTrackingPage() {
   const [tripInfo, setTripInfo] = useState<TripInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const socketRef = useRef<any>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -127,7 +128,7 @@ export default function TripTrackingPage() {
         clearInterval(pollingRef.current);
       }
     };
-  }, [tripId]);
+  }, [tripId, retryCount]);
 
   function startPolling() {
     if (pollingRef.current) return;
@@ -179,7 +180,7 @@ export default function TripTrackingPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Trip</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => setRetryCount((c) => c + 1)}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
           >
             Try Again

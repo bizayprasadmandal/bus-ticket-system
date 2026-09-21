@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, Users, Clock, CheckCircle, MapPin, ArrowRight, RefreshCw, Loader2, Play, CheckCircle2 } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -123,12 +124,15 @@ export default function DriverDashboard() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Today's Trips</h3>
-          <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
+            <Link to="/driver/trips" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+          </div>
         </div>
         {stats.today_trips && stats.today_trips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: TripItem) => (
-              <div key={trip.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <div key={trip.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                 <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
                   <Calendar className="h-6 w-6 text-emerald-600" />
                 </div>

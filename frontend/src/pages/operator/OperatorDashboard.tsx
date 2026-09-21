@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Bus, Route, Calendar, Ticket, TrendingUp, MapPin, Clock, RefreshCw, Loader2, ArrowRight } from 'lucide-react';
 import { dashboardAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -93,12 +94,15 @@ export default function OperatorDashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-800">Today's Trips</h3>
-            <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
+              <Link to="/operator/trips" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+            </div>
           </div>
           {stats.today_trips && stats.today_trips.length > 0 ? (
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {stats.today_trips.map((trip: any, i: number) => (
-                <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                     <Calendar className="h-5 w-5 text-blue-600" />
                   </div>
@@ -138,12 +142,15 @@ export default function OperatorDashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-800">Recent Bookings</h3>
-            <span className="text-sm text-gray-500">{stats.recent_bookings?.length || 0} bookings</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">{stats.recent_bookings?.length || 0} bookings</span>
+              <Link to="/operator/bookings" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+            </div>
           </div>
           {stats.recent_bookings && stats.recent_bookings.length > 0 ? (
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {stats.recent_bookings.slice(0, 10).map((booking: any, i: number) => (
-                <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                   <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                     <Ticket className="h-5 w-5 text-orange-600" />
                   </div>

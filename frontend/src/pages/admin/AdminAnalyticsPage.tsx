@@ -74,15 +74,43 @@ export default function AdminAnalyticsPage() {
       }
 
       if (routeRes.status === 'fulfilled') {
-        setRouteData(routeRes.value.data.data?.routes ?? routeRes.value.data.data ?? []);
+        const bookings = routeRes.value.data.data?.bookings ?? [];
+        const routeMap = new Map<string, { origin_city: string; destination_city: string; bookings: number; revenue: number; total_fare: number }>();
+        for (const b of bookings) {
+          const parts = (b.route || ' → ').split(' → ');
+          const key = b.route || 'Unknown';
+          const existing = routeMap.get(key) || { origin_city: parts[0] || 'Unknown', destination_city: parts[1] || 'Unknown', bookings: 0, revenue: 0, total_fare: 0 };
+          existing.bookings += 1;
+          existing.revenue += b.total_amount || 0;
+          existing.total_fare += b.total_amount || 0;
+          routeMap.set(key, existing);
+        }
+        const routes = Array.from(routeMap.values())
+          .map(r => ({ ...r, avg_fare: r.bookings > 0 ? Math.round(r.total_fare / r.bookings) : 0 }))
+          .sort((a, b) => b.bookings - a.bookings);
+        setRouteData(routes);
       }
 
       if (hourRes.status === 'fulfilled') {
-        setHourData(hourRes.value.data.data?.hours ?? hourRes.value.data.data ?? []);
+        const bookings = hourRes.value.data.data?.bookings ?? [];
+        const hourMap = new Map<number, number>();
+        for (let h = 0; h < 24; h++) hourMap.set(h, 0);
+        for (const b of bookings) {
+          const d = new Date(b.booking_date);
+          const hour = d.getHours();
+          hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+        }
+        setHourData(Array.from(hourMap.entries()).map(([hour, count]) => ({ hour, count })));
       }
 
       if (trendRes.status === 'fulfilled') {
-        setDailyTrends(trendRes.value.data.data?.daily ?? trendRes.value.data.data ?? []);
+        const bookings = trendRes.value.data.data?.bookings ?? [];
+        const dayMap = new Map<string, number>();
+        for (const b of bookings) {
+          const date = b.booking_date?.split('T')[0] || 'unknown';
+          dayMap.set(date, (dayMap.get(date) || 0) + 1);
+        }
+        setDailyTrends(Array.from(dayMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)));
       }
     } catch {
       toast.error('Failed to load analytics');

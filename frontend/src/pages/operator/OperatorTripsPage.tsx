@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Calendar, X, Search, ChevronLeft, ChevronRight, Clock, Bus, Edit, Trash2 } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Plus, Calendar, X, Search, ChevronLeft, ChevronRight, Clock, Bus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { operatorTripAPI, operatorBusAPI, operatorRouteAPI } from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import Dropdown from '../../components/Dropdown';
 import DatePicker from '../../components/DatePicker';
@@ -31,9 +32,7 @@ export default function OperatorTripsPage() {
 
   const itemsPerPage = 10;
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [tripsRes, busesRes, routesRes] = await Promise.all([
         operatorTripAPI.getMyTrips(),
@@ -44,7 +43,9 @@ export default function OperatorTripsPage() {
       setBuses(busesRes.data.data.buses || []);
       setRoutes(routesRes.data.data.routes || []);
     } catch { toast.error('Failed to load data'); } finally { setLoading(false); }
-  };
+  }, []);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
 
   const filteredTrips = useMemo(() => {
     return trips.filter((trip) => {
@@ -135,12 +136,24 @@ export default function OperatorTripsPage() {
           <h1 className="text-2xl font-bold text-gray-800">My Trips</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your scheduled trips</p>
         </div>
-        <button
-          onClick={() => { setEditingTrip(null); setForm({ bus_id: 0, route_id: 0, trip_date: '', departure_time: '', current_fare: 0, available_seats: 30 }); setShowModal(true); }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Add Trip
-        </button>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => { setEditingTrip(null); setForm({ bus_id: 0, route_id: 0, trip_date: '', departure_time: '', current_fare: 0, available_seats: 30 }); setShowModal(true); }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Add Trip
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

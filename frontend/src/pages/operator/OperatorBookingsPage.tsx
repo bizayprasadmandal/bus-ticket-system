@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw } from 'lucide-react';
 import { operatorBookingAPI } from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
@@ -38,14 +39,14 @@ export default function OperatorBookingsPage() {
 
   const itemsPerPage = 10;
 
-  useEffect(() => { loadBookings(); }, []);
-
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     try {
       const res = await operatorBookingAPI.getMyBookings();
       setBookings(res.data.data.bookings || []);
     } catch { toast.error('Failed to load bookings'); } finally { setLoading(false); }
-  };
+  }, []);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
@@ -80,9 +81,23 @@ export default function OperatorBookingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">My Bookings</h1>
-        <p className="text-sm text-gray-500 mt-1">View and manage all bookings for your trips</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">My Bookings</h1>
+          <p className="text-sm text-gray-500 mt-1">View and manage all bookings for your trips</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit, Trash2, Bus, X, Search, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Plus, Edit, Trash2, Bus, X, Search, ChevronLeft, ChevronRight, Users, RefreshCw } from 'lucide-react';
 import { operatorBusAPI } from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import Dropdown from '../../components/Dropdown';
 import toast from 'react-hot-toast';
@@ -28,14 +29,14 @@ export default function OperatorBusesPage() {
 
   const itemsPerPage = 10;
 
-  useEffect(() => { loadBuses(); }, []);
-
-  const loadBuses = async () => {
+  const loadBuses = useCallback(async () => {
     try {
       const res = await operatorBusAPI.getMyBuses();
       setBuses(res.data.data.buses || []);
     } catch { toast.error('Failed to load buses'); } finally { setLoading(false); }
-  };
+  }, []);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBuses, 30000);
 
   const filteredBuses = useMemo(() => {
     return buses.filter((bus) => {
@@ -109,12 +110,24 @@ export default function OperatorBusesPage() {
           <h1 className="text-2xl font-bold text-gray-800">My Buses</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your bus fleet</p>
         </div>
-        <button
-          onClick={() => { setEditingBus(null); setForm({ bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30 }); setShowModal(true); }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Add Bus
-        </button>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => { setEditingBus(null); setForm({ bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30 }); setShowModal(true); }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Add Bus
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

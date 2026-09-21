@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit, Trash2, MapPin, X, Search, ChevronLeft, ChevronRight, Clock, Navigation } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Plus, Edit, Trash2, MapPin, X, Search, ChevronLeft, ChevronRight, Clock, Navigation, RefreshCw } from 'lucide-react';
 import { operatorRouteAPI } from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
@@ -26,14 +27,14 @@ export default function OperatorRoutesPage() {
 
   const itemsPerPage = 10;
 
-  useEffect(() => { loadRoutes(); }, []);
-
-  const loadRoutes = async () => {
+  const loadRoutes = useCallback(async () => {
     try {
       const res = await operatorRouteAPI.getMyRoutes();
       setRoutes(res.data.data.routes || []);
     } catch { toast.error('Failed to load routes'); } finally { setLoading(false); }
-  };
+  }, []);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadRoutes, 30000);
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
@@ -90,12 +91,24 @@ export default function OperatorRoutesPage() {
           <h1 className="text-2xl font-bold text-gray-800">My Routes</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your bus routes and schedules</p>
         </div>
-        <button
-          onClick={() => { setEditingRoute(null); setForm({ origin_city: '', destination_city: '', distance_km: 0, estimated_duration: '', base_fare: 0 }); setShowModal(true); }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Add Route
-        </button>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => { setEditingRoute(null); setForm({ origin_city: '', destination_city: '', distance_km: 0, estimated_duration: '', base_fare: 0 }); setShowModal(true); }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Add Route
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

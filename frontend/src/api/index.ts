@@ -100,6 +100,10 @@ export const dashboardAPI = {
   getCustomer: () => api.get('/dashboard/customer'),
   getOperator: () => api.get('/dashboard/operator'),
   getAdmin: () => api.get('/dashboard/admin'),
+  getDispatcher: () => api.get('/dashboard/dispatcher'),
+  getDriver: () => api.get('/dashboard/driver'),
+  getConductor: () => api.get('/dashboard/conductor'),
+  getCounterAgent: () => api.get('/dashboard/counter-agent'),
 };
 
 export const reportAPI = {

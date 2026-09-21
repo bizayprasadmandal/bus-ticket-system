@@ -25,6 +25,14 @@ export default function LoginPage() {
         navigate('/admin');
       } else if (roles.includes('OPERATOR')) {
         navigate('/operator');
+      } else if (roles.includes('DISPATCHER')) {
+        navigate('/dispatcher');
+      } else if (roles.includes('DRIVER')) {
+        navigate('/driver');
+      } else if (roles.includes('CONDUCTOR')) {
+        navigate('/conductor');
+      } else if (roles.includes('COUNTER_AGENT')) {
+        navigate('/counter');
       } else {
         navigate('/');
       }

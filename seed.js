@@ -313,6 +313,26 @@ const seed = async () => {
     await UserRole.findOrCreate({ where: { user_id: operatorUser.id, role: 'OPERATOR' }, defaults: { user_id: operatorUser.id, role: 'OPERATOR', operator_id: firstOp?.id, is_active: true } });
     await UserWallet.findOrCreate({ where: { user_id: operatorUser.id }, defaults: { user_id: operatorUser.id, balance: 0 } });
 
+    // --- Staff Users (Dispatcher, Driver, Conductor, Counter Agent) ---
+    const staffData = [
+      { phone_number: '9800000003', full_name: 'Rajesh Dispatcher', email: 'dispatcher@samayadeluxe.com', role: 'DISPATCHER' },
+      { phone_number: '9800000004', full_name: 'Suresh Driver', email: 'driver@samayadeluxe.com', role: 'DRIVER' },
+      { phone_number: '9800000005', full_name: 'Ram Bahadur Conductor', email: 'conductor@samayadeluxe.com', role: 'CONDUCTOR' },
+      { phone_number: '9800000006', full_name: 'Hari Counter Agent', email: 'counter@samayadeluxe.com', role: 'COUNTER_AGENT' },
+    ];
+    for (const s of staffData) {
+      const [user] = await User.findOrCreate({
+        where: { phone_number: s.phone_number },
+        defaults: { full_name: s.full_name, email: s.email, password: passwordHash, status: 'ACTIVE' },
+      });
+      await UserRole.findOrCreate({
+        where: { user_id: user.id, role: s.role },
+        defaults: { user_id: user.id, role: s.role, operator_id: firstOp?.id, is_active: true },
+      });
+      await UserWallet.findOrCreate({ where: { user_id: user.id }, defaults: { user_id: user.id, balance: 0 } });
+    }
+    console.log(`Seeded ${staffData.length} staff users (dispatcher, driver, conductor, counter agent)`);
+
     // --- Sample Bookings ---
     const allTrips = await Trip.findAll({ include: [{ model: Route, as: 'route' }, { model: Bus, as: 'bus' }], order: [['id', 'ASC']] });
     const futureTrips = allTrips.filter(t => t.status === 'SCHEDULED');

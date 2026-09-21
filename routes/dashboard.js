@@ -477,4 +477,460 @@ router.get('/analytics/bookings', authenticateToken, requireRole(['OPERATOR', 'S
   }
 });
 
+// Dashboard overview for dispatchers
+router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const dispatcherRole = userRoles.find(role => role.role === 'DISPATCHER' && role.is_active);
+
+    if (!dispatcherRole || !dispatcherRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Dispatcher operator information not found',
+      });
+    }
+
+    const operatorId = dispatcherRole.operator_id;
+    const currentDate = new Date();
+    const todayStr = currentDate.toISOString().split('T')[0];
+
+    const [
+      todayTrips,
+      tripsByStatus,
+      availableBuses,
+      recentStatusChanges,
+    ] = await Promise.all([
+      // Today's trips for the operator
+      Trip.findAll({
+        where: { trip_date: todayStr },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+          },
+          {
+            model: Bus,
+            as: 'bus',
+          },
+        ],
+        order: [['departure_time', 'ASC']],
+      }),
+
+      // Trips by status
+      Promise.all([
+        Trip.count({
+          where: { trip_date: todayStr },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+        Trip.count({
+          where: { trip_date: todayStr, status: 'BOARDING' },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+        Trip.count({
+          where: { trip_date: todayStr, status: 'DEPARTED' },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+        Trip.count({
+          where: { trip_date: todayStr, status: 'COMPLETED' },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+        Trip.count({
+          where: { trip_date: todayStr, status: 'SCHEDULED' },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+      ]).then(([total_trips, boarding, departed, completed, scheduled]) => ({
+        total_trips, boarding, departed, completed, scheduled,
+      })),
+
+      // Available buses
+      Bus.count({ where: { operator_id: operatorId, status: 'ACTIVE' } }),
+
+      // Recent status changes (today's trips that are not SCHEDULED)
+      Trip.findAll({
+        where: {
+          trip_date: todayStr,
+          status: { [Op.ne]: 'SCHEDULED' },
+        },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+          },
+          {
+            model: Bus,
+            as: 'bus',
+          },
+        },
+        order: [['departure_time', 'DESC']],
+        limit: 10,
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Dispatcher dashboard data retrieved successfully',
+      data: {
+        stats: {
+          total_trips: tripsByStatus.total_trips,
+          boarding: tripsByStatus.boarding,
+          departed: tripsByStatus.departed,
+          completed: tripsByStatus.completed,
+          scheduled: tripsByStatus.scheduled,
+        },
+        today_trips: todayTrips,
+        available_buses: availableBuses,
+        recent_status_changes: recentStatusChanges,
+      },
+    });
+  } catch (error) {
+    console.error('Dispatcher dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get dispatcher dashboard data',
+      error: error.message,
+    });
+  }
+});
+
+// Dashboard overview for drivers
+router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const driverRole = userRoles.find(role => role.role === 'DRIVER' && role.is_active);
+
+    if (!driverRole || !driverRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Driver operator information not found',
+      });
+    }
+
+    const operatorId = driverRole.operator_id;
+    const currentDate = new Date();
+    const todayStr = currentDate.toISOString().split('T')[0];
+
+    const [
+      todayTrips,
+      tripStatuses,
+    ] = await Promise.all([
+      // Today's trips for the operator
+      Trip.findAll({
+        where: { trip_date: todayStr },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+          },
+          {
+            model: Bus,
+            as: 'bus',
+          },
+        ],
+        order: [['departure_time', 'ASC']],
+      }),
+
+      // Trip statuses
+      Promise.all([
+        Trip.count({
+          where: { trip_date: todayStr },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+        Trip.count({
+          where: { trip_date: todayStr, status: 'COMPLETED' },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+        Trip.count({
+          where: { trip_date: todayStr, status: { [Op.in]: ['SCHEDULED', 'BOARDING'] } },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+      ]).then(([total_today, completed, upcoming]) => ({
+        total_today, completed, upcoming,
+      })),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Driver dashboard data retrieved successfully',
+      data: {
+        stats: {
+          total_today: tripStatuses.total_today,
+          completed: tripStatuses.completed,
+          upcoming: tripStatuses.upcoming,
+        },
+        today_trips: todayTrips,
+      },
+    });
+  } catch (error) {
+    console.error('Driver dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get driver dashboard data',
+      error: error.message,
+    });
+  }
+});
+
+// Dashboard overview for conductors
+router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const conductorRole = userRoles.find(role => role.role === 'CONDUCTOR' && role.is_active);
+
+    if (!conductorRole || !conductorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Conductor operator information not found',
+      });
+    }
+
+    const operatorId = conductorRole.operator_id;
+    const currentDate = new Date();
+    const todayStr = currentDate.toISOString().split('T')[0];
+
+    const [
+      todayTrips,
+      bookingStats,
+    ] = await Promise.all([
+      // Today's trips for the operator with passenger counts
+      Trip.findAll({
+        where: { trip_date: todayStr },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+          },
+          {
+            model: Bus,
+            as: 'bus',
+          },
+          {
+            model: Booking,
+            as: 'bookings',
+            where: { booking_status: ['CONFIRMED', 'COMPLETED'] },
+            required: false,
+            include: [
+              {
+                model: User,
+                as: 'user',
+                attributes: ['full_name', 'phone_number'],
+              },
+            ],
+          },
+        ],
+        order: [['departure_time', 'ASC']],
+      }),
+
+      // Total passengers and revenue
+      Promise.all([
+        Booking.sum('total_passengers', {
+          where: {
+            booking_status: ['CONFIRMED', 'COMPLETED'],
+          },
+          include: [
+            {
+              model: Trip,
+              as: 'trip',
+              where: { trip_date: todayStr },
+              include: [
+                { model: Route, as: 'route', where: { operator_id: operatorId } },
+              ],
+            },
+          ],
+        }),
+        Booking.sum('total_amount', {
+          where: {
+            booking_status: ['CONFIRMED', 'COMPLETED'],
+            payment_status: 'COMPLETED',
+          },
+          include: [
+            {
+              model: Trip,
+              as: 'trip',
+              where: { trip_date: todayStr },
+              include: [
+                { model: Route, as: 'route', where: { operator_id: operatorId } },
+              ],
+            },
+          ],
+        }),
+      ]).then(([total_passengers, total_revenue]) => ({
+        total_passengers: total_passengers || 0,
+        total_revenue: parseFloat(total_revenue || 0),
+      })),
+    ]);
+
+    // Enrich trips with passenger count per trip
+    const enrichedTrips = todayTrips.map(trip => {
+      const tripData = trip.toJSON();
+      tripData.passenger_count = tripData.bookings ? tripData.bookings.length : 0;
+      tripData.total_revenue = tripData.bookings
+        ? tripData.bookings.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
+        : 0;
+      return tripData;
+    });
+
+    res.json({
+      success: true,
+      message: 'Conductor dashboard data retrieved successfully',
+      data: {
+        stats: {
+          total_trips: todayTrips.length,
+          total_passengers: bookingStats.total_passengers,
+          total_revenue: bookingStats.total_revenue,
+        },
+        today_trips: enrichedTrips,
+      },
+    });
+  } catch (error) {
+    console.error('Conductor dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get conductor dashboard data',
+      error: error.message,
+    });
+  }
+});
+
+// Dashboard overview for counter agents
+router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const counterAgentRole = userRoles.find(role => role.role === 'COUNTER_AGENT' && role.is_active);
+
+    if (!counterAgentRole || !counterAgentRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Counter agent operator information not found',
+      });
+    }
+
+    const operatorId = counterAgentRole.operator_id;
+    const currentDate = new Date();
+    const todayStr = currentDate.toISOString().split('T')[0];
+
+    const [
+      availableTrips,
+      bookingStats,
+      recentBookings,
+    ] = await Promise.all([
+      // Today's available trips for booking
+      Trip.findAll({
+        where: {
+          trip_date: todayStr,
+          status: ['SCHEDULED', 'BOARDING'],
+          available_seats: { [Op.gt]: 0 },
+        },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+          },
+          {
+            model: Bus,
+            as: 'bus',
+          },
+        ],
+        order: [['departure_time', 'ASC']],
+      }),
+
+      // Today's bookings and revenue stats
+      Promise.all([
+        Booking.count({
+          where: {
+            booking_status: ['CONFIRMED', 'COMPLETED'],
+          },
+          include: [
+            {
+              model: Trip,
+              as: 'trip',
+              where: { trip_date: todayStr },
+              include: [
+                { model: Route, as: 'route', where: { operator_id: operatorId } },
+              ],
+            },
+          ],
+        }),
+        Booking.sum('total_amount', {
+          where: {
+            booking_status: ['CONFIRMED', 'COMPLETED'],
+            payment_status: 'COMPLETED',
+          },
+          include: [
+            {
+              model: Trip,
+              as: 'trip',
+              where: { trip_date: todayStr },
+              include: [
+                { model: Route, as: 'route', where: { operator_id: operatorId } },
+              ],
+            },
+          ],
+        }),
+      ]).then(([today_bookings, today_revenue]) => ({
+        today_bookings,
+        today_revenue: parseFloat(today_revenue || 0),
+      })),
+
+      // Recent bookings made at counter (today)
+      Booking.findAll({
+        where: {
+          booking_date: {
+            [Op.gte]: new Date(currentDate.setHours(0, 0, 0, 0)),
+          },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            where: { trip_date: todayStr },
+            include: [
+              {
+                model: Route,
+                as: 'route',
+                where: { operator_id: operatorId },
+              },
+            ],
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['full_name', 'phone_number'],
+          },
+        ],
+        order: [['booking_date', 'DESC']],
+        limit: 10,
+      }),
+    ]);
+
+    const totalAvailableSeats = availableTrips.reduce((sum, t) => sum + (t.available_seats || 0), 0);
+
+    res.json({
+      success: true,
+      message: 'Counter agent dashboard data retrieved successfully',
+      data: {
+        stats: {
+          today_trips: availableTrips.length,
+          available_seats: totalAvailableSeats,
+          today_bookings: bookingStats.today_bookings,
+          today_revenue: bookingStats.today_revenue,
+        },
+        available_trips: availableTrips,
+        recent_bookings: recentBookings,
+      },
+    });
+  } catch (error) {
+    console.error('Counter agent dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get counter agent dashboard data',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

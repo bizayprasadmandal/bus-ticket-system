@@ -22,6 +22,20 @@ import AdminOperatorsPage from './pages/admin/AdminOperatorsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage';
 import ApiDocsPage from './pages/admin/ApiDocsPage';
+import DispatcherLayout from './pages/dispatcher/DispatcherLayout';
+import DispatcherDashboard from './pages/dispatcher/DispatcherDashboard';
+import DispatcherTripsPage from './pages/dispatcher/DispatcherTripsPage';
+import DriverLayout from './pages/driver/DriverLayout';
+import DriverDashboard from './pages/driver/DriverDashboard';
+import DriverTripsPage from './pages/driver/DriverTripsPage';
+import ConductorLayout from './pages/conductor/ConductorLayout';
+import ConductorDashboard from './pages/conductor/ConductorDashboard';
+import ConductorTripsPage from './pages/conductor/ConductorTripsPage';
+import ConductorPassengersPage from './pages/conductor/ConductorPassengersPage';
+import CounterAgentLayout from './pages/counter/CounterAgentLayout';
+import CounterAgentDashboard from './pages/counter/CounterAgentDashboard';
+import CounterAgentBookPage from './pages/counter/CounterAgentBookPage';
+import CounterAgentBookingsPage from './pages/counter/CounterAgentBookingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
@@ -74,6 +88,44 @@ function App() {
             <Route path="routes" element={<OperatorRoutesPage />} />
             <Route path="trips" element={<OperatorTripsPage />} />
             <Route path="bookings" element={<OperatorBookingsPage />} />
+          </Route>
+
+          <Route path="/dispatcher" element={
+            <ProtectedRoute allowedRoles={['DISPATCHER', 'OPERATOR']}>
+              <DispatcherLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<DispatcherDashboard />} />
+            <Route path="trips" element={<DispatcherTripsPage />} />
+          </Route>
+
+          <Route path="/driver" element={
+            <ProtectedRoute allowedRoles={['DRIVER', 'OPERATOR']}>
+              <DriverLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<DriverDashboard />} />
+            <Route path="trips" element={<DriverTripsPage />} />
+          </Route>
+
+          <Route path="/conductor" element={
+            <ProtectedRoute allowedRoles={['CONDUCTOR', 'OPERATOR']}>
+              <ConductorLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<ConductorDashboard />} />
+            <Route path="trips" element={<ConductorTripsPage />} />
+            <Route path="passengers" element={<ConductorPassengersPage />} />
+          </Route>
+
+          <Route path="/counter" element={
+            <ProtectedRoute allowedRoles={['COUNTER_AGENT', 'OPERATOR']}>
+              <CounterAgentLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<CounterAgentDashboard />} />
+            <Route path="book" element={<CounterAgentBookPage />} />
+            <Route path="bookings" element={<CounterAgentBookingsPage />} />
           </Route>
 
           <Route path="/admin" element={

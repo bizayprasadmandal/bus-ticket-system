@@ -13,7 +13,7 @@ export interface User {
 
 export interface UserRole {
   id: number;
-  role: 'CUSTOMER' | 'OPERATOR' | 'SUPER_ADMIN';
+  role: 'CUSTOMER' | 'OPERATOR' | 'SUPER_ADMIN' | 'AGENT' | 'DISPATCHER' | 'DRIVER' | 'CONDUCTOR' | 'COUNTER_AGENT';
   operator_id?: number;
   is_active: boolean;
 }

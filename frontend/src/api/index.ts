@@ -209,6 +209,30 @@ export const adminCityAPI = {
   update: (id: number, data: any) => api.put(`/cities/${id}`, data),
 };
 
+export const adminAnalyticsAPI = {
+  get: (params?: any) => api.get('/admin/dashboard/analytics', { params }),
+};
+
+export const adminRoleAPI = {
+  addRole: (userId: number, role: string) => api.put(`/admin/users/${userId}/roles`, { role }),
+  removeRole: (userId: number, role: string) => api.delete(`/admin/users/${userId}/roles/${role}`),
+};
+
+export const adminNotificationAPI = {
+  announce: (data: { title: string; message: string; target: string; priority: string }) =>
+    api.post('/admin/notifications/announce', data),
+  getAll: (params?: any) => api.get('/notifications', { params }),
+};
+
+export const adminSettingsAPI = {
+  get: () => api.get('/admin/settings'),
+  update: (data: any) => api.put('/admin/settings', data),
+};
+
+export const adminAuditAPI = {
+  getAll: (params?: any) => api.get('/admin/audit-log', { params }),
+};
+
 export const reviewAPI = {
   create: (data: any) => api.post('/reviews', data),
   getTripReviews: (tripId: number, params?: any) => api.get(`/reviews/trip/${tripId}`, { params }),

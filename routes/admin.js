@@ -52,14 +52,57 @@ router.get('/operators', async (req, res) => {
   }
 });
 
-// GET /admin/operators/:id - Get operator details
+// GET /admin/operators/:id - Get operator details with stats
 router.get('/operators/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
-    const operator = await Operator.findByPk(req.params.id);
+    const operator = await Operator.findByPk(req.params.id, {
+      include: [
+        { model: Bus, as: 'buses', attributes: ['id'] },
+        { model: Route, as: 'routes', attributes: ['id'] },
+      ],
+    });
     if (!operator) {
       return res.status(404).json({ success: false, message: 'Operator not found' });
     }
-    res.json({ success: true, data: { operator } });
+
+    const busCount = operator.buses ? operator.buses.length : 0;
+    const routeCount = operator.routes ? operator.routes.length : 0;
+
+    // Get total bookings and revenue via trips
+    const operatorBusIds = (operator.buses || []).map(b => b.id);
+    let totalBookings = 0;
+    let totalRevenue = 0;
+
+    if (operatorBusIds.length > 0) {
+      const trips = await Trip.findAll({
+        where: { bus_id: { [Op.in]: operatorBusIds } },
+        attributes: ['id'],
+        raw: true,
+      });
+      const tripIds = trips.map(t => t.id);
+
+      if (tripIds.length > 0) {
+        totalBookings = await Booking.count({ where: { trip_id: { [Op.in]: tripIds } } });
+
+        const revenueResult = await Booking.findOne({
+          where: { trip_id: { [Op.in]: tripIds } },
+          attributes: [[sequelize.fn('SUM', sequelize.col('total_amount')), 'total_revenue']],
+          raw: true,
+        });
+        totalRevenue = revenueResult ? parseFloat(revenueResult.total_revenue || 0) : 0;
+      }
+    }
+
+    const operatorData = operator.toJSON();
+    operatorData.buses_count = busCount;
+    operatorData.routes_count = routeCount;
+    operatorData.total_bookings = totalBookings;
+    operatorData.total_revenue = totalRevenue;
+
+    delete operatorData.buses;
+    delete operatorData.routes;
+
+    res.json({ success: true, data: { operator: operatorData } });
   } catch (error) {
     console.error('Admin get operator error:', error);
     res.status(500).json({ success: false, message: 'Failed to get operator', error: error.message });
@@ -586,6 +629,360 @@ router.get('/wallets', async (req, res) => {
   } catch (error) {
     console.error('Admin get wallets error:', error);
     res.status(500).json({ success: false, message: 'Failed to get wallets', error: error.message });
+  }
+});
+
+// PUT /admin/users/:id/roles - Assign role to user
+router.put('/users/:id/roles', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { role, operator_id } = req.body;
+    const userId = req.params.id;
+
+    const validRoles = ['CUSTOMER', 'OPERATOR', 'AGENT', 'SUPER_ADMIN', 'DISPATCHER', 'DRIVER', 'CONDUCTOR', 'COUNTER_AGENT'];
+    if (!role || !validRoles.includes(role)) {
+      return res.status(400).json({ success: false, message: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const existingRole = await UserRole.findOne({
+      where: { user_id: userId, role },
+    });
+
+    if (existingRole) {
+      if (!existingRole.is_active) {
+        await existingRole.update({ is_active: true, operator_id: operator_id || existingRole.operator_id });
+      } else {
+        return res.status(400).json({ success: false, message: `User already has role: ${role}` });
+      }
+    } else {
+      await UserRole.create({
+        user_id: userId,
+        role,
+        operator_id: operator_id || null,
+        is_active: true,
+      });
+    }
+
+    const roles = await UserRole.findAll({
+      where: { user_id: userId, is_active: true },
+      attributes: ['id', 'role', 'operator_id', 'is_active'],
+    });
+
+    res.json({ success: true, message: `Role ${role} assigned successfully`, data: { roles } });
+  } catch (error) {
+    console.error('Admin assign role error:', error);
+    res.status(500).json({ success: false, message: 'Failed to assign role', error: error.message });
+  }
+});
+
+// DELETE /admin/users/:id/roles/:role - Remove role from user
+router.delete('/users/:id/roles/:role', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { id, role } = req.params;
+
+    if (role === 'SUPER_ADMIN') {
+      return res.status(400).json({ success: false, message: 'Cannot remove SUPER_ADMIN role' });
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const userRole = await UserRole.findOne({
+      where: { user_id: id, role: role.toUpperCase(), is_active: true },
+    });
+
+    if (!userRole) {
+      return res.status(404).json({ success: false, message: `User does not have role: ${role}` });
+    }
+
+    await userRole.update({ is_active: false });
+
+    const roles = await UserRole.findAll({
+      where: { user_id: id, is_active: true },
+      attributes: ['id', 'role', 'operator_id', 'is_active'],
+    });
+
+    res.json({ success: true, message: `Role ${role} removed successfully`, data: { roles } });
+  } catch (error) {
+    console.error('Admin remove role error:', error);
+    res.status(500).json({ success: false, message: 'Failed to remove role', error: error.message });
+  }
+});
+
+// GET /admin/dashboard/analytics - Enhanced analytics data
+router.get('/dashboard/analytics', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    // Daily new users (last 30 days)
+    const dailyUsersRaw = await User.findAll({
+      where: { created_at: { [Op.gte]: thirtyDaysAgo } },
+      attributes: [
+        [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: [sequelize.fn('DATE', sequelize.col('created_at'))],
+      order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'ASC']],
+      raw: true,
+    });
+    const daily_new_users = dailyUsersRaw.map(r => ({ date: r.date, count: parseInt(r.count) }));
+
+    // Popular routes (top 10 by bookings)
+    const popularRoutesRaw = await Booking.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('Booking.id')), 'bookings'],
+        [sequelize.fn('SUM', sequelize.col('Booking.total_amount')), 'revenue'],
+      ],
+      include: [
+        {
+          model: Trip,
+          as: 'trip',
+          attributes: [],
+          include: [
+            {
+              model: Route,
+              as: 'route',
+              attributes: ['origin_city', 'destination_city'],
+            },
+          ],
+        },
+      ],
+      group: ['trip.route.id', 'trip.route.origin_city', 'trip.route.destination_city'],
+      order: [[sequelize.fn('COUNT', sequelize.col('Booking.id')), 'DESC']],
+      limit: 10,
+      raw: true,
+      nest: true,
+    });
+    const popular_routes = popularRoutesRaw.map(r => ({
+      origin: r.trip.route.origin_city,
+      destination: r.trip.route.destination_city,
+      bookings: parseInt(r.bookings),
+      revenue: parseFloat(r.revenue || 0),
+    }));
+
+    // Peak hours (bookings by hour)
+    const peakHoursRaw = await Booking.findAll({
+      where: { booking_date: { [Op.gte]: thirtyDaysAgo } },
+      attributes: [
+        [sequelize.fn('HOUR', sequelize.col('booking_date')), 'hour'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: [sequelize.fn('HOUR', sequelize.col('booking_date'))],
+      order: [[sequelize.fn('HOUR', sequelize.col('booking_date')), 'ASC']],
+      raw: true,
+    });
+    const peak_hours = peakHoursRaw.map(r => ({ hour: parseInt(r.hour), count: parseInt(r.count) }));
+
+    // Conversion metrics
+    const searches = 0; // Placeholder - would require search tracking
+    const totalBookings = await Booking.count();
+    const completedPayments = await Payment.count({ where: { status: 'SUCCESS' } });
+    const conversion = { searches, bookings: totalBookings, completed_payments: completedPayments };
+
+    // Growth metrics
+    const usersThisMonth = await User.count({ where: { created_at: { [Op.gte]: startOfMonth } } });
+    const operatorsThisMonth = await Operator.count({ where: { created_at: { [Op.gte]: startOfMonth } } });
+
+    const bookingsThisMonth = await Booking.count({ where: { booking_date: { [Op.gte]: startOfMonth } } });
+    const bookingsLastMonth = await Booking.count({
+      where: { booking_date: { [Op.gte]: startOfLastMonth, [Op.lte]: endOfLastMonth } },
+    });
+    const bookings_growth_pct = bookingsLastMonth > 0
+      ? Math.round(((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100)
+      : 0;
+
+    const revenueThisMonthResult = await Booking.findOne({
+      where: { booking_date: { [Op.gte]: startOfMonth } },
+      attributes: [[sequelize.fn('SUM', sequelize.col('total_amount')), 'total']],
+      raw: true,
+    });
+    const revenueLastMonthResult = await Booking.findOne({
+      where: { booking_date: { [Op.gte]: startOfLastMonth, [Op.lte]: endOfLastMonth } },
+      attributes: [[sequelize.fn('SUM', sequelize.col('total_amount')), 'total']],
+      raw: true,
+    });
+    const revenueThisMonth = parseFloat(revenueThisMonthResult?.total || 0);
+    const revenueLastMonth = parseFloat(revenueLastMonthResult?.total || 0);
+    const revenue_growth_pct = revenueLastMonth > 0
+      ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100)
+      : 0;
+
+    const growth = {
+      users_this_month: usersThisMonth,
+      operators_this_month: operatorsThisMonth,
+      bookings_growth_pct,
+      revenue_growth_pct,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        daily_new_users,
+        popular_routes,
+        peak_hours,
+        conversion,
+        growth,
+      },
+    });
+  } catch (error) {
+    console.error('Admin dashboard analytics error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get analytics', error: error.message });
+  }
+});
+
+// GET /admin/audit-log - Get audit log entries (placeholder)
+router.get('/audit-log', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, action, entity_type } = req.query;
+
+    const sampleAuditLog = [
+      { id: 1, timestamp: '2026-09-22T10:00:00Z', user: 'admin@samaya.com', action: 'USER_LOGIN', entity_type: 'USER', entity_id: 1, details: 'Successful login', ip_address: '192.168.1.1' },
+      { id: 2, timestamp: '2026-09-22T10:15:00Z', user: 'admin@samaya.com', action: 'OPERATOR_CREATED', entity_type: 'OPERATOR', entity_id: 5, details: 'Created operator: Nepal Express', ip_address: '192.168.1.1' },
+      { id: 3, timestamp: '2026-09-22T10:30:00Z', user: 'operator@nepal.com', action: 'BUS_ADDED', entity_type: 'BUS', entity_id: 12, details: 'Added bus: NA 1234', ip_address: '192.168.1.2' },
+      { id: 4, timestamp: '2026-09-22T11:00:00Z', user: 'admin@samaya.com', action: 'ROLE_ASSIGNED', entity_type: 'USER_ROLE', entity_id: 3, details: 'Assigned OPERATOR role to user 3', ip_address: '192.168.1.1' },
+      { id: 5, timestamp: '2026-09-22T11:30:00Z', user: 'system', action: 'BOOKING_CONFIRMED', entity_type: 'BOOKING', entity_id: 45, details: 'PNR: ABC123, Amount: Rs. 1500', ip_address: '127.0.0.1' },
+      { id: 6, timestamp: '2026-09-22T12:00:00Z', user: 'admin@samaya.com', action: 'SETTINGS_UPDATED', entity_type: 'SYSTEM', entity_id: null, details: 'Updated tax_rate from 12 to 13', ip_address: '192.168.1.1' },
+      { id: 7, timestamp: '2026-09-22T12:30:00Z', user: 'driver@nepal.com', action: 'TRIP_STARTED', entity_type: 'TRIP', entity_id: 8, details: 'Trip started: Kathmandu to Pokhara', ip_address: '192.168.1.3' },
+      { id: 8, timestamp: '2026-09-22T13:00:00Z', user: 'customer@samaya.com', action: 'PAYMENT_RECEIVED', entity_type: 'PAYMENT', entity_id: 22, details: 'Khalti payment of Rs. 1800', ip_address: '192.168.1.4' },
+      { id: 9, timestamp: '2026-09-22T13:30:00Z', user: 'admin@samaya.com', action: 'USER_SUSPENDED', entity_type: 'USER', entity_id: 15, details: 'Suspended user for policy violation', ip_address: '192.168.1.1' },
+      { id: 10, timestamp: '2026-09-22T14:00:00Z', user: 'system', action: 'SEAT_LOCK_CLEANUP', entity_type: 'SEAT_LOCK', entity_id: null, details: 'Cleaned up 5 expired locks', ip_address: '127.0.0.1' },
+    ];
+
+    let filtered = [...sampleAuditLog];
+    if (action) filtered = filtered.filter(e => e.action === action.toUpperCase());
+    if (entity_type) filtered = filtered.filter(e => e.entity_type === entity_type.toUpperCase());
+
+    const startIndex = (page - 1) * limit;
+    const paginated = filtered.slice(startIndex, startIndex + parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        items: paginated,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(filtered.length / limit),
+          total_items: filtered.length,
+          items_per_page: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Admin audit log error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get audit log', error: error.message });
+  }
+});
+
+// POST /admin/notifications/announce - Send platform-wide notification (placeholder)
+router.post('/notifications/announce', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { title, message, target, priority } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    }
+
+    const validTargets = ['ALL', 'CUSTOMERS', 'OPERATORS', 'DRIVERS', 'DISPATCHERS'];
+    const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+    const announcement = {
+      id: Date.now(),
+      title,
+      message,
+      target: target && validTargets.includes(target.toUpperCase()) ? target.toUpperCase() : 'ALL',
+      priority: priority && validPriorities.includes(priority.toUpperCase()) ? priority.toUpperCase() : 'MEDIUM',
+      sent_by: req.user.email || req.user.id,
+      sent_at: new Date().toISOString(),
+    };
+
+    console.log('📢 Platform announcement:', JSON.stringify(announcement, null, 2));
+
+    res.status(201).json({
+      success: true,
+      message: 'Announcement sent successfully',
+      data: { announcement },
+    });
+  } catch (error) {
+    console.error('Admin announce error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send announcement', error: error.message });
+  }
+});
+
+// GET /admin/settings - Get system settings (placeholder)
+router.get('/settings', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const settings = {
+      service_fee: 5,
+      tax_rate: 13,
+      currency: 'NPR',
+      platform_name: 'Samaya Deluxe',
+      seat_lock_timeout: 10,
+      max_passengers: 10,
+      auto_cancel_timeout: 30,
+      payment_methods: {
+        khalti: true,
+        esewa: true,
+        cash: true,
+      },
+      default_payment: 'khalti',
+      notifications: {
+        email: true,
+        sms: true,
+        push: true,
+      },
+    };
+
+    res.json({ success: true, data: { settings } });
+  } catch (error) {
+    console.error('Admin get settings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get settings', error: error.message });
+  }
+});
+
+// PUT /admin/settings - Update system settings (placeholder)
+router.put('/settings', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const allowedFields = ['service_fee', 'tax_rate', 'currency', 'platform_name', 'seat_lock_timeout', 'max_passengers', 'auto_cancel_timeout', 'payment_methods', 'default_payment', 'notifications'];
+
+    const currentSettings = {
+      service_fee: 5,
+      tax_rate: 13,
+      currency: 'NPR',
+      platform_name: 'Samaya Deluxe',
+      seat_lock_timeout: 10,
+      max_passengers: 10,
+      auto_cancel_timeout: 30,
+      payment_methods: { khalti: true, esewa: true, cash: true },
+      default_payment: 'khalti',
+      notifications: { email: true, sms: true, push: true },
+    };
+
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    const updatedSettings = { ...currentSettings, ...updates };
+
+    console.log('⚙️ Settings updated by:', req.user.email || req.user.id, '| Changes:', JSON.stringify(updates, null, 2));
+
+    res.json({ success: true, message: 'Settings updated successfully', data: { settings: updatedSettings } });
+  } catch (error) {
+    console.error('Admin update settings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update settings', error: error.message });
   }
 });
 

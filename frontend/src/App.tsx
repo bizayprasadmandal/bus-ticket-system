@@ -39,6 +39,15 @@ import AdminBusesPage from './pages/admin/AdminBusesPage';
 import AdminReviewsPage from './pages/admin/AdminReviewsPage';
 import AdminCitiesPage from './pages/admin/AdminCitiesPage';
 import AdminWalletsPage from './pages/admin/AdminWalletsPage';
+import AdminOperatorDetailPage from './pages/admin/AdminOperatorDetailPage';
+import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
+import AdminRefundPage from './pages/admin/AdminRefundPage';
+import AdminDisputePage from './pages/admin/AdminDisputePage';
+import AdminNotificationPage from './pages/admin/AdminNotificationPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
+import AdminPromoCodesPage from './pages/admin/AdminPromoCodesPage';
+import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage';
 import ApiDocsPage from './pages/admin/ApiDocsPage';
 import DispatcherLayout from './pages/dispatcher/DispatcherLayout';
 import DispatcherDashboard from './pages/dispatcher/DispatcherDashboard';
@@ -167,14 +176,23 @@ function App() {
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="operators" element={<AdminOperatorsPage />} />
+            <Route path="operators/:id" element={<AdminOperatorDetailPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="users/:id" element={<AdminUserDetailPage />} />
             <Route path="bookings" element={<AdminBookingsPage />} />
             <Route path="trips" element={<AdminTripsPage />} />
             <Route path="buses" element={<AdminBusesPage />} />
             <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="analytics" element={<AdminAnalyticsPage />} />
             <Route path="reviews" element={<AdminReviewsPage />} />
-            <Route path="cities" element={<AdminCitiesPage />} />
+            <Route path="refunds" element={<AdminRefundPage />} />
+            <Route path="disputes" element={<AdminDisputePage />} />
             <Route path="wallets" element={<AdminWalletsPage />} />
+            <Route path="promo-codes" element={<AdminPromoCodesPage />} />
+            <Route path="cities" element={<AdminCitiesPage />} />
+            <Route path="notifications" element={<AdminNotificationPage />} />
+            <Route path="audit-log" element={<AdminAuditLogPage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
             <Route path="api-docs" element={<ApiDocsPage />} />
           </Route>
         </Routes>

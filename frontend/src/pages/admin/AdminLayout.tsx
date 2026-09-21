@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink, CreditCard, Bus, Map, Star, Wallet, MapPin } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink, CreditCard, Bus, Map, Star, Wallet, MapPin, RotateCcw, AlertTriangle, Bell, Settings, FileText, Tag, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -12,9 +12,16 @@ const navItems = [
   { to: '/admin/trips', label: 'Trips', icon: Map },
   { to: '/admin/buses', label: 'Buses', icon: Bus },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/admin/analytics', label: 'Analytics', icon: TrendingUp },
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
-  { to: '/admin/cities', label: 'Cities', icon: MapPin },
+  { to: '/admin/refunds', label: 'Refunds', icon: RotateCcw },
+  { to: '/admin/disputes', label: 'Disputes', icon: AlertTriangle },
   { to: '/admin/wallets', label: 'Wallets', icon: Wallet },
+  { to: '/admin/promo-codes', label: 'Promo Codes', icon: Tag },
+  { to: '/admin/cities', label: 'Cities', icon: MapPin },
+  { to: '/admin/notifications', label: 'Notifications', icon: Bell },
+  { to: '/admin/audit-log', label: 'Audit Log', icon: FileText },
+  { to: '/admin/settings', label: 'Settings', icon: Settings },
   { to: '/admin/api-docs', label: 'API Docs', icon: Code },
 ];
 
@@ -51,6 +58,13 @@ export default function AdminLayout() {
         reviews: 'Reviews',
         cities: 'Cities',
         wallets: 'Wallets',
+        analytics: 'Analytics',
+        refunds: 'Refund Management',
+        disputes: 'Dispute Resolution',
+        notifications: 'Notifications',
+        'audit-log': 'Audit Log',
+        settings: 'System Settings',
+        'promo-codes': 'Promo Codes',
       };
       if (pageLabels[page]) {
         breadcrumbs.push({ label: pageLabels[page], path: path });

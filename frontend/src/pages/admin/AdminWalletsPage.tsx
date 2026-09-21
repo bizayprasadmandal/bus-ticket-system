@@ -38,7 +38,15 @@ export default function AdminWalletsPage() {
       const params: any = {};
       if (searchQuery) params.search = searchQuery;
       const res = await api.get('/admin/wallets', { params });
-      setWallets(res.data.data.items || []);
+      const rawItems = res.data.data.items || [];
+      const mapped = rawItems.map((w: any) => ({
+        id: w.id,
+        user_name: w.user?.full_name || w.user_name || '',
+        user_phone: w.user?.phone_number || w.user_phone || '',
+        balance: parseFloat(w.balance || 0),
+        last_transaction_date: w.updated_at || w.last_transaction_date || null,
+      }));
+      setWallets(mapped);
     } catch {
       toast.error('Failed to load wallets');
     } finally {
@@ -50,10 +58,20 @@ export default function AdminWalletsPage() {
     try {
       const params: any = {};
       if (searchQuery) params.search = searchQuery;
-      const res = await api.get('/wallets/transactions', { params });
-      setTransactions(res.data.data.transactions || res.data.data || []);
+      const res = await api.get('/admin/wallets/transactions', { params });
+      const txns = res.data.data?.items || res.data.data?.transactions || res.data.data || [];
+      const mapped = txns.map((t: any) => ({
+        id: t.id,
+        user_name: t.user?.full_name || t.user_name || '',
+        user_phone: t.user?.phone_number || t.user_phone || '',
+        type: t.transaction_type || t.type || 'UNKNOWN',
+        amount: parseFloat(t.amount || 0),
+        description: t.description || '',
+        created_at: t.created_at || t.createdAt || '',
+      }));
+      setTransactions(mapped);
     } catch {
-      toast.error('Failed to load transactions');
+      setTransactions([]);
     } finally {
       setLoading(false);
     }

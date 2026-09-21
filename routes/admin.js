@@ -632,6 +632,66 @@ router.get('/wallets', async (req, res) => {
   }
 });
 
+// GET /admin/wallets/transactions - List all wallet transactions across all users
+router.get('/wallets/transactions', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, type, search } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = {};
+    if (type) whereClause.transaction_type = type.toUpperCase();
+
+    const include = [
+      {
+        model: UserWallet,
+        as: 'wallet',
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'full_name', 'phone_number'],
+          },
+        ],
+      },
+    ];
+
+    const { count, rows: transactions } = await WalletTransaction.findAndCountAll({
+      where: whereClause,
+      include,
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      distinct: true,
+    });
+
+    const mapped = transactions.map(t => ({
+      id: t.id,
+      user_name: t.wallet?.user?.full_name || '',
+      user_phone: t.wallet?.user?.phone_number || '',
+      type: t.transaction_type,
+      amount: parseFloat(t.amount || 0),
+      description: t.description || '',
+      created_at: t.created_at,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        items: mapped,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(count / limit),
+          total_items: count,
+          items_per_page: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Admin get wallet transactions error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get wallet transactions', error: error.message });
+  }
+});
+
 // PUT /admin/users/:id/roles - Assign role to user
 router.put('/users/:id/roles', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
   try {

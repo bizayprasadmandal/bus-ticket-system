@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink, CreditCard, Bus, Map, Star, Wallet, MapPin } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -8,7 +8,13 @@ const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/operators', label: 'Operators', icon: UserCog },
   { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/bookings', label: 'Bookings', icon: CreditCard },
+  { to: '/admin/trips', label: 'Trips', icon: Map },
+  { to: '/admin/buses', label: 'Buses', icon: Bus },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/admin/reviews', label: 'Reviews', icon: Star },
+  { to: '/admin/cities', label: 'Cities', icon: MapPin },
+  { to: '/admin/wallets', label: 'Wallets', icon: Wallet },
   { to: '/admin/api-docs', label: 'API Docs', icon: Code },
 ];
 
@@ -39,6 +45,12 @@ export default function AdminLayout() {
         users: 'Users',
         reports: 'Reports',
         'api-docs': 'API Documentation',
+        bookings: 'Bookings',
+        trips: 'Trips',
+        buses: 'Buses',
+        reviews: 'Reviews',
+        cities: 'Cities',
+        wallets: 'Wallets',
       };
       if (pageLabels[page]) {
         breadcrumbs.push({ label: pageLabels[page], path: path });

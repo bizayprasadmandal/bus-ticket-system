@@ -178,6 +178,37 @@ export const adminUserAPI = {
   updateStatus: (id: number, is_active: boolean) => api.put(`/admin/users/${id}/status`, { is_active }),
 };
 
+export const adminBookingAPI = {
+  getAll: (params?: any) => api.get('/admin/bookings', { params }),
+};
+
+export const adminPaymentAPI = {
+  getAll: (params?: any) => api.get('/admin/payments', { params }),
+};
+
+export const adminBusAPI = {
+  getAll: (params?: any) => api.get('/admin/buses', { params }),
+};
+
+export const adminTripAPI = {
+  getAll: (params?: any) => api.get('/admin/trips', { params }),
+};
+
+export const adminReviewAPI = {
+  getAll: (params?: any) => api.get('/admin/reviews', { params }),
+};
+
+export const adminWalletAPI = {
+  getAll: (params?: any) => api.get('/admin/wallets', { params }),
+  getTransactions: (params?: any) => api.get('/wallets/transactions', { params }),
+};
+
+export const adminCityAPI = {
+  getAll: (params?: any) => api.get('/cities', { params }),
+  create: (data: any) => api.post('/cities', data),
+  update: (id: number, data: any) => api.put(`/cities/${id}`, data),
+};
+
 export const reviewAPI = {
   create: (data: any) => api.post('/reviews', data),
   getTripReviews: (tripId: number, params?: any) => api.get(`/reviews/trip/${tripId}`, { params }),

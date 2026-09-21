@@ -114,4 +114,51 @@ router.post('/', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, re
   }
 });
 
+// Update city (Admin only)
+router.put('/:id', authenticateToken, requireRole(['SUPER_ADMIN']), commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      name_nepali,
+      district,
+      province,
+      latitude,
+      longitude,
+      is_major_city,
+    } = req.body;
+
+    const city = await City.findByPk(id);
+    if (!city) {
+      return res.status(404).json({
+        success: false,
+        message: 'City not found',
+      });
+    }
+
+    await city.update({
+      name,
+      name_nepali,
+      district,
+      province,
+      latitude,
+      longitude,
+      is_major_city,
+    });
+
+    res.json({
+      success: true,
+      message: 'City updated successfully',
+      data: { city },
+    });
+  } catch (error) {
+    console.error('Update city error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update city',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

@@ -33,6 +33,12 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOperatorsPage from './pages/admin/AdminOperatorsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage';
+import AdminBookingsPage from './pages/admin/AdminBookingsPage';
+import AdminTripsPage from './pages/admin/AdminTripsPage';
+import AdminBusesPage from './pages/admin/AdminBusesPage';
+import AdminReviewsPage from './pages/admin/AdminReviewsPage';
+import AdminCitiesPage from './pages/admin/AdminCitiesPage';
+import AdminWalletsPage from './pages/admin/AdminWalletsPage';
 import ApiDocsPage from './pages/admin/ApiDocsPage';
 import DispatcherLayout from './pages/dispatcher/DispatcherLayout';
 import DispatcherDashboard from './pages/dispatcher/DispatcherDashboard';
@@ -162,7 +168,13 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="operators" element={<AdminOperatorsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="bookings" element={<AdminBookingsPage />} />
+            <Route path="trips" element={<AdminTripsPage />} />
+            <Route path="buses" element={<AdminBusesPage />} />
             <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="reviews" element={<AdminReviewsPage />} />
+            <Route path="cities" element={<AdminCitiesPage />} />
+            <Route path="wallets" element={<AdminWalletsPage />} />
             <Route path="api-docs" element={<ApiDocsPage />} />
           </Route>
         </Routes>

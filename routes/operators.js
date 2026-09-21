@@ -409,4 +409,119 @@ router.delete('/staff/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /profile - Get operator profile
+router.get('/profile', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operator information not found',
+      });
+    }
+
+    const operator = await Operator.findByPk(operatorRole.operator_id, {
+      include: [
+        {
+          model: Bus,
+          as: 'buses',
+          where: { status: 'ACTIVE' },
+          required: false,
+          attributes: ['id', 'bus_number', 'bus_type', 'total_seats', 'status'],
+        },
+        {
+          model: Route,
+          as: 'routes',
+          where: { is_active: true },
+          required: false,
+          attributes: ['id', 'route_name', 'origin_city', 'destination_city'],
+        },
+      ],
+    });
+
+    if (!operator) {
+      return res.status(404).json({
+        success: false,
+        message: 'Operator profile not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Operator profile retrieved successfully',
+      data: { operator },
+    });
+  } catch (error) {
+    console.error('Get operator profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get operator profile',
+      error: error.message,
+    });
+  }
+});
+
+// PUT /profile - Update operator profile
+router.put('/profile', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operator information not found',
+      });
+    }
+
+    const operator = await Operator.findByPk(operatorRole.operator_id);
+
+    if (!operator) {
+      return res.status(404).json({
+        success: false,
+        message: 'Operator profile not found',
+      });
+    }
+
+    const {
+      company_name,
+      company_name_nepali,
+      contact_person,
+      phone_number,
+      email,
+      address,
+      logo_url,
+      pan_number,
+      vat_number,
+    } = req.body;
+
+    await operator.update({
+      company_name,
+      company_name_nepali,
+      contact_person,
+      phone_number,
+      email,
+      address,
+      logo_url,
+      pan_number,
+      vat_number,
+    });
+
+    res.json({
+      success: true,
+      message: 'Operator profile updated successfully',
+      data: { operator },
+    });
+  } catch (error) {
+    console.error('Update operator profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update operator profile',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

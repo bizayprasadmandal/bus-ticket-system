@@ -933,4 +933,317 @@ router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), 
   }
 });
 
+// GET /operator/revenue - Get operator revenue analytics
+router.get('/operator/revenue', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operator information not found',
+      });
+    }
+
+    const operatorId = operatorRole.operator_id;
+    const currentDate = new Date();
+    const thirtyDaysAgo = new Date(currentDate.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+    const [
+      dailyRevenue,
+      revenueByRoute,
+      totalRevenue,
+      totalBookings,
+      averageBookingValue,
+      cancelledRevenue,
+    ] = await Promise.all([
+      // Daily revenue for last 30 days
+      Booking.findAll({
+        where: {
+          payment_status: 'COMPLETED',
+          booking_date: { [Op.gte]: thirtyDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              {
+                model: Route,
+                as: 'route',
+                where: { operator_id: operatorId },
+                attributes: ['id', 'route_name', 'origin_city', 'destination_city'],
+              },
+            ],
+          },
+        ],
+        attributes: [
+          [sequelize.fn('DATE', sequelize.col('booking_date')), 'date'],
+          [sequelize.fn('SUM', sequelize.col('Booking.total_amount')), 'revenue'],
+          [sequelize.fn('COUNT', sequelize.col('Booking.id')), 'booking_count'],
+          [sequelize.fn('SUM', sequelize.col('Booking.total_passengers')), 'passenger_count'],
+        ],
+        group: [sequelize.fn('DATE', sequelize.col('booking_date'))],
+        order: [[sequelize.fn('DATE', sequelize.col('booking_date')), 'ASC']],
+        raw: true,
+        nest: true,
+      }),
+
+      // Revenue by route
+      Booking.findAll({
+        where: {
+          payment_status: 'COMPLETED',
+          booking_date: { [Op.gte]: thirtyDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              {
+                model: Route,
+                as: 'route',
+                where: { operator_id: operatorId },
+                attributes: ['id', 'route_name', 'origin_city', 'destination_city'],
+              },
+            ],
+          },
+        ],
+        attributes: [
+          [sequelize.fn('SUM', sequelize.col('Booking.total_amount')), 'revenue'],
+          [sequelize.fn('COUNT', sequelize.col('Booking.id')), 'booking_count'],
+        ],
+        group: ['trip.route.id', 'trip.route.route_name', 'trip.route.origin_city', 'trip.route.destination_city'],
+        order: [[sequelize.fn('SUM', sequelize.col('Booking.total_amount')), 'DESC']],
+        raw: true,
+        nest: true,
+      }),
+
+      // Total revenue (30 days)
+      Booking.sum('total_amount', {
+        where: {
+          payment_status: 'COMPLETED',
+          booking_date: { [Op.gte]: thirtyDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              { model: Route, as: 'route', where: { operator_id: operatorId } },
+            ],
+          },
+        ],
+      }),
+
+      // Total bookings (30 days)
+      Booking.count({
+        where: {
+          booking_status: ['CONFIRMED', 'COMPLETED'],
+          booking_date: { [Op.gte]: thirtyDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              { model: Route, as: 'route', where: { operator_id: operatorId } },
+            ],
+          },
+        ],
+      }),
+
+      // Average booking value
+      Booking.avg('total_amount', {
+        where: {
+          payment_status: 'COMPLETED',
+          booking_date: { [Op.gte]: thirtyDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              { model: Route, as: 'route', where: { operator_id: operatorId } },
+            ],
+          },
+        ],
+      }),
+
+      // Cancelled bookings revenue lost
+      Booking.sum('total_amount', {
+        where: {
+          booking_status: 'CANCELLED',
+          booking_date: { [Op.gte]: thirtyDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              { model: Route, as: 'route', where: { operator_id: operatorId } },
+            ],
+          },
+        ],
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Operator revenue analytics retrieved successfully',
+      data: {
+        daily_revenue: dailyRevenue,
+        revenue_by_route: revenueByRoute,
+        summary: {
+          total_revenue: parseFloat(totalRevenue || 0),
+          total_bookings: totalBookings,
+          average_booking_value: parseFloat(averageBookingValue || 0),
+          cancelled_revenue_lost: parseFloat(cancelledRevenue || 0),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Operator revenue analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get revenue analytics',
+      error: error.message,
+    });
+  }
+});
+
+// GET /operator/notifications - Get operator notifications
+router.get('/operator/notifications', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operator information not found',
+      });
+    }
+
+    const operatorId = operatorRole.operator_id;
+    const currentDate = new Date();
+    const todayStr = currentDate.toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(currentDate.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+    const [
+      recentCancellations,
+      lowOccupancyTrips,
+      scheduleChanges,
+    ] = await Promise.all([
+      // Recent cancellations (last 7 days)
+      Booking.findAll({
+        where: {
+          booking_status: 'CANCELLED',
+          booking_date: { [Op.gte]: sevenDaysAgo },
+        },
+        include: [
+          {
+            model: Trip,
+            as: 'trip',
+            include: [
+              {
+                model: Route,
+                as: 'route',
+                where: { operator_id: operatorId },
+                attributes: ['id', 'route_name', 'origin_city', 'destination_city'],
+              },
+              { model: Bus, as: 'bus', attributes: ['id', 'bus_number'] },
+            ],
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['full_name', 'phone_number'],
+          },
+        ],
+        attributes: ['id', 'total_amount', 'total_passengers', 'booking_date', 'cancellation_reason'],
+        order: [['booking_date', 'DESC']],
+        limit: 10,
+      }),
+
+      // Low occupancy trips (today and upcoming, < 30% seats booked)
+      Trip.findAll({
+        where: {
+          trip_date: { [Op.gte]: todayStr },
+          status: ['SCHEDULED', 'BOARDING'],
+        },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+            attributes: ['id', 'route_name', 'origin_city', 'destination_city'],
+          },
+          { model: Bus, as: 'bus', attributes: ['id', 'bus_number', 'total_seats'] },
+        ],
+        attributes: ['id', 'trip_date', 'departure_time', 'available_seats', 'total_seats'],
+        order: [['trip_date', 'ASC'], ['departure_time', 'ASC']],
+      }).then(trips => {
+        return trips
+          .map(trip => {
+            const tripData = trip.toJSON();
+            const totalSeats = tripData.bus?.total_seats || tripData.total_seats || 0;
+            const bookedSeats = totalSeats - (tripData.available_seats || 0);
+            const occupancyRate = totalSeats > 0 ? (bookedSeats / totalSeats) * 100 : 0;
+            return {
+              ...tripData,
+              booked_seats: bookedSeats,
+              occupancy_rate: Math.round(occupancyRate),
+            };
+          })
+          .filter(trip => trip.occupancy_rate < 30 && trip.booked_seats > 0)
+          .slice(0, 10);
+      }),
+
+      // Schedule changes (trips updated in the last 24 hours)
+      Trip.findAll({
+        where: {
+          updated_at: { [Op.gte]: new Date(currentDate.getTime() - (24 * 60 * 60 * 1000)) },
+          trip_date: { [Op.gte]: todayStr },
+        },
+        include: [
+          {
+            model: Route,
+            as: 'route',
+            where: { operator_id: operatorId },
+            attributes: ['id', 'route_name', 'origin_city', 'destination_city'],
+          },
+          { model: Bus, as: 'bus', attributes: ['id', 'bus_number'] },
+        ],
+        attributes: ['id', 'trip_date', 'departure_time', 'status', 'available_seats', 'updated_at'],
+        order: [['updated_at', 'DESC']],
+        limit: 10,
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Operator notifications retrieved successfully',
+      data: {
+        recent_cancellations: recentCancellations,
+        low_occupancy_trips: lowOccupancyTrips,
+        schedule_changes: scheduleChanges,
+        summary: {
+          cancellations_count: recentCancellations.length,
+          low_occupancy_count: lowOccupancyTrips.length,
+          schedule_changes_count: scheduleChanges.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Operator notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get operator notifications',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;

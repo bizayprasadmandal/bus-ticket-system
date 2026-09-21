@@ -199,3 +199,16 @@ export const fareRuleAPI = {
   delete: (id: number) => api.delete(`/fare-rules/${id}`),
   calculate: (tripId: number) => api.get(`/fare-rules/calculate/${tripId}`),
 };
+
+export const operatorProfileAPI = {
+  get: () => api.get('/operators/profile'),
+  update: (data: any) => api.put('/operators/profile', data),
+};
+
+export const operatorRevenueAPI = {
+  get: (params?: any) => api.get('/dashboard/operator/revenue', { params }),
+};
+
+export const operatorNotificationsAPI = {
+  get: () => api.get('/dashboard/operator/notifications'),
+};

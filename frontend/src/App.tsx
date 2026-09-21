@@ -22,6 +22,12 @@ import OperatorTripsPage from './pages/operator/OperatorTripsPage';
 import OperatorBookingsPage from './pages/operator/OperatorBookingsPage';
 import OperatorStaffPage from './pages/operator/OperatorStaffPage';
 import OperatorFareRulesPage from './pages/operator/OperatorFareRulesPage';
+import OperatorProfilePage from './pages/operator/OperatorProfilePage';
+import OperatorRevenuePage from './pages/operator/OperatorRevenuePage';
+import OperatorSchedulePage from './pages/operator/OperatorSchedulePage';
+import OperatorNotificationsPage from './pages/operator/OperatorNotificationsPage';
+import OperatorReportsPage from './pages/operator/OperatorReportsPage';
+import OperatorReviewsPage from './pages/operator/OperatorReviewsPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOperatorsPage from './pages/admin/AdminOperatorsPage';
@@ -99,8 +105,14 @@ function App() {
             <Route path="routes" element={<OperatorRoutesPage />} />
             <Route path="trips" element={<OperatorTripsPage />} />
             <Route path="bookings" element={<OperatorBookingsPage />} />
+            <Route path="schedule" element={<OperatorSchedulePage />} />
+            <Route path="revenue" element={<OperatorRevenuePage />} />
+            <Route path="reports" element={<OperatorReportsPage />} />
+            <Route path="reviews" element={<OperatorReviewsPage />} />
             <Route path="staff" element={<OperatorStaffPage />} />
             <Route path="fare-rules" element={<OperatorFareRulesPage />} />
+            <Route path="notifications" element={<OperatorNotificationsPage />} />
+            <Route path="profile" element={<OperatorProfilePage />} />
           </Route>
 
           <Route path="/dispatcher" element={

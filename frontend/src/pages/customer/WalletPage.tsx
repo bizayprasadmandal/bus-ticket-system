@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw, CreditCard, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { walletAPI } from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 interface WalletBalance {
   balance: number;
@@ -46,14 +47,20 @@ export default function WalletPage() {
     }
   }, []);
 
+  const fetchAll = useCallback(async () => {
+    await Promise.all([fetchBalance(), fetchTransactions()]);
+  }, [fetchBalance, fetchTransactions]);
+
+  const { isRefreshing, lastUpdated } = useAutoRefresh(fetchAll, 30000);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await Promise.all([fetchBalance(), fetchTransactions()]);
+      await fetchAll();
       setLoading(false);
     };
     load();
-  }, [fetchBalance, fetchTransactions]);
+  }, [fetchAll]);
 
   const handleTopUp = async () => {
     const amount = topUpAmount || Number(customAmount);
@@ -85,11 +92,21 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
-          My Wallet
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your wallet balance and transactions</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+            My Wallet
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Manage your wallet balance and transactions</p>
+        </div>
+        {lastUpdated && (
+          <div className="flex items-center gap-1.5">
+            <RefreshCw className={`h-3 w-3 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-[10px] text-gray-400">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Balance Cards */}

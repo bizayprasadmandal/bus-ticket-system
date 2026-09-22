@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { reviewAPI } from '../../api';
 import toast from 'react-hot-toast';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 interface Review {
   id: number;
@@ -56,11 +58,7 @@ export default function ReviewsPage() {
   const [tripId, setTripId] = useState('');
   const [activeTab, setActiveTab] = useState<'write' | 'my'>('write');
 
-  useEffect(() => {
-    loadMyReviews();
-  }, []);
-
-  const loadMyReviews = async () => {
+  const loadMyReviews = useCallback(async () => {
     try {
       setLoading(true);
       const res = await reviewAPI.getMyReviews();
@@ -70,7 +68,13 @@ export default function ReviewsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const { isRefreshing, lastUpdated } = useAutoRefresh(loadMyReviews, 30000);
+
+  useEffect(() => {
+    loadMyReviews();
+  }, [loadMyReviews]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +123,17 @@ export default function ReviewsPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Reviews & Ratings</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Reviews & Ratings</h1>
+        {lastUpdated && (
+          <div className="flex items-center gap-1.5">
+            <RefreshCw className={`h-3 w-3 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-[10px] text-gray-400">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-6 border-b">

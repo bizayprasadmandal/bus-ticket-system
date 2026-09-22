@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Search, Clock, Bus, MapPin, ArrowRight, RefreshCw, Route } from 'lucide-react';
+import { Calendar, Search, Clock, Bus, MapPin, ArrowRight, RefreshCw, Route, Download } from 'lucide-react';
 import { driverTripAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -74,6 +74,38 @@ export default function DriverTripsPage() {
 
   if (loading) return <TableSkeleton rows={5} cols={5} />;
 
+  const exportCSV = (data: any[], filename: string, headers: string[]) => {
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportTrips = () => {
+    if (filteredTrips.length === 0) {
+      toast.error('No trips to export');
+      return;
+    }
+    const rows = filteredTrips.map(trip => ({
+      ID: trip.id,
+      Route: `${trip.route?.origin_city || ''} → ${trip.route?.destination_city || ''}`,
+      Date: trip.trip_date,
+      Time: trip.departure_time,
+      Status: trip.status,
+      'Departure Time': trip.departure_time,
+      'Arrival Time': trip.arrival_time || '',
+    }));
+    exportCSV(rows, 'my-trips.csv', ['ID', 'Route', 'Date', 'Time', 'Status', 'Departure Time', 'Arrival Time']);
+    toast.success('CSV exported successfully');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -85,6 +117,14 @@ export default function DriverTripsPage() {
           {lastUpdated && (
             <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
           )}
+          <button
+            onClick={handleExportTrips}
+            disabled={filteredTrips.length === 0}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <button
             onClick={refresh}
             disabled={isRefreshing}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Calendar, Search, ChevronLeft, ChevronRight, Clock, Bus, MapPin, RefreshCw, ArrowRight } from 'lucide-react';
+import { Calendar, Search, ChevronLeft, ChevronRight, Clock, Bus, MapPin, RefreshCw, ArrowRight, Download } from 'lucide-react';
 import { dispatcherTripAPI } from '../../api';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -76,6 +76,29 @@ export default function DispatcherTripsPage() {
     CANCELLED: 'bg-red-100 text-red-700',
   };
 
+  const exportCSV = (data: TripItem[], filename: string, headers: string[]) => {
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => {
+        if (h === 'Route') return `"${row.route?.origin_city || ''} → ${row.route?.destination_city || ''}"`;
+        if (h === 'Bus') return `"${row.bus?.bus_number || ''} (${row.bus?.bus_type || ''})"`;
+        if (h === 'Seats Available') return `"${row.available_seats}"`;
+        return `"${(row as any)[h] || ''}"`;
+      }).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    exportCSV(filteredTrips, 'trips.csv', ['ID', 'Route', 'Date', 'Time', 'Bus', 'Status', 'Seats Available']);
+  };
+
   const nextStatusMap: Record<string, string[]> = {
     SCHEDULED: ['BOARDING', 'CANCELLED'],
     BOARDING: ['DEPARTED', 'CANCELLED'],
@@ -108,6 +131,13 @@ export default function DispatcherTripsPage() {
           {lastUpdated && (
             <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
           )}
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-[#d84e55] rounded-lg hover:bg-[#c4434a] transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <button
             onClick={refresh}
             disabled={isRefreshing}
@@ -174,16 +204,19 @@ export default function DispatcherTripsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Route</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Bus</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Time</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">Seats</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {paginatedTrips.map((trip) => (
                 <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{trip.id}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-gray-400" />
@@ -216,6 +249,7 @@ export default function DispatcherTripsPage() {
                       {trip.status}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-700">{trip.available_seats}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       {getNextStatuses(trip.status).length > 0 ? (
@@ -238,7 +272,7 @@ export default function DispatcherTripsPage() {
               ))}
               {paginatedTrips.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No trips found</p>
                   </td>

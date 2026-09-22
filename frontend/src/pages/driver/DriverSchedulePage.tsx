@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, RefreshCw, Clock, ArrowRight, Bus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Clock, ArrowRight, Bus, Download } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -112,6 +112,42 @@ export default function DriverSchedulePage() {
 
   if (loading) return <TableSkeleton rows={5} cols={7} />;
 
+  const exportCSV = (data: any[], filename: string, headers: string[]) => {
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportSchedule = () => {
+    const allTrips = Object.entries(tripsByDate).flatMap(([dateKey, dayTrips]) => {
+      return dayTrips.map(trip => {
+        const date = new Date(dateKey + 'T00:00:00');
+        const dayName = fullDayNames[date.getDay() === 0 ? 6 : date.getDay() - 1];
+        return {
+          Day: dayName,
+          Route: `${trip.route?.origin_city || ''} → ${trip.route?.destination_city || ''}`,
+          Departure: trip.departure_time,
+          Arrival: trip.arrival_time || '',
+          Bus: trip.bus?.bus_number || '',
+        };
+      });
+    });
+    if (allTrips.length === 0) {
+      toast.error('No schedule to export');
+      return;
+    }
+    exportCSV(allTrips, 'weekly-schedule.csv', ['Day', 'Route', 'Departure', 'Arrival', 'Bus']);
+    toast.success('CSV exported successfully');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -123,6 +159,14 @@ export default function DriverSchedulePage() {
           {lastUpdated && (
             <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
           )}
+          <button
+            onClick={handleExportSchedule}
+            disabled={trips.length === 0}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <button
             onClick={refresh}
             disabled={isRefreshing}

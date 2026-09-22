@@ -15,6 +15,7 @@ const navItems = [
   { to: '/admin/analytics', label: 'Analytics', icon: TrendingUp },
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
   { to: '/admin/refunds', label: 'Refunds', icon: RotateCcw },
+  { to: '/admin/payments', label: 'Payments', icon: CreditCard },
   { to: '/admin/disputes', label: 'Disputes', icon: AlertTriangle },
   { to: '/admin/wallets', label: 'Wallets', icon: Wallet },
   { to: '/admin/promo-codes', label: 'Promo Codes', icon: Tag },

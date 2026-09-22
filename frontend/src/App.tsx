@@ -48,6 +48,7 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
 import AdminPromoCodesPage from './pages/admin/AdminPromoCodesPage';
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage';
+import AdminPaymentsPage from './pages/admin/AdminPaymentsPage';
 import ApiDocsPage from './pages/admin/ApiDocsPage';
 import DispatcherLayout from './pages/dispatcher/DispatcherLayout';
 import DispatcherDashboard from './pages/dispatcher/DispatcherDashboard';
@@ -206,6 +207,7 @@ function App() {
             <Route path="analytics" element={<AdminAnalyticsPage />} />
             <Route path="reviews" element={<AdminReviewsPage />} />
             <Route path="refunds" element={<AdminRefundPage />} />
+            <Route path="payments" element={<AdminPaymentsPage />} />
             <Route path="disputes" element={<AdminDisputePage />} />
             <Route path="wallets" element={<AdminWalletsPage />} />
             <Route path="promo-codes" element={<AdminPromoCodesPage />} />

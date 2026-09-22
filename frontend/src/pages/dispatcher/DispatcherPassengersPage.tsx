@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Users, MapPin, ArrowRight, Clock, Bus, ChevronDown } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Users, MapPin, ArrowRight, Clock, Bus, ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { dispatcherTripAPI } from '../../api';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -35,6 +35,8 @@ export default function DispatcherPassengersPage() {
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const [passengerData, setPassengerData] = useState<PassengerData>({});
   const [loadingPassengers, setLoadingPassengers] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const fetchTrips = useCallback(async () => {
     try {
@@ -63,6 +65,7 @@ export default function DispatcherPassengersPage() {
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
     if (selectedTripId) {
       fetchPassengers(selectedTripId);
     } else {
@@ -79,10 +82,31 @@ export default function DispatcherPassengersPage() {
     CANCELLED: 'bg-red-100 text-red-700',
   };
 
+  const exportCSV = (data: Passenger[], filename: string, headers: string[]) => {
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => `"${(row as any)[h] || ''}"`).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    exportCSV(passengers, `passengers-trip-${selectedTripId}.csv`, ['pnr', 'name', 'seat_number', 'phone_number', 'booking_status']);
+  };
+
   const selectedTrip = trips.find((t) => t.id === selectedTripId);
   const passengers = passengerData.passengers || [];
   const totalPassengers = passengers.length;
   const totalBookings = new Set(passengers.map((p) => p.pnr)).size;
+
+  const totalPages = Math.ceil(passengers.length / itemsPerPage);
+  const paginatedPassengers = passengers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loadingTrips) return <TableSkeleton rows={5} cols={6} />;
 
@@ -100,6 +124,15 @@ export default function DispatcherPassengersPage() {
         >
           Refresh
         </button>
+        {selectedTripId && passengers.length > 0 && (
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-[#d84e55] rounded-lg hover:bg-[#c4434a] transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* Trip Selector */}
@@ -195,9 +228,9 @@ export default function DispatcherPassengersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {passengers.map((p, idx) => (
+                  {paginatedPassengers.map((p, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-gray-500">{idx + 1}</td>
+                      <td className="px-4 py-3 text-gray-500">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                       <td className="px-4 py-3 text-gray-700">{p.seat_number}</td>
                       <td className="px-4 py-3 text-gray-700">{p.phone_number}</td>
@@ -217,6 +250,32 @@ export default function DispatcherPassengersPage() {
                 </tbody>
               </table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+                <p className="text-sm text-gray-500">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, passengers.length)} of {passengers.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <button key={page} onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#d84e55] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        {page}
+                      </button>
+                    );
+                  })}
+                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           ) : (
             <div className="text-center py-12">
               <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />

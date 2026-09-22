@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, CheckCircle, XCircle, AlertTriangle, Users, MapPin, Phone, Clock, ArrowRight, Bus, Loader2 } from 'lucide-react';
+import { Search, CheckCircle, XCircle, AlertTriangle, Users, MapPin, Phone, Clock, ArrowRight, Bus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 interface PassengerDetail {
@@ -40,7 +41,16 @@ export default function ConductorVerifyPage() {
   const [result, setResult] = useState<BookingDetail | null>(null);
   const [history, setHistory] = useState<VerificationHistory[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const historyPageSize = 10;
+
+  const loadHistory = useCallback(async () => {
+    // Verification history is maintained client-side;
+    // this refresh keeps the hook's timer active for consistency.
+  }, []);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadHistory, 30000);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -320,9 +330,18 @@ export default function ConductorVerifyPage() {
 
       {history.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Recent Verifications</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Recent Verifications</h3>
+            <div className="flex items-center gap-2">
+              {lastUpdated && (
+                <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+              )}
+            </div>
+          </div>
           <div className="space-y-2">
-            {history.map((item, i) => (
+            {history
+              .slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize)
+              .map((item, i) => (
               <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 {item.status === 'success' ? (
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -339,6 +358,53 @@ export default function ConductorVerifyPage() {
               </div>
             ))}
           </div>
+          {Math.ceil(history.length / historyPageSize) > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                Showing {((historyPage - 1) * historyPageSize) + 1} to {Math.min(historyPage * historyPageSize, history.length)} of {history.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                  disabled={historyPage === 1}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {Array.from({ length: Math.min(5, Math.ceil(history.length / historyPageSize)) }, (_, i) => {
+                  const totalPages = Math.ceil(history.length / historyPageSize);
+                  let page: number;
+                  if (totalPages <= 5) {
+                    page = i + 1;
+                  } else if (historyPage <= 3) {
+                    page = i + 1;
+                  } else if (historyPage >= totalPages - 2) {
+                    page = totalPages - 4 + i;
+                  } else {
+                    page = historyPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setHistoryPage(page)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                        historyPage === page ? 'bg-[#d84e55] text-white' : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setHistoryPage((p) => Math.min(Math.ceil(history.length / historyPageSize), p + 1))}
+                  disabled={historyPage === Math.ceil(history.length / historyPageSize)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

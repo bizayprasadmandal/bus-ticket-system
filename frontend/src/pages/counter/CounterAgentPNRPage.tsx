@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Search, Phone, Ticket, MapPin, Calendar, Clock, Users, Printer, X, Loader2, ChevronDown } from 'lucide-react';
+import { Search, Phone, Ticket, MapPin, Calendar, Clock, Users, Printer, X, Loader2, ChevronDown, Download } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -42,6 +42,13 @@ export default function CounterAgentPNRPage() {
   const [error, setError] = useState('');
   const [history, setHistory] = useState<LookupHistoryItem[]>([]);
   const [cancelling, setCancelling] = useState(false);
+
+  const loadData = useCallback(async () => {
+    // Recent lookups are maintained client-side;
+    // this refresh keeps the hook's timer active for consistency.
+  }, []);
+
+  const { isRefreshing, lastUpdated } = useAutoRefresh(loadData, 30000);
 
   const addHistory = (query: string, mode: 'pnr' | 'phone') => {
     setHistory((prev) => {
@@ -159,6 +166,48 @@ export default function CounterAgentPNRPage() {
       </body></html>
     `);
     printWindow.document.close();
+  };
+
+  const exportCSV = (data: any[], filename: string, headers: string[]) => {
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportSearchResult = () => {
+    if (!result) {
+      toast.error('No search result to export');
+      return;
+    }
+    const rows = [
+      {
+        PNR: result.pnr,
+        Passenger: result.user?.full_name || '',
+        Phone: result.user?.phone_number || '',
+        Route: `${result.trip?.route?.origin_city || ''} → ${result.trip?.route?.destination_city || ''}`,
+        Date: result.trip?.trip_date || '',
+        Time: result.trip?.departure_time || '',
+        Bus: result.trip?.bus?.bus_number || '',
+        'Bus Type': result.trip?.bus?.bus_type || '',
+        Passengers: result.passengers?.length || 0,
+        'Base Amount': result.base_amount || 0,
+        Tax: result.tax_amount || 0,
+        'Service Fee': result.service_fee || 0,
+        Total: result.total_amount || 0,
+        Status: result.booking_status,
+        Payment: result.payment_status,
+      }
+    ];
+    exportCSV(rows, `booking-${result.pnr}.csv`, Object.keys(rows[0]));
+    toast.success('CSV exported successfully');
   };
 
   const statusColors: Record<string, string> = {
@@ -331,6 +380,12 @@ export default function CounterAgentPNRPage() {
             >
               <Printer className="h-4 w-4" /> Print Ticket
             </button>
+            <button
+              onClick={handleExportSearchResult}
+              className="py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 px-4"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </button>
             {result.booking_status === 'CONFIRMED' && (
               <button
                 onClick={handleCancel}
@@ -347,7 +402,12 @@ export default function CounterAgentPNRPage() {
       {/* Recent Lookups */}
       {history.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Lookups</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">Recent Lookups</h3>
+            {lastUpdated && (
+              <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+            )}
+          </div>
           <div className="space-y-2">
             {history.map((item, i) => (
               <button

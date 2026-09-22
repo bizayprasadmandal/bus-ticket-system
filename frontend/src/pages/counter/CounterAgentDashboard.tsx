@@ -25,7 +25,7 @@ export default function CounterAgentDashboard() {
     try {
       setError(null);
       const res = await api.get('/dashboard/counter-agent');
-      setStats(res.data.data);
+      setStats(res.data.data.stats || {});
     } catch {
       setError('Failed to load dashboard data');
       toast.error('Failed to load dashboard');
@@ -37,7 +37,7 @@ export default function CounterAgentDashboard() {
   const fetchRecentBookings = useCallback(async () => {
     try {
       const res = await api.get('/bookings/counter/my-bookings');
-      setRecentBookings((res.data.data || []).slice(0, 5));
+      setRecentBookings((res.data.data.items || []).slice(0, 5));
     } catch {
       // silent
     }

@@ -885,10 +885,11 @@ router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), 
         order: [['departure_time', 'ASC']],
       }),
 
-      // Today's bookings and revenue stats
+      // Today's bookings and revenue stats (agent-specific)
       Promise.all([
         Booking.count({
           where: {
+            user_id: req.user.id,
             booking_status: ['CONFIRMED', 'COMPLETED'],
           },
           include: [
@@ -896,14 +897,12 @@ router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), 
               model: Trip,
               as: 'trip',
               where: { trip_date: todayStr },
-              include: [
-                { model: Route, as: 'route', where: { operator_id: operatorId } },
-              ],
             },
           ],
         }),
         Booking.sum('total_amount', {
           where: {
+            user_id: req.user.id,
             booking_status: ['CONFIRMED', 'COMPLETED'],
             payment_status: 'COMPLETED',
           },
@@ -912,9 +911,6 @@ router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), 
               model: Trip,
               as: 'trip',
               where: { trip_date: todayStr },
-              include: [
-                { model: Route, as: 'route', where: { operator_id: operatorId } },
-              ],
             },
           ],
         }),
@@ -923,30 +919,21 @@ router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), 
         today_revenue: parseFloat(today_revenue || 0),
       })),
 
-      // Recent bookings made at counter (today)
+      // Recent bookings made by this counter agent (last 7 days)
       Booking.findAll({
         where: {
-          booking_date: {
-            [Op.gte]: new Date(currentDate.setHours(0, 0, 0, 0)),
-          },
+          user_id: req.user.id,
         },
         include: [
           {
             model: Trip,
             as: 'trip',
-            where: { trip_date: todayStr },
             include: [
               {
                 model: Route,
                 as: 'route',
-                where: { operator_id: operatorId },
               },
             ],
-          },
-          {
-            model: User,
-            as: 'user',
-            attributes: ['full_name', 'phone_number'],
           },
         ],
         order: [['booking_date', 'DESC']],

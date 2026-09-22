@@ -159,7 +159,6 @@ export default function CounterAgentBookPage() {
         trip_date: tripDate,
       });
       setResults(res.data.data.trips || res.data.data);
-      setStep('select');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Search failed');
     } finally {
@@ -345,10 +344,10 @@ export default function CounterAgentBookPage() {
 
       {/* Step Indicator */}
       <div className="flex items-center gap-2 text-sm">
-        {['search', 'select', 'book'].map((s, i) => {
-          const labels: Record<string, string> = { search: 'Search', select: 'Select Trip', book: 'Book & Pay' };
+        {['search', 'book'].map((s, i) => {
+          const labels: Record<string, string> = { search: 'Search', book: 'Book & Pay' };
           const isActive = step === s;
-          const isDone = ['search', 'select', 'book', 'success'].indexOf(step) > i;
+          const isDone = ['search', 'book', 'success'].indexOf(step) > i;
           return (
             <div key={s} className="flex items-center gap-2">
               {i > 0 && <div className={`w-8 h-px ${isDone || isActive ? 'bg-[#d84e55]' : 'bg-gray-200'}`} />}

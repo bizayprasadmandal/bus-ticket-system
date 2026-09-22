@@ -143,7 +143,7 @@ export default function CounterAgentBookPage() {
   // Auto-select trip from ?tripId= param (Quick Book from dashboard)
   useEffect(() => {
     const tripId = searchParams.get('tripId');
-    if (tripId) {
+    if (tripId && !selectedTrip && !loadingTrip) {
       setLoadingTrip(true);
       tripAPI.getSeats(Number(tripId))
         .then(async (seatRes) => {
@@ -161,7 +161,7 @@ export default function CounterAgentBookPage() {
         })
         .finally(() => setLoadingTrip(false));
     }
-  }, [searchParams, navigate]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const swapCities = () => {
     setOrigin(destination);

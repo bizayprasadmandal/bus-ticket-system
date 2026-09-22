@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Ticket, Search, LogOut, Menu, X, ChevronRight, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Ticket, Search, LogOut, Menu, X, ChevronRight, ExternalLink, Phone, Banknote } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,8 @@ const navItems = [
   { to: '/counter', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/counter/book', label: 'Book Ticket', icon: Ticket },
   { to: '/counter/bookings', label: 'My Bookings', icon: Search },
+  { to: '/counter/lookup', label: 'PNR Lookup', icon: Phone },
+  { to: '/counter/reconciliation', label: 'Reconciliation', icon: Banknote },
 ];
 
 export default function CounterAgentLayout() {

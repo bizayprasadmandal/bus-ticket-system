@@ -10,9 +10,12 @@ import {
   Loader2,
   CreditCard,
   CheckCircle,
+  Banknote,
+  Printer,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { tripAPI, bookingAPI, cityAPI } from '../../api';
+import api from '../../api';
+import { tripAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -116,7 +119,7 @@ export default function CounterAgentBookPage() {
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<'search' | 'select' | 'book' | 'confirm'>('search');
+  const [step, setStep] = useState<'search' | 'select' | 'book' | 'confirm' | 'success'>('search');
   const [bookingResult, setBookingResult] = useState<any>(null);
 
   useEffect(() => {
@@ -200,6 +203,8 @@ export default function CounterAgentBookPage() {
     return passengers.every((p) => p.name && p.age && p.gender && p.id_number);
   };
 
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+
   const handleSubmit = async () => {
     if (selectedSeats.length === 0) {
       toast.error('Please select at least one seat');
@@ -221,18 +226,106 @@ export default function CounterAgentBookPage() {
         id_type: p.id_type,
         id_number: p.id_number,
       }));
-      const response = await bookingAPI.create({
+      const response = await api.post('/bookings', {
         trip_id: Number(selectedTrip!.id),
         passengers: passengerData,
       });
       setBookingResult(response.data.data.booking);
       setStep('confirm');
-      toast.success('Booking created successfully!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Booking failed');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCashPayment = async () => {
+    if (!bookingResult || !selectedTrip) return;
+    setPaymentProcessing(true);
+    try {
+      const passengerData = passengers.map((p, i) => ({
+        seat_number: selectedSeats[i],
+        passenger_name: p.name,
+        phone: p.phone,
+        age: Number(p.age),
+        gender: p.gender.toUpperCase(),
+        id_type: p.id_type,
+        id_number: p.id_number,
+      }));
+      const response = await api.post('/bookings/cash-payment', {
+        trip_id: Number(selectedTrip.id),
+        passengers: passengerData,
+        passenger_name: passengers[0]?.name || '',
+        passenger_phone: passengers[0]?.phone || '',
+      });
+      setBookingResult((prev: any) => ({
+        ...prev,
+        ...response.data.data.booking,
+        payment_status: 'PAID',
+        booking_status: 'CONFIRMED',
+      }));
+      setStep('success');
+      toast.success('Cash payment recorded successfully!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Payment processing failed');
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  const handlePrintTicket = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow || !bookingResult || !selectedTrip) return;
+    const pnr = bookingResult.pnr || bookingResult.id;
+    const route = `${selectedTrip.route?.origin_city} → ${selectedTrip.route?.destination_city}`;
+    const date = selectedTrip.trip_date;
+    const time = selectedTrip.departure_time;
+    const bus = `${selectedTrip.bus?.bus_type} (${selectedTrip.bus?.bus_number})`;
+    const passengerRows = passengers
+      .map(
+        (p, i) =>
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.name}</td><td style="padding:4px 8px;border:1px solid #ddd;">${selectedSeats[i]}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.phone || '-'}</td></tr>`
+      )
+      .join('');
+    printWindow.document.write(`
+      <html><head><title>Ticket - ${pnr}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        .ticket { max-width: 400px; margin: 0 auto; border: 2px solid #d84e55; padding: 16px; border-radius: 8px; }
+        .header { text-align: center; border-bottom: 2px dashed #d84e55; padding-bottom: 12px; margin-bottom: 12px; }
+        .header h1 { margin: 0; color: #d84e55; font-size: 22px; }
+        .header p { margin: 4px 0 0; color: #666; font-size: 12px; }
+        .stamp { text-align: center; margin: 12px 0; }
+        .stamp span { display: inline-block; border: 3px solid #16a34a; color: #16a34a; font-size: 18px; font-weight: bold; padding: 4px 16px; border-radius: 4px; transform: rotate(-5deg); }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+        th { background: #f3f4f6; padding: 4px 8px; border: 1px solid #ddd; text-align: left; font-size: 12px; }
+        .info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+        .info-row span:first-child { color: #666; }
+        .total { text-align: right; font-size: 18px; font-weight: bold; color: #d84e55; margin-top: 8px; border-top: 2px solid #d84e55; padding-top: 8px; }
+        .footer { text-align: center; margin-top: 12px; font-size: 11px; color: #999; }
+      </style></head><body>
+      <div class="ticket">
+        <div class="header">
+          <h1>Gadi Yatra</h1>
+          <p>Bus Ticket</p>
+        </div>
+        <div class="info-row"><span>PNR</span><strong>${pnr}</strong></div>
+        <div class="info-row"><span>Route</span><strong>${route}</strong></div>
+        <div class="info-row"><span>Date</span><strong>${date}</strong></div>
+        <div class="info-row"><span>Time</span><strong>${time}</strong></div>
+        <div class="info-row"><span>Bus</span><strong>${bus}</strong></div>
+        <table>
+          <thead><tr><th>#</th><th>Passenger</th><th>Seat</th><th>Phone</th></tr></thead>
+          <tbody>${passengerRows}</tbody>
+        </table>
+        <div class="total">Total: NPR ${bookingResult.total_amount?.toLocaleString()}</div>
+        <div class="stamp"><span>PAID - CASH</span></div>
+        <div class="footer">Thank you for traveling with us!</div>
+      </div>
+      <script>window.onload=function(){window.print();window.close();}</script>
+      </body></html>
+    `);
+    printWindow.document.close();
   };
 
   const resetBooking = () => {
@@ -277,9 +370,9 @@ export default function CounterAgentBookPage() {
       {/* Step Indicator */}
       <div className="flex items-center gap-2 text-sm">
         {['search', 'select', 'book', 'confirm'].map((s, i) => {
-          const labels: Record<string, string> = { search: 'Search', select: 'Select Trip', book: 'Book Seats', confirm: 'Confirmed' };
+          const labels: Record<string, string> = { search: 'Search', select: 'Select Trip', book: 'Book Seats', confirm: 'Payment' };
           const isActive = step === s;
-          const isDone = ['search', 'select', 'book', 'confirm'].indexOf(step) > i;
+          const isDone = ['search', 'select', 'book', 'confirm', 'success'].indexOf(step) > i;
           return (
             <div key={s} className="flex items-center gap-2">
               {i > 0 && <div className={`w-8 h-px ${isDone || isActive ? 'bg-amber-400' : 'bg-gray-200'}`} />}
@@ -576,14 +669,71 @@ export default function CounterAgentBookPage() {
         </div>
       )}
 
-      {/* STEP 3: Booking Confirmed */}
+      {/* STEP 3: Cash Payment */}
       {step === 'confirm' && bookingResult && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg mx-auto">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Banknote className="h-8 w-8 text-amber-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-1">Collect Cash Payment</h2>
+            <p className="text-sm text-gray-500">Confirm the booking and collect cash from the passenger.</p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4 text-left space-y-2 mb-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">PNR Number</span>
+              <span className="font-mono font-bold text-amber-600">{bookingResult.pnr}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Route</span>
+              <span className="font-medium text-gray-800">{selectedTrip?.route?.origin_city} → {selectedTrip?.route?.destination_city}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Date & Time</span>
+              <span className="font-medium text-gray-800">{selectedTrip?.trip_date} {selectedTrip?.departure_time}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Passengers</span>
+              <span className="font-medium text-gray-800">{selectedSeats.length}</span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center mb-6">
+            <p className="text-sm text-amber-700 mb-1">Total Amount to Collect</p>
+            <p className="text-3xl font-bold text-amber-600">NPR {totalAmount.toLocaleString()}</p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={resetBooking}
+              className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCashPayment}
+              disabled={paymentProcessing}
+              className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {paymentProcessing ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+              ) : (
+                <><Banknote className="h-4 w-4" /> Collect Cash</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: Success with Print */}
+      {step === 'success' && bookingResult && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center max-w-lg mx-auto">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Booking Confirmed!</h2>
-          <p className="text-sm text-gray-500 mb-6">The ticket has been booked successfully.</p>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Payment Received!</h2>
+          <p className="text-sm text-gray-500 mb-6">Cash payment recorded. Ticket is confirmed.</p>
 
           <div className="bg-gray-50 rounded-lg p-4 text-left space-y-2 mb-6">
             <div className="flex justify-between text-sm">
@@ -595,23 +745,27 @@ export default function CounterAgentBookPage() {
               <span className="font-bold text-gray-800">NPR {bookingResult.total_amount?.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Payment</span>
+              <span className="font-medium text-green-600">PAID - CASH</span>
+            </div>
+            <div className="flex justify-between text-sm">
               <span className="text-gray-500">Status</span>
-              <span className="font-medium text-green-600">{bookingResult.booking_status || 'CONFIRMED'}</span>
+              <span className="font-medium text-green-600">CONFIRMED</span>
             </div>
           </div>
 
           <div className="flex gap-3">
             <button
-              onClick={resetBooking}
-              className="flex-1 py-2.5 bg-amber-600 text-white font-bold text-sm rounded-lg hover:bg-amber-700 transition-colors"
+              onClick={handlePrintTicket}
+              className="flex-1 py-2.5 bg-amber-600 text-white font-bold text-sm rounded-lg hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
             >
-              Book Another
+              <Printer className="h-4 w-4" /> Print Ticket
             </button>
             <button
-              onClick={() => navigate('/counter/bookings')}
+              onClick={resetBooking}
               className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
             >
-              View Bookings
+              Book Another
             </button>
           </div>
         </div>

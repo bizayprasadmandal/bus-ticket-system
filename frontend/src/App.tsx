@@ -72,6 +72,8 @@ import CounterAgentLayout from './pages/counter/CounterAgentLayout';
 import CounterAgentDashboard from './pages/counter/CounterAgentDashboard';
 import CounterAgentBookPage from './pages/counter/CounterAgentBookPage';
 import CounterAgentBookingsPage from './pages/counter/CounterAgentBookingsPage';
+import CounterAgentPNRPage from './pages/counter/CounterAgentPNRPage';
+import CounterAgentReconciliationPage from './pages/counter/CounterAgentReconciliationPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
@@ -183,6 +185,8 @@ function App() {
             <Route index element={<CounterAgentDashboard />} />
             <Route path="book" element={<CounterAgentBookPage />} />
             <Route path="bookings" element={<CounterAgentBookingsPage />} />
+            <Route path="lookup" element={<CounterAgentPNRPage />} />
+            <Route path="reconciliation" element={<CounterAgentReconciliationPage />} />
           </Route>
 
           <Route path="/admin" element={

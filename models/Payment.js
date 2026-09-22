@@ -16,7 +16,7 @@ const Payment = sequelize.define('Payment', {
     },
   },
   payment_method: {
-    type: DataTypes.ENUM('ESEWA', 'KHALTI', 'FONEPAY', 'CONNECTIPS', 'CARD', 'WALLET'),
+    type: DataTypes.ENUM('ESEWA', 'KHALTI', 'FONEPAY', 'CONNECTIPS', 'CARD', 'WALLET', 'CASH'),
     allowNull: true,
   },
   gateway_transaction_id: {

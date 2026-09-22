@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw } from 'lucide-react';
-import { counterAgentBookingAPI } from '../../api';
+import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer } from 'lucide-react';
+import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
@@ -35,12 +35,14 @@ export default function CounterAgentBookingsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null);
 
   const itemsPerPage = 10;
 
   const loadBookings = useCallback(async () => {
     try {
-      const res = await counterAgentBookingAPI.getMyBookings();
+      const res = await api.get('/bookings/counter/my-bookings');
       setBookings(res.data.data.bookings || []);
     } catch {
       toast.error('Failed to load bookings');
@@ -75,6 +77,61 @@ export default function CounterAgentBookingsPage() {
   };
 
   if (loading) return <TableSkeleton rows={5} cols={6} />;
+
+  const handleCancelBooking = async (id: number) => {
+    setCancellingId(id);
+    try {
+      await api.post(`/bookings/${id}/cancel`, { cancellation_reason: 'Counter agent cancellation' });
+      toast.success('Booking cancelled successfully');
+      setConfirmCancelId(null);
+      refresh();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to cancel booking');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const handlePrintBooking = (booking: BookingItem) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const passengerRows = booking.passengers
+      ?.map(
+        (p, i) =>
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.passenger_name}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.seat_number}</td></tr>`
+      )
+      .join('') || '';
+    printWindow.document.write(`
+      <html><head><title>Booking - ${booking.pnr}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        .ticket { max-width: 400px; margin: 0 auto; border: 2px solid #d84e55; padding: 16px; border-radius: 8px; }
+        .header { text-align: center; border-bottom: 2px dashed #d84e55; padding-bottom: 12px; margin-bottom: 12px; }
+        .header h1 { margin: 0; color: #d84e55; font-size: 22px; }
+        .info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+        .info-row span:first-child { color: #666; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+        th { background: #f3f4f6; padding: 4px 8px; border: 1px solid #ddd; text-align: left; font-size: 12px; }
+        .total { text-align: right; font-size: 18px; font-weight: bold; color: #d84e55; margin-top: 8px; border-top: 2px solid #d84e55; padding-top: 8px; }
+        .stamp { text-align: center; margin: 12px 0; }
+        .stamp span { display: inline-block; border: 3px solid ${booking.payment_status === 'PAID' ? '#16a34a' : '#f59e0b'}; color: ${booking.payment_status === 'PAID' ? '#16a34a' : '#f59e0b'}; font-size: 16px; font-weight: bold; padding: 4px 16px; border-radius: 4px; transform: rotate(-5deg); }
+      </style></head><body>
+      <div class="ticket">
+        <div class="header"><h1>Gadi Yatra</h1></div>
+        <div class="info-row"><span>PNR</span><strong>${booking.pnr}</strong></div>
+        <div class="info-row"><span>Route</span><strong>${booking.trip?.route?.origin_city} → ${booking.trip?.route?.destination_city}</strong></div>
+        <div class="info-row"><span>Date</span><strong>${booking.trip?.trip_date}</strong></div>
+        <div class="info-row"><span>Time</span><strong>${booking.trip?.departure_time}</strong></div>
+        <div class="info-row"><span>Bus</span><strong>${booking.trip?.bus?.bus_type} (${booking.trip?.bus?.bus_number})</strong></div>
+        <table><thead><tr><th>#</th><th>Passenger</th><th>Seat</th></tr></thead><tbody>${passengerRows}</tbody></table>
+        <div class="total">Total: NPR ${booking.total_amount.toLocaleString()}</div>
+        <div class="stamp"><span>${booking.payment_status === 'PAID' ? 'PAID - CASH' : booking.booking_status}</span></div>
+      </div>
+      <script>window.onload=function(){window.print();window.close();}</script>
+      </body></html>
+    `);
+    printWindow.document.close();
+  };
 
   return (
     <div className="space-y-6">
@@ -149,7 +206,7 @@ export default function CounterAgentBookingsPage() {
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Passengers</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Amount</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">View</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -198,13 +255,50 @@ export default function CounterAgentBookingsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => setSelectedBooking(booking)}
-                      className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors mx-auto block"
-                      title="View Details"
-                    >
-                      <Search className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handlePrintBooking(booking)}
+                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="Print Ticket"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setSelectedBooking(booking)}
+                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="View Details"
+                      >
+                        <Search className="h-4 w-4" />
+                      </button>
+                      {booking.booking_status === 'CONFIRMED' && (
+                        confirmCancelId === booking.id ? (
+                          <div className="flex items-center gap-1 ml-1">
+                            <span className="text-xs text-red-600 font-medium">Cancel?</span>
+                            <button
+                              onClick={() => handleCancelBooking(booking.id)}
+                              disabled={cancellingId === booking.id}
+                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {cancellingId === booking.id ? '...' : 'Yes'}
+                            </button>
+                            <button
+                              onClick={() => setConfirmCancelId(null)}
+                              className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmCancelId(booking.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Cancel Booking"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

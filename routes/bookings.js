@@ -15,7 +15,7 @@ const {
   WalletTransaction,
   UserWallet,
 } = require('../models');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 const { bookingValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const { NotificationService } = require('../services/notifications');
@@ -263,6 +263,227 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
   }
 });
 
+// Create booking with cash payment (counter agent)
+router.post('/cash-payment', authenticateToken, requireRole(['COUNTER_AGENT', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { trip_id, passengers, passenger_name, passenger_phone } = req.body;
+
+    if (!trip_id || !passengers || passengers.length === 0) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Trip ID and passengers required' });
+    }
+
+    const trip = await Trip.findByPk(trip_id, {
+      include: [
+        { model: Route, as: 'route' },
+        { model: Bus, as: 'bus' },
+      ],
+      transaction,
+    });
+
+    if (!trip) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    if (trip.available_seats < passengers.length) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Not enough seats available' });
+    }
+
+    // Calculate fare
+    const amounts = calculateBookingAmounts(trip.current_fare, passengers.length);
+
+    // Generate PNR
+    const pnr = generatePNR();
+
+    // Create booking
+    const booking = await Booking.create({
+      user_id: req.user.id,
+      trip_id,
+      pnr,
+      booking_status: 'CONFIRMED',
+      payment_status: 'COMPLETED',
+      total_passengers: passengers.length,
+      ...amounts,
+      booking_date: new Date(),
+    }, { transaction });
+
+    // Create passengers
+    for (const p of passengers) {
+      await BookingPassenger.create({
+        booking_id: booking.id,
+        passenger_name: p.passenger_name || p.name,
+        seat_number: p.seat_number,
+        age: p.age,
+        gender: p.gender,
+        id_type: p.id_type,
+        id_number: p.id_number,
+        phone_number: p.phone_number || p.phone,
+      }, { transaction });
+    }
+
+    // Create cash payment record
+    await Payment.create({
+      booking_id: booking.id,
+      amount: amounts.total_amount,
+      payment_method: 'CASH',
+      status: 'SUCCESS',
+      gateway_transaction_id: `CASH-${Date.now()}`,
+    }, { transaction });
+
+    // Update available seats
+    trip.available_seats -= passengers.length;
+    await trip.save({ transaction });
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      message: 'Booking created with cash payment',
+      data: { booking, pnr },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Cash payment booking error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create booking', error: error.message });
+  }
+});
+
+// Counter agent daily reconciliation
+router.get('/counter/reconciliation', authenticateToken, requireRole(['COUNTER_AGENT', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const startOfDay = new Date(targetDate + 'T00:00:00.000Z');
+    const endOfDay = new Date(targetDate + 'T23:59:59.999Z');
+
+    const cashPayments = await Payment.findAll({
+      where: {
+        payment_method: 'CASH',
+        status: 'SUCCESS',
+        created_at: { [Op.between]: [startOfDay, endOfDay] },
+      },
+      include: [
+        {
+          model: Booking,
+          as: 'booking',
+          where: { user_id: req.user.id },
+          include: [
+            { model: Trip, as: 'trip', include: [{ model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] }] },
+          ],
+        },
+      ],
+      order: [['created_at', 'ASC']],
+    });
+
+    const totalCollected = cashPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const totalBookings = cashPayments.length;
+
+    const cancelledBookings = await Booking.findAll({
+      where: {
+        user_id: req.user.id,
+        booking_status: 'CANCELLED',
+      },
+      include: [
+        {
+          model: Payment,
+          as: 'payments',
+          where: {
+            payment_method: 'CASH',
+            status: 'SUCCESS',
+          },
+          required: true,
+        },
+      ],
+    });
+
+    const totalRefunds = cancelledBookings.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        date: targetDate,
+        agent_id: req.user.id,
+        summary: {
+          total_collected: totalCollected,
+          total_bookings: totalBookings,
+          total_refunds: totalRefunds,
+          net_collection: totalCollected - totalRefunds,
+        },
+        payments: cashPayments.map(p => ({
+          id: p.id,
+          amount: parseFloat(p.amount),
+          pnr: p.booking?.pnr,
+          route: p.booking?.trip?.route,
+          passengers: p.booking?.total_passengers,
+          time: p.created_at,
+        })),
+        cancellations: cancelledBookings.map(b => ({
+          id: b.id,
+          pnr: b.pnr,
+          amount: parseFloat(b.total_amount),
+          time: b.booking_date,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Counter reconciliation error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get reconciliation', error: error.message });
+  }
+});
+
+// Get counter agent's own bookings
+router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGENT', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = { user_id: req.user.id };
+    if (search) {
+      whereClause[Op.or] = [
+        { pnr: { [Op.like]: `%${search}%` } },
+        { passenger_name: { [Op.like]: `%${search}%` } },
+        { passenger_phone: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows: bookings } = await Booking.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: Trip,
+          as: 'trip',
+          include: [
+            { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
+            { model: Bus, as: 'bus', attributes: ['bus_number'] },
+          ],
+        },
+      ],
+      order: [['booking_date', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.json({
+      success: true,
+      data: {
+        items: bookings,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(count / limit),
+          total_items: count,
+          items_per_page: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Counter my bookings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get bookings', error: error.message });
+  }
+});
+
 // Get user bookings
 router.get('/', authenticateToken, commonValidation.pagination, handleValidationErrors, async (req, res) => {
   try {
@@ -396,11 +617,26 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
     const { reason } = req.body;
     const userId = req.user.id;
 
-    const booking = await Booking.findOne({
-      where: { id, user_id: userId },
-      include: [{ model: Trip, as: 'trip', include: [{ model: Route, as: 'route' }] }],
-      transaction,
-    });
+    // Allow counter agents, operators, and admins to cancel any booking
+    const userRoles = req.user.roles || [];
+    const canCancelAny = userRoles.some(r => 
+      ['SUPER_ADMIN', 'OPERATOR', 'COUNTER_AGENT'].includes(r.role) && r.is_active
+    );
+
+    let booking;
+    if (canCancelAny) {
+      booking = await Booking.findOne({
+        where: { id },
+        include: [{ model: Trip, as: 'trip', include: [{ model: Route, as: 'route' }] }],
+        transaction,
+      });
+    } else {
+      booking = await Booking.findOne({
+        where: { id, user_id: userId },
+        include: [{ model: Trip, as: 'trip', include: [{ model: Route, as: 'route' }] }],
+        transaction,
+      });
+    }
 
     if (!booking) {
       await transaction.rollback();
@@ -506,9 +742,10 @@ router.get('/pnr/:pnr', authenticateToken, async (req, res) => {
     const userRoles = req.user.roles || [];
     const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
     const isOperator = userRoles.some(r => r.role === 'OPERATOR' && r.is_active);
+    const isCounterAgent = userRoles.some(r => r.role === 'COUNTER_AGENT' && r.is_active);
 
     const whereClause = { pnr: pnr.toUpperCase() };
-    if (!isAdmin && !isOperator) {
+    if (!isAdmin && !isOperator && !isCounterAgent) {
       whereClause.user_id = userId;
     }
 

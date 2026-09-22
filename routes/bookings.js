@@ -445,11 +445,11 @@ router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGEN
     const offset = (page - 1) * limit;
 
     let whereClause = { user_id: req.user.id };
+    let passengerWhere = null;
     if (search) {
+      passengerWhere = { passenger_name: { [Op.like]: `%${search}%` } };
       whereClause[Op.or] = [
         { pnr: { [Op.like]: `%${search}%` } },
-        { passenger_name: { [Op.like]: `%${search}%` } },
-        { passenger_phone: { [Op.like]: `%${search}%` } },
       ];
     }
 
@@ -464,16 +464,34 @@ router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGEN
             { model: Bus, as: 'bus', attributes: ['bus_number'] },
           ],
         },
+        {
+          model: BookingPassenger,
+          as: 'passengers',
+          required: passengerWhere ? true : false,
+          ...(passengerWhere ? { where: passengerWhere } : {}),
+        },
       ],
       order: [['booking_date', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
+    });
+
+    const items = bookings.map(b => {
+      const plain = b.toJSON();
+      const firstPassenger = plain.passengers?.[0];
+      return {
+        ...plain,
+        passenger_name: firstPassenger?.passenger_name || '',
+        passenger_phone: firstPassenger?.phone_number || '',
+        passengers: undefined,
+      };
     });
 
     res.json({
       success: true,
       data: {
-        items: bookings,
+        items,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(count / limit),

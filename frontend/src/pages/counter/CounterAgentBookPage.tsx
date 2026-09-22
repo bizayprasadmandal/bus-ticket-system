@@ -152,7 +152,7 @@ export default function CounterAgentBookPage() {
     tripAPI.getSeats(Number(tripIdFromUrl))
       .then(async (seatRes) => {
         const tripRes = await api.get(`/trips/${tripIdFromUrl}`);
-        const trip = tripRes.data.data;
+        const trip = tripRes.data.data.trip || tripRes.data.data;
         setSelectedTrip(trip);
         setSeatLayout(seatRes.data.data);
         setSelectedSeats([]);

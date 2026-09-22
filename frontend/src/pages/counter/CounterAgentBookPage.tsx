@@ -13,7 +13,7 @@ import {
   Banknote,
   Printer,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api';
 import { tripAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
@@ -115,6 +115,7 @@ function CityDropdown({
 
 export default function CounterAgentBookPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [cities, setCities] = useState<City[]>([]);
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
@@ -130,6 +131,7 @@ export default function CounterAgentBookPage() {
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ESEWA' | 'KHALTI' | ''>('');
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [loadingTrip, setLoadingTrip] = useState(false);
 
   useEffect(() => {
     cityAPI
@@ -137,6 +139,29 @@ export default function CounterAgentBookPage() {
       .then((res) => setCities(res.data.data.cities || res.data.data))
       .catch(() => toast.error('Failed to load cities'));
   }, []);
+
+  // Auto-select trip from ?tripId= param (Quick Book from dashboard)
+  useEffect(() => {
+    const tripId = searchParams.get('tripId');
+    if (tripId) {
+      setLoadingTrip(true);
+      tripAPI.getSeats(Number(tripId))
+        .then(async (seatRes) => {
+          const tripRes = await api.get(`/trips/${tripId}`);
+          const trip = tripRes.data.data;
+          setSelectedTrip(trip);
+          setSeatLayout(seatRes.data.data);
+          setSelectedSeats([]);
+          setPassengers([]);
+          setStep('book');
+        })
+        .catch(() => {
+          toast.error('Failed to load trip');
+          navigate('/counter/book');
+        })
+        .finally(() => setLoadingTrip(false));
+    }
+  }, [searchParams, navigate]);
 
   const swapCities = () => {
     setOrigin(destination);
@@ -368,6 +393,25 @@ export default function CounterAgentBookPage() {
 
   const layoutRows: string[][] = seatLayout?.seat_layout?.layout || [];
   const occupiedSet: Set<string> = new Set(seatLayout?.booked_seats || []);
+
+  if (loadingTrip) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Book Ticket</h1>
+            <p className="text-sm text-gray-500 mt-1">Loading trip details...</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#d84e55] mx-auto mb-3" />
+            <p className="text-sm text-gray-500">Fetching seat layout...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

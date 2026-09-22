@@ -484,7 +484,6 @@ router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGEN
         ...plain,
         passenger_name: firstPassenger?.passenger_name || '',
         passenger_phone: firstPassenger?.phone_number || '',
-        passengers: undefined,
       };
     });
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer, Clock, CheckCircle, XCircle, CreditCard } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -8,18 +8,26 @@ import toast from 'react-hot-toast';
 interface BookingItem {
   id: number;
   pnr: string;
+  passenger_name: string;
+  passenger_phone: string;
   total_passengers: number;
   total_amount: number;
   booking_status: string;
-  created_at: string;
+  booking_date: string;
   trip?: {
     trip_date: string;
     departure_time: string;
     route?: { origin_city: string; destination_city: string };
     bus?: { bus_number: string; bus_type: string };
   };
-  user?: { full_name: string; phone_number: string };
-  passengers?: { passenger_name: string; seat_number: string }[];
+  passengers?: { passenger_name: string; seat_number: string; age: number; gender: string }[];
+}
+
+interface Pagination {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -42,38 +50,31 @@ export default function CounterAgentBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
 
   const itemsPerPage = 10;
 
   const loadBookings = useCallback(async () => {
     try {
-      const res = await api.get('/bookings/counter/my-bookings');
-      setBookings(res.data.data.bookings || []);
+      const params = new URLSearchParams();
+      params.set('page', String(currentPage));
+      params.set('limit', String(itemsPerPage));
+      if (searchQuery) params.set('search', searchQuery);
+      const res = await api.get(`/bookings/counter/my-bookings?${params.toString()}`);
+      setBookings(res.data.data.items || []);
+      setPagination(res.data.data.pagination || null);
     } catch {
       toast.error('Failed to load bookings');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, searchQuery]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000);
 
-  const filteredBookings = useMemo(() => {
-    return bookings.filter((booking) => {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch = !query ||
-        booking.pnr?.toLowerCase().includes(query) ||
-        booking.user?.full_name?.toLowerCase().includes(query) ||
-        booking.user?.phone_number?.includes(query);
-      const matchesStatus = statusFilter === 'ALL' || booking.booking_status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [bookings, searchQuery, statusFilter]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-  const paginatedBookings = filteredBookings.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+  const displayBookings = statusFilter === 'ALL' ? bookings : bookings.filter(b => b.booking_status === statusFilter);
 
   const stats = {
     total: bookings.length,
@@ -254,7 +255,7 @@ export default function CounterAgentBookingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedBookings.map((booking) => (
+              {displayBookings.map((booking) => (
                 <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -266,10 +267,10 @@ export default function CounterAgentBookingsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div>
-                      <p className="font-medium text-gray-800">{booking.user?.full_name || 'Customer'}</p>
+                      <p className="font-medium text-gray-800">{booking.passenger_name || 'Customer'}</p>
                       <div className="flex items-center gap-1 text-xs text-gray-500">
                         <Phone className="h-3 w-3" />
-                        {booking.user?.phone_number}
+                        {booking.passenger_phone}
                       </div>
                     </div>
                   </td>
@@ -346,7 +347,7 @@ export default function CounterAgentBookingsPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedBookings.length === 0 && (
+              {displayBookings.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center">
                     <Ticket className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -359,18 +360,20 @@ export default function CounterAgentBookingsPage() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {pagination && pagination.total_pages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredBookings.length)} of {filteredBookings.length}
+              Showing {((pagination.current_page - 1) * pagination.items_per_page) + 1} to {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)} of {pagination.total_items}
             </p>
             <div className="flex items-center gap-2">
               <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
+              {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+                const start = Math.max(1, Math.min(pagination.current_page - 2, pagination.total_pages - 4));
+                const page = start + i;
+                if (page > pagination.total_pages) return null;
                 return (
                   <button key={page} onClick={() => setCurrentPage(page)}
                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#d84e55] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
@@ -378,7 +381,7 @@ export default function CounterAgentBookingsPage() {
                   </button>
                 );
               })}
-              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+              <button onClick={() => setCurrentPage((p) => Math.min(pagination.total_pages, p + 1))} disabled={currentPage === pagination.total_pages}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -410,8 +413,8 @@ export default function CounterAgentBookingsPage() {
 
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-xs text-gray-500 mb-2">Passenger</p>
-                <p className="font-medium text-gray-800">{selectedBooking.user?.full_name || 'Customer'}</p>
-                <p className="text-sm text-gray-600">{selectedBooking.user?.phone_number}</p>
+                <p className="font-medium text-gray-800">{selectedBooking.passenger_name || 'Customer'}</p>
+                <p className="text-sm text-gray-600">{selectedBooking.passenger_phone}</p>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4">
@@ -451,7 +454,7 @@ export default function CounterAgentBookingsPage() {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400">Booked on {new Date(selectedBooking.created_at).toLocaleString()}</p>
+              <p className="text-xs text-gray-400">Booked on {new Date(selectedBooking.booking_date).toLocaleString()}</p>
             </div>
           </div>
         </div>

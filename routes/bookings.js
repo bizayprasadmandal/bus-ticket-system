@@ -174,6 +174,8 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
       ...amounts,
       payment_status: 'PENDING',
       booking_status: 'PENDING',
+      passenger_name: passengers[0]?.passenger_name || passengers[0]?.name || '',
+      passenger_phone: passengers[0]?.phone_number || passengers[0]?.phone || '',
     }, { transaction });
 
     // Create passengers
@@ -308,6 +310,8 @@ router.post('/cash-payment', authenticateToken, requireRole(['COUNTER_AGENT', 'O
       total_passengers: passengers.length,
       ...amounts,
       booking_date: new Date(),
+      passenger_name: passengers[0]?.passenger_name || passengers[0]?.name || passenger_name || '',
+      passenger_phone: passengers[0]?.phone_number || passengers[0]?.phone || passenger_phone || '',
     }, { transaction });
 
     // Create passengers

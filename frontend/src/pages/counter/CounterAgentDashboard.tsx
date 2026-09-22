@@ -190,23 +190,29 @@ export default function CounterAgentDashboard() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">PNR</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Passenger</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Route</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {recentBookings.map((b: any, i: number) => (
-                  <tr key={b.id || i} className="hover:bg-gray-50 transition-colors animate-fade-in-up">
+                  <tr key={b.id || i} className="table-row-hover animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
                     <td className="px-4 py-3 font-mono font-medium text-[#d84e55]">{b.pnr}</td>
-                    <td className="px-4 py-3 text-gray-800">{b.passenger_name}</td>
-                    <td className="px-4 py-3 text-gray-600">{b.route}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {(b.amount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-800">{b.passenger_name || '-'}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {b.trip?.route?.origin_city} → {b.trip?.route?.destination_city}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{b.trip?.trip_date}</td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {(b.total_amount || 0).toLocaleString()}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        b.status === 'confirmed' ? 'bg-green-50 text-green-700' :
-                        b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                        b.booking_status === 'CONFIRMED' ? 'bg-green-50 text-green-700' :
+                        b.booking_status === 'COMPLETED' ? 'bg-blue-50 text-blue-700' :
+                        b.booking_status === 'CANCELLED' ? 'bg-red-50 text-red-700' :
+                        b.booking_status === 'PENDING' ? 'bg-yellow-50 text-yellow-700' :
                         'bg-gray-100 text-gray-600'
-                      }`}>{b.status}</span>
+                      }`}>{b.booking_status}</span>
                     </td>
                   </tr>
                 ))}

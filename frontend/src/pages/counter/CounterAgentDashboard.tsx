@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Calendar, Ticket, MapPin, ArrowRight, Clock, RefreshCw, Loader2, Users, IndianRupee } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Calendar, Ticket, MapPin, ArrowRight, Clock, RefreshCw, Loader2, Users, IndianRupee, AlertTriangle } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
@@ -18,22 +18,39 @@ export default function CounterAgentDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
+      setError(null);
       const res = await api.get('/dashboard/counter-agent');
       setStats(res.data.data);
     } catch {
+      setError('Failed to load dashboard data');
       toast.error('Failed to load dashboard');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  const fetchRecentBookings = useCallback(async () => {
+    try {
+      const res = await api.get('/bookings/counter/my-bookings');
+      setRecentBookings((res.data.data || []).slice(0, 5));
+    } catch {
+      // silent
+    }
+  }, []);
+
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(fetchData, 30000);
 
+  useEffect(() => {
+    fetchRecentBookings();
+  }, [fetchRecentBookings]);
+
   const statCards = [
-    { label: "Today's Available Trips", value: stats.today_trips_count ?? 0, icon: Calendar, color: 'text-amber-600', bgColor: 'bg-amber-50' },
+    { label: "Today's Available Trips", value: stats.today_trips_count ?? 0, icon: Calendar, color: 'text-[#d84e55]', bgColor: 'bg-red-50' },
     { label: 'Available Seats', value: stats.available_seats ?? 0, icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { label: "Today's Bookings", value: stats.today_bookings_count ?? 0, icon: Ticket, color: 'text-green-600', bgColor: 'bg-green-50' },
     { label: "Today's Revenue", value: `NPR ${(stats.today_revenue || 0).toLocaleString()}`, icon: IndianRupee, color: 'text-purple-600', bgColor: 'bg-purple-50' },
@@ -42,7 +59,25 @@ export default function CounterAgentDashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin h-8 w-8 text-amber-600" />
+        <Loader2 className="animate-spin h-8 w-8 text-[#d84e55]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center max-w-sm">
+          <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+          <p className="text-gray-700 font-medium mb-1">{error}</p>
+          <p className="text-sm text-gray-500 mb-4">Please check your connection and try again.</p>
+          <button
+            onClick={() => { setIsLoading(true); setError(null); fetchData(); }}
+            className="px-4 py-2 bg-[#d84e55] text-white text-sm font-medium rounded-lg hover:bg-[#c4424a] transition-colors btn-press"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -99,8 +134,8 @@ export default function CounterAgentDashboard() {
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: any, i: number) => (
               <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Calendar className="h-5 w-5 text-amber-600" />
+                <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+                  <Calendar className="h-5 w-5 text-[#d84e55]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-sm">
@@ -125,7 +160,7 @@ export default function CounterAgentDashboard() {
                 </div>
                 <button
                   onClick={() => navigate(`/counter/book?tripId=${trip.id}`)}
-                  className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shrink-0 btn-press"
+                  className="px-4 py-2 bg-[#d84e55] text-white text-sm font-medium rounded-lg hover:bg-[#c4424a] transition-colors shrink-0 btn-press"
                 >
                   Quick Book
                 </button>
@@ -139,6 +174,45 @@ export default function CounterAgentDashboard() {
           </div>
         )}
       </div>
+      {/* Recent Bookings */}
+      {recentBookings.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Recent Bookings</h3>
+            <Link to="/counter/bookings" className="text-sm text-[#d84e55] hover:underline font-medium">View All</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">PNR</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Passenger</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Route</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {recentBookings.map((b: any, i: number) => (
+                  <tr key={b.id || i} className="hover:bg-gray-50 transition-colors animate-fade-in-up">
+                    <td className="px-4 py-3 font-mono font-medium text-[#d84e55]">{b.pnr}</td>
+                    <td className="px-4 py-3 text-gray-800">{b.passenger_name}</td>
+                    <td className="px-4 py-3 text-gray-600">{b.route}</td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {(b.amount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        b.status === 'confirmed' ? 'bg-green-50 text-green-700' :
+                        b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>{b.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

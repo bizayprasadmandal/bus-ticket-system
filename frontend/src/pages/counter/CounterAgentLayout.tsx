@@ -54,7 +54,7 @@ export default function CounterAgentLayout() {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 sidebar-gradient shadow-sm border-r flex flex-col transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center justify-between px-6 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center logo-glow">
+            <div className="w-8 h-8 bg-[#d84e55] rounded-lg flex items-center justify-center logo-glow">
               <Ticket className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -114,7 +114,7 @@ export default function CounterAgentLayout() {
             <button className="p-2 text-gray-600 hover:text-gray-800" onClick={() => setSidebarOpen(true)}>
               <Menu className="h-6 w-6" />
             </button>
-            <h1 className="ml-3 text-lg font-bold text-amber-600">Counter Agent Panel</h1>
+            <h1 className="ml-3 text-lg font-bold text-[#d84e55]">Counter Agent Panel</h1>
           </div>
 
           <div className="hidden lg:flex items-center justify-between px-8 h-16">
@@ -127,7 +127,7 @@ export default function CounterAgentLayout() {
                     {i === breadcrumbs.length - 1 ? (
                       <span className="text-gray-800 font-medium">{crumb.label}</span>
                     ) : (
-                      <Link to={crumb.path} className="hover:text-amber-600 transition-colors">{crumb.label}</Link>
+                      <Link to={crumb.path} className="hover:text-[#d84e55] transition-colors">{crumb.label}</Link>
                     )}
                   </span>
                 ))}
@@ -152,7 +152,7 @@ export default function CounterAgentLayout() {
           </div>
         </div>
 
-        <main className="flex-1 p-8 overflow-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           <Outlet />
         </main>
       </div>

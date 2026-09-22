@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer } from 'lucide-react';
+import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer, Clock, CheckCircle, XCircle, CreditCard } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -24,15 +24,20 @@ interface BookingItem {
 
 const statusColors: Record<string, string> = {
   CONFIRMED: 'bg-green-100 text-green-700',
-  PENDING: 'bg-amber-100 text-amber-700',
+  PENDING: 'bg-red-50 text-[#d84e55]',
   CANCELLED: 'bg-red-100 text-red-700',
   COMPLETED: 'bg-blue-100 text-blue-700',
 };
+
+const sanitize = (str: string) => String(str || '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
 export default function CounterAgentBookingsPage() {
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
@@ -56,17 +61,19 @@ export default function CounterAgentBookingsPage() {
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
       const query = searchQuery.toLowerCase();
-      return (
+      const matchesSearch = !query ||
         booking.pnr?.toLowerCase().includes(query) ||
-        booking.user?.full_name?.toLowerCase().includes(query)
-      );
+        booking.user?.full_name?.toLowerCase().includes(query) ||
+        booking.user?.phone_number?.includes(query);
+      const matchesStatus = statusFilter === 'ALL' || booking.booking_status === statusFilter;
+      return matchesSearch && matchesStatus;
     });
-  }, [bookings, searchQuery]);
+  }, [bookings, searchQuery, statusFilter]);
 
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
   const paginatedBookings = filteredBookings.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
 
   const stats = {
     total: bookings.length,
@@ -98,11 +105,11 @@ export default function CounterAgentBookingsPage() {
     const passengerRows = booking.passengers
       ?.map(
         (p, i) =>
-          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.passenger_name}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.seat_number}</td></tr>`
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.passenger_name)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.seat_number)}</td></tr>`
       )
       .join('') || '';
     printWindow.document.write(`
-      <html><head><title>Booking - ${booking.pnr}</title>
+      <html><head><title>Booking - ${sanitize(booking.pnr)}</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
         .ticket { max-width: 400px; margin: 0 auto; border: 2px solid #d84e55; padding: 16px; border-radius: 8px; }
@@ -118,14 +125,14 @@ export default function CounterAgentBookingsPage() {
       </style></head><body>
       <div class="ticket">
         <div class="header"><h1>Gadi Yatra</h1></div>
-        <div class="info-row"><span>PNR</span><strong>${booking.pnr}</strong></div>
-        <div class="info-row"><span>Route</span><strong>${booking.trip?.route?.origin_city} → ${booking.trip?.route?.destination_city}</strong></div>
-        <div class="info-row"><span>Date</span><strong>${booking.trip?.trip_date}</strong></div>
-        <div class="info-row"><span>Time</span><strong>${booking.trip?.departure_time}</strong></div>
-        <div class="info-row"><span>Bus</span><strong>${booking.trip?.bus?.bus_type} (${booking.trip?.bus?.bus_number})</strong></div>
+        <div class="info-row"><span>PNR</span><strong>${sanitize(booking.pnr)}</strong></div>
+        <div class="info-row"><span>Route</span><strong>${sanitize(booking.trip?.route?.origin_city)} → ${sanitize(booking.trip?.route?.destination_city)}</strong></div>
+        <div class="info-row"><span>Date</span><strong>${sanitize(booking.trip?.trip_date)}</strong></div>
+        <div class="info-row"><span>Time</span><strong>${sanitize(booking.trip?.departure_time)}</strong></div>
+        <div class="info-row"><span>Bus</span><strong>${sanitize(booking.trip?.bus?.bus_type)} (${sanitize(booking.trip?.bus?.bus_number)})</strong></div>
         <table><thead><tr><th>#</th><th>Passenger</th><th>Seat</th></tr></thead><tbody>${passengerRows}</tbody></table>
         <div class="total">Total: NPR ${booking.total_amount.toLocaleString()}</div>
-        <div class="stamp"><span>${booking.payment_status === 'PAID' ? 'PAID - CASH' : booking.booking_status}</span></div>
+        <div class="stamp"><span>${booking.payment_status === 'PAID' ? 'PAID - CASH' : sanitize(booking.booking_status)}</span></div>
       </div>
       <script>window.onload=function(){window.print();window.close();}</script>
       </body></html>
@@ -148,7 +155,7 @@ export default function CounterAgentBookingsPage() {
           <button
             onClick={refresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors btn-press"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -157,39 +164,76 @@ export default function CounterAgentBookingsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Total Bookings</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+              <Clock className="h-5 w-5 text-[#d84e55]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Bookings</p>
+              <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Confirmed</p>
-          <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
+        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Confirmed</p>
+              <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Pending</p>
-          <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+              <XCircle className="h-5 w-5 text-[#d84e55]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Cancelled</p>
+              <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+            </div>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Cancelled</p>
-          <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Revenue</p>
-          <p className="text-2xl font-bold text-amber-600">NPR {stats.totalRevenue.toLocaleString()}</p>
+        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-[#d84e55]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Revenue</p>
+              <p className="text-2xl font-bold text-[#d84e55]">NPR {stats.totalRevenue.toLocaleString()}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by PNR or passenger name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
-          />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by PNR, passenger name, or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all bg-white"
+          >
+            <option value="ALL">All Status</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="PENDING">Pending</option>
+          </select>
         </div>
       </div>
 
@@ -214,10 +258,10 @@ export default function CounterAgentBookingsPage() {
                 <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                        <Ticket className="h-4 w-4 text-amber-600" />
+                      <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
+                        <Ticket className="h-4 w-4 text-[#d84e55]" />
                       </div>
-                      <span className="font-mono font-medium text-amber-600">{booking.pnr}</span>
+                      <span className="font-mono font-medium text-[#d84e55]">{booking.pnr}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -258,14 +302,14 @@ export default function CounterAgentBookingsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => handlePrintBooking(booking)}
-                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-[#d84e55] hover:bg-red-50 rounded-lg transition-colors"
                         title="Print Ticket"
                       >
                         <Printer className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setSelectedBooking(booking)}
-                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-[#d84e55] hover:bg-red-50 rounded-lg transition-colors"
                         title="View Details"
                       >
                         <Search className="h-4 w-4" />
@@ -277,13 +321,13 @@ export default function CounterAgentBookingsPage() {
                             <button
                               onClick={() => handleCancelBooking(booking.id)}
                               disabled={cancellingId === booking.id}
-                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 btn-press"
                             >
                               {cancellingId === booking.id ? '...' : 'Yes'}
                             </button>
                             <button
                               onClick={() => setConfirmCancelId(null)}
-                              className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                              className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 btn-press"
                             >
                               No
                             </button>
@@ -291,7 +335,7 @@ export default function CounterAgentBookingsPage() {
                         ) : (
                           <button
                             onClick={() => setConfirmCancelId(booking.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors btn-press"
                             title="Cancel Booking"
                           >
                             <X className="h-4 w-4" />
@@ -329,7 +373,7 @@ export default function CounterAgentBookingsPage() {
                 const page = i + 1;
                 return (
                   <button key={page} onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-amber-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#d84e55] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                     {page}
                   </button>
                 );
@@ -350,16 +394,14 @@ export default function CounterAgentBookingsPage() {
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-800">Booking Details</h2>
               <button onClick={() => setSelectedBooking(null)} className="text-gray-400 hover:text-gray-600">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-500">PNR Number</p>
-                  <p className="text-xl font-mono font-bold text-amber-600">{selectedBooking.pnr}</p>
+                  <p className="text-xl font-mono font-bold text-[#d84e55]">{selectedBooking.pnr}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[selectedBooking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
                   {selectedBooking.booking_status}
@@ -402,10 +444,10 @@ export default function CounterAgentBookingsPage() {
                 </div>
               )}
 
-              <div className="bg-amber-50 rounded-lg p-4">
+              <div className="bg-red-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-600">Total Amount</p>
-                  <p className="text-xl font-bold text-amber-600">NPR {selectedBooking.total_amount.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-[#d84e55]">NPR {selectedBooking.total_amount.toLocaleString()}</p>
                 </div>
               </div>
 

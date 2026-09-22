@@ -19,6 +19,13 @@ import { tripAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
 import toast from 'react-hot-toast';
 
+const sanitize = (str: string) => String(str || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
 interface Passenger {
   name: string;
   phone: string;
@@ -67,7 +74,7 @@ function CityDropdown({
   );
 
   return (
-    <div ref={(ref as any)[0]} className="relative w-full">
+    <div ref={ref as any} className="relative w-full">
       <div className="relative">
         <input
           type="text"
@@ -78,7 +85,7 @@ function CityDropdown({
           }}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
-          className="w-full px-3 py-2.5 pr-8 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+          className="w-full px-3 py-2.5 pr-8 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20"
         />
         <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none transition-transform ${open ? 'rotate-180' : ''}`} />
       </div>
@@ -93,7 +100,7 @@ function CityDropdown({
                 setFilter(city.name);
                 setOpen(false);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors text-left"
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-[#c4424a] transition-colors text-left btn-press"
             >
               <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />
               <span className="flex-1">{city.name}</span>
@@ -276,15 +283,15 @@ export default function CounterAgentBookPage() {
   const handlePrintTicket = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !bookingResult || !selectedTrip) return;
-    const pnr = bookingResult.pnr || bookingResult.id;
-    const route = `${selectedTrip.route?.origin_city} → ${selectedTrip.route?.destination_city}`;
-    const date = selectedTrip.trip_date;
-    const time = selectedTrip.departure_time;
-    const bus = `${selectedTrip.bus?.bus_type} (${selectedTrip.bus?.bus_number})`;
+    const pnr = sanitize(bookingResult.pnr || bookingResult.id);
+    const route = `${sanitize(selectedTrip.route?.origin_city)} → ${sanitize(selectedTrip.route?.destination_city)}`;
+    const date = sanitize(selectedTrip.trip_date);
+    const time = sanitize(selectedTrip.departure_time);
+    const bus = `${sanitize(selectedTrip.bus?.bus_type)} (${sanitize(selectedTrip.bus?.bus_number)})`;
     const passengerRows = passengers
       .map(
         (p, i) =>
-          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.name}</td><td style="padding:4px 8px;border:1px solid #ddd;">${selectedSeats[i]}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.phone || '-'}</td></tr>`
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.name)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(selectedSeats[i])}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.phone) || '-'}</td></tr>`
       )
       .join('');
     printWindow.document.write(`
@@ -360,7 +367,7 @@ export default function CounterAgentBookPage() {
         {step !== 'search' && (
           <button
             onClick={resetBooking}
-            className="px-4 py-2 text-sm text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors"
+            className="px-4 py-2 text-sm text-[#d84e55] border border-red-200 rounded-lg hover:bg-red-50 transition-colors btn-press"
           >
             New Booking
           </button>
@@ -375,9 +382,9 @@ export default function CounterAgentBookPage() {
           const isDone = ['search', 'select', 'book', 'confirm', 'success'].indexOf(step) > i;
           return (
             <div key={s} className="flex items-center gap-2">
-              {i > 0 && <div className={`w-8 h-px ${isDone || isActive ? 'bg-amber-400' : 'bg-gray-200'}`} />}
-              <div className={`flex items-center gap-1.5 ${isActive ? 'text-amber-600 font-semibold' : isDone ? 'text-amber-500' : 'text-gray-400'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isActive ? 'bg-amber-600 text-white' : isDone ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
+              {i > 0 && <div className={`w-8 h-px ${isDone || isActive ? 'bg-[#d84e55]' : 'bg-gray-200'}`} />}
+              <div className={`flex items-center gap-1.5 ${isActive ? 'text-[#d84e55] font-semibold' : isDone ? 'text-[#d84e55]' : 'text-gray-400'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isActive ? 'bg-[#d84e55] text-white' : isDone ? 'bg-red-50 text-[#d84e55]' : 'bg-gray-100 text-gray-400'}`}>
                   {isDone ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
                 </div>
                 {labels[s]}
@@ -395,12 +402,12 @@ export default function CounterAgentBookPage() {
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">From</label>
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-amber-500 shrink-0" />
+                  <MapPin className="h-4 w-4 text-[#d84e55] shrink-0" />
                   <CityDropdown cities={cities} value={origin} onChange={setOrigin} placeholder="Select origin city" />
                 </div>
               </div>
               <div className="hidden lg:flex items-center justify-center pb-1">
-                <button type="button" onClick={swapCities} className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-amber-600 hover:border-amber-300 transition-colors">
+                <button type="button" onClick={swapCities} className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#d84e55] hover:border-red-200 transition-colors btn-press">
                   <ArrowLeftRight className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -418,13 +425,13 @@ export default function CounterAgentBookPage() {
                   value={tripDate}
                   onChange={(e) => setTripDate(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-800 outline-none focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20 transition-all"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSearching}
-                className="w-full px-6 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-6 py-2.5 bg-[#d84e55] text-white text-sm font-bold rounded-lg hover:bg-[#c4424a] disabled:opacity-50 transition-colors flex items-center justify-center gap-2 btn-press"
               >
                 {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 {isSearching ? 'Searching...' : 'Search Buses'}
@@ -439,8 +446,8 @@ export default function CounterAgentBookPage() {
               <div className="space-y-3">
                 {results.map((trip) => (
                   <div key={trip.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                      <Bus className="h-5 w-5 text-amber-600" />
+                    <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+                      <Bus className="h-5 w-5 text-[#d84e55]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-sm">
@@ -462,7 +469,7 @@ export default function CounterAgentBookPage() {
                     </div>
                     <button
                       onClick={() => handleSelectTrip(trip)}
-                      className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shrink-0"
+                      className="px-4 py-2 bg-[#d84e55] text-white text-sm font-medium rounded-lg hover:bg-[#c4424a] transition-colors shrink-0 btn-press"
                     >
                       Select
                     </button>
@@ -491,10 +498,10 @@ export default function CounterAgentBookPage() {
               {/* Legend */}
               <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 border-2 border-amber-500 rounded bg-white" /> Available
+                  <span className="w-4 h-4 border-2 border-[#d84e55] rounded bg-white" /> Available
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 bg-amber-500 rounded" /> Selected
+                  <span className="w-4 h-4 bg-[#d84e55] rounded" /> Selected
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-4 bg-gray-300 rounded" /> Occupied
@@ -516,12 +523,12 @@ export default function CounterAgentBookPage() {
                             type="button"
                             disabled={isOccupied}
                             onClick={() => toggleSeat(seatId)}
-                            className={`w-9 h-9 rounded text-xs font-bold transition-all ${
+                            className={`w-9 h-9 rounded text-xs font-bold transition-all btn-press ${
                               isOccupied
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : isSelected
-                                ? 'bg-amber-500 text-white shadow-md'
-                                : 'bg-white border-2 border-amber-400 text-gray-700 hover:border-amber-500'
+                                ? 'bg-[#d84e55] text-white shadow-md'
+                                : 'bg-white border-2 border-[#d84e55] text-gray-700 hover:border-[#d84e55]'
                             }`}
                           >
                             {seatId}
@@ -534,7 +541,7 @@ export default function CounterAgentBookPage() {
               </div>
 
               {selectedSeats.length > 0 && (
-                <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-sm text-amber-700 font-medium">
+                <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-[#c4424a] font-medium">
                   {selectedSeats.length} seat(s) selected: {selectedSeats.join(', ')}
                 </div>
               )}
@@ -548,21 +555,21 @@ export default function CounterAgentBookPage() {
                   {selectedSeats.map((seat, i) => (
                     <div key={seat} className="border border-gray-100 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-7 h-7 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold">{i + 1}</div>
-                        <span className="text-sm font-semibold text-gray-700">Passenger {i + 1} &middot; Seat <span className="text-amber-600">{seat}</span></span>
+                        <div className="w-7 h-7 bg-[#d84e55] text-white rounded-full flex items-center justify-center text-xs font-bold">{i + 1}</div>
+                        <span className="text-sm font-semibold text-gray-700">Passenger {i + 1} &middot; Seat <span className="text-[#d84e55]">{seat}</span></span>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         <input
                           placeholder="Full name"
                           value={passengers[i]?.name || ''}
                           onChange={(e) => updatePassenger(i, 'name', e.target.value)}
-                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20"
                         />
                         <input
                           placeholder="Phone"
                           value={passengers[i]?.phone || ''}
                           onChange={(e) => updatePassenger(i, 'phone', e.target.value)}
-                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20"
                         />
                         <input
                           placeholder="Age"
@@ -571,12 +578,12 @@ export default function CounterAgentBookPage() {
                           max={120}
                           value={passengers[i]?.age || ''}
                           onChange={(e) => updatePassenger(i, 'age', Number(e.target.value))}
-                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20"
                         />
                         <select
                           value={passengers[i]?.gender || ''}
                           onChange={(e) => updatePassenger(i, 'gender', e.target.value)}
-                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 bg-white"
+                          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#d84e55] focus:ring-2 focus:ring-[#d84e55]/20 bg-white"
                         >
                           <option value="">Gender</option>
                           <option value="MALE">Male</option>
@@ -587,7 +594,7 @@ export default function CounterAgentBookPage() {
                           <select
                             value={passengers[i]?.id_type || 'CITIZENSHIP'}
                             onChange={(e) => updatePassenger(i, 'id_type', e.target.value)}
-                            className="px-2 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:border-amber-500 bg-white"
+                            className="px-2 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:border-[#d84e55] bg-white"
                           >
                             {ID_TYPES.map((t) => (
                               <option key={t.value} value={t.value}>{t.label}</option>
@@ -597,7 +604,7 @@ export default function CounterAgentBookPage() {
                             placeholder="ID Number"
                             value={passengers[i]?.id_number || ''}
                             onChange={(e) => updatePassenger(i, 'id_number', e.target.value)}
-                            className="flex-1 px-2 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:border-amber-500 min-w-0"
+                            className="flex-1 px-2 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:border-[#d84e55] min-w-0"
                           />
                         </div>
                       </div>
@@ -612,7 +619,7 @@ export default function CounterAgentBookPage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-6">
               <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-                <div className="w-10 h-10 bg-amber-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#d84e55] rounded-lg flex items-center justify-center">
                   <Bus className="h-5 w-5 text-white" />
                 </div>
                 <div>
@@ -622,7 +629,7 @@ export default function CounterAgentBookPage() {
               </div>
 
               <div className="flex items-center gap-2 mb-4 text-sm">
-                <MapPin className="h-3.5 w-3.5 text-amber-500" />
+                <MapPin className="h-3.5 w-3.5 text-[#d84e55]" />
                 <span className="font-medium">{selectedTrip.route?.origin_city}</span>
                 <ChevronRight className="h-3 w-3 text-gray-400" />
                 <span className="font-medium">{selectedTrip.route?.destination_city}</span>
@@ -648,7 +655,7 @@ export default function CounterAgentBookPage() {
                   </div>
                   <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-100">
                     <span>Total</span>
-                    <span className="text-amber-600">NPR {totalAmount}</span>
+                    <span className="text-[#d84e55]">NPR {totalAmount}</span>
                   </div>
                 </div>
               )}
@@ -656,7 +663,7 @@ export default function CounterAgentBookPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit() || isSubmitting}
-                className="w-full py-3 bg-amber-600 text-white font-bold text-sm rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 bg-[#d84e55] text-white font-bold text-sm rounded-lg hover:bg-[#c4424a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 btn-press"
               >
                 {isSubmitting ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
@@ -673,8 +680,8 @@ export default function CounterAgentBookPage() {
       {step === 'confirm' && bookingResult && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg mx-auto">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Banknote className="h-8 w-8 text-amber-600" />
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Banknote className="h-8 w-8 text-[#d84e55]" />
             </div>
             <h2 className="text-xl font-bold text-gray-800 mb-1">Collect Cash Payment</h2>
             <p className="text-sm text-gray-500">Confirm the booking and collect cash from the passenger.</p>
@@ -683,7 +690,7 @@ export default function CounterAgentBookPage() {
           <div className="bg-gray-50 rounded-lg p-4 text-left space-y-2 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">PNR Number</span>
-              <span className="font-mono font-bold text-amber-600">{bookingResult.pnr}</span>
+              <span className="font-mono font-bold text-[#d84e55]">{bookingResult.pnr}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Route</span>
@@ -699,22 +706,22 @@ export default function CounterAgentBookPage() {
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center mb-6">
-            <p className="text-sm text-amber-700 mb-1">Total Amount to Collect</p>
-            <p className="text-3xl font-bold text-amber-600">NPR {totalAmount.toLocaleString()}</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center mb-6">
+            <p className="text-sm text-[#c4424a] mb-1">Total Amount to Collect</p>
+            <p className="text-3xl font-bold text-[#d84e55]">NPR {totalAmount.toLocaleString()}</p>
           </div>
 
           <div className="flex gap-3">
             <button
               onClick={resetBooking}
-              className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors btn-press"
             >
               Cancel
             </button>
             <button
               onClick={handleCashPayment}
               disabled={paymentProcessing}
-              className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 btn-press"
             >
               {paymentProcessing ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
@@ -738,7 +745,7 @@ export default function CounterAgentBookPage() {
           <div className="bg-gray-50 rounded-lg p-4 text-left space-y-2 mb-6">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">PNR Number</span>
-              <span className="font-mono font-bold text-amber-600">{bookingResult.pnr}</span>
+              <span className="font-mono font-bold text-[#d84e55]">{bookingResult.pnr}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Total Amount</span>
@@ -757,13 +764,13 @@ export default function CounterAgentBookPage() {
           <div className="flex gap-3">
             <button
               onClick={handlePrintTicket}
-              className="flex-1 py-2.5 bg-amber-600 text-white font-bold text-sm rounded-lg hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-[#d84e55] text-white font-bold text-sm rounded-lg hover:bg-[#c4424a] transition-colors flex items-center justify-center gap-2 btn-press"
             >
               <Printer className="h-4 w-4" /> Print Ticket
             </button>
             <button
               onClick={resetBooking}
-              className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors btn-press"
             >
               Book Another
             </button>

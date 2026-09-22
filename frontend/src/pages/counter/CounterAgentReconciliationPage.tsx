@@ -1,9 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, Banknote, Ticket, TrendingDown, TrendingUp, Printer, Loader2, RefreshCw } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+
+const sanitize = (str: string) => str
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 interface ReconciliationData {
   total_collected: number;
@@ -34,6 +42,7 @@ export default function CounterAgentReconciliationPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState<ReconciliationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [changingDate, setChangingDate] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -43,6 +52,7 @@ export default function CounterAgentReconciliationPage() {
       toast.error('Failed to load reconciliation data');
     } finally {
       setLoading(false);
+      setChangingDate(false);
     }
   }, [date]);
 
@@ -53,6 +63,11 @@ export default function CounterAgentReconciliationPage() {
     fetchData();
   }, [fetchData]);
 
+  const handleDateChange = (newDate: string) => {
+    setChangingDate(true);
+    setDate(newDate);
+  };
+
   const handlePrintReport = () => {
     if (!data) return;
     const printWindow = window.open('', '_blank');
@@ -60,13 +75,13 @@ export default function CounterAgentReconciliationPage() {
     const paymentRows = data.cash_payments
       ?.map(
         (p, i) =>
-          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${new Date(p.created_at).toLocaleTimeString()}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.pnr}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.route}</td><td style="padding:4px 8px;border:1px solid #ddd;">${p.passengers}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${p.amount.toLocaleString()}</td></tr>`
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(p.created_at).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.route)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(String(p.passengers))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(p.amount.toLocaleString())}</td></tr>`
       )
       .join('') || '';
     const cancellationRows = data.cancellations
       ?.map(
         (c) =>
-          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${new Date(c.created_at).toLocaleTimeString()}</td><td style="padding:4px 8px;border:1px solid #ddd;">${c.pnr}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${c.amount.toLocaleString()}</td></tr>`
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(c.created_at).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(c.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(c.amount.toLocaleString())}</td></tr>`
       )
       .join('') || '';
     printWindow.document.write(`
@@ -86,7 +101,7 @@ export default function CounterAgentReconciliationPage() {
       </style></head><body>
       <div class="report">
         <h1>Cash Reconciliation Report</h1>
-        <p><strong>Date:</strong> ${date}</p>
+        <p><strong>Date:</strong> ${sanitize(date)}</p>
         <div class="summary">
           <div class="summary-card"><div class="label">Total Collected</div><div class="value">NPR ${data.total_collected.toLocaleString()}</div></div>
           <div class="summary-card"><div class="label">Total Bookings</div><div class="value">${data.total_bookings}</div></div>
@@ -112,6 +127,20 @@ export default function CounterAgentReconciliationPage() {
   };
 
   if (loading) return <TableSkeleton rows={5} cols={5} />;
+
+  if (changingDate && data) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Cash Reconciliation</h1>
+            <p className="text-sm text-gray-500 mt-1">End-of-day cash reconciliation report.</p>
+          </div>
+        </div>
+        <TableSkeleton rows={5} cols={5} />
+      </div>
+    );
+  }
 
   const summaryCards = [
     { label: 'Total Collected', value: `NPR ${(data?.total_collected || 0).toLocaleString()}`, icon: Banknote, color: 'text-green-600', bg: 'bg-green-50' },
@@ -151,13 +180,13 @@ export default function CounterAgentReconciliationPage() {
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => handleDateChange(e.target.value)}
             max={new Date().toISOString().split('T')[0]}
             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
           />
           <button
             onClick={handlePrintReport}
-            className="ml-auto px-4 py-2 bg-[#d84e55] text-white text-sm font-bold rounded-lg hover:bg-[#c4424a] transition-colors flex items-center gap-2"
+            className="ml-auto px-4 py-2 bg-[#d84e55] text-white text-sm font-bold rounded-lg hover:bg-[#c4424a] transition-colors flex items-center gap-2 btn-press"
           >
             <Printer className="h-4 w-4" /> Print Report
           </button>
@@ -169,7 +198,7 @@ export default function CounterAgentReconciliationPage() {
         {summaryCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow">
+            <div key={card.label} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow card-hover">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 ${card.bg} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${card.color}`} />
@@ -205,7 +234,7 @@ export default function CounterAgentReconciliationPage() {
                 <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-600">{new Date(payment.created_at).toLocaleTimeString()}</td>
                   <td className="px-4 py-3">
-                    <span className="font-mono font-medium text-[#d84e55]">{payment.pnr}</span>
+                    <Link to={`/counter/lookup?pnr=${payment.pnr}`} className="font-mono font-medium text-[#d84e55] hover:underline">{payment.pnr}</Link>
                   </td>
                   <td className="px-4 py-3 text-gray-800">{payment.route}</td>
                   <td className="px-4 py-3 text-gray-600">{payment.passengers}</td>
@@ -244,7 +273,7 @@ export default function CounterAgentReconciliationPage() {
                 <tr key={cancel.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-600">{new Date(cancel.created_at).toLocaleTimeString()}</td>
                   <td className="px-4 py-3">
-                    <span className="font-mono font-medium text-[#d84e55]">{cancel.pnr}</span>
+                    <Link to={`/counter/lookup?pnr=${cancel.pnr}`} className="font-mono font-medium text-[#d84e55] hover:underline">{cancel.pnr}</Link>
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-red-600">NPR {cancel.amount.toLocaleString()}</td>
                 </tr>

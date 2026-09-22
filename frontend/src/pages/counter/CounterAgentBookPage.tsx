@@ -126,8 +126,10 @@ export default function CounterAgentBookPage() {
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<'search' | 'select' | 'book' | 'success'>('search');
+  const [step, setStep] = useState<'search' | 'select' | 'book' | 'payment' | 'success'>('search');
   const [bookingResult, setBookingResult] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ESEWA' | 'KHALTI' | ''>('');
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     cityAPI
@@ -209,8 +211,6 @@ export default function CounterAgentBookPage() {
     return passengers.every((p) => p.name && p.age && p.gender && p.id_number);
   };
 
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-
   const handleSubmit = async () => {
     if (selectedSeats.length === 0) {
       toast.error('Please select at least one seat');
@@ -221,7 +221,12 @@ export default function CounterAgentBookPage() {
       toast.error('Please fill in all passenger details');
       return;
     }
-    setIsSubmitting(true);
+    setStep('payment');
+  };
+
+  const handleCashPayment = async () => {
+    if (!selectedTrip) return;
+    setProcessingPayment(true);
     try {
       const passengerData = passengers.map((p, i) => ({
         seat_number: selectedSeats[i],
@@ -233,18 +238,57 @@ export default function CounterAgentBookPage() {
         id_number: p.id_number,
       }));
       const response = await api.post('/bookings/cash-payment', {
-        trip_id: Number(selectedTrip!.id),
+        trip_id: Number(selectedTrip.id),
         passengers: passengerData,
         passenger_name: passengers[0]?.name || '',
         passenger_phone: passengers[0]?.phone || '',
       });
       setBookingResult(response.data.data.booking);
       setStep('success');
-      toast.success('Cash payment recorded successfully!');
+      toast.success('Cash payment recorded!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Booking failed');
     } finally {
-      setIsSubmitting(false);
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleOnlinePayment = async () => {
+    if (!selectedTrip) return;
+    setProcessingPayment(true);
+    try {
+      const passengerData = passengers.map((p, i) => ({
+        seat_number: selectedSeats[i],
+        passenger_name: p.name,
+        phone: p.phone,
+        age: Number(p.age),
+        gender: p.gender.toUpperCase(),
+        id_type: p.id_type,
+        id_number: p.id_number,
+      }));
+      const response = await api.post('/bookings', {
+        trip_id: Number(selectedTrip.id),
+        passengers: passengerData,
+      });
+      const booking = response.data.data.booking;
+      setBookingResult(booking);
+
+      const payRes = await api.post('/payments/initiate', {
+        booking_id: booking.id,
+        payment_method: paymentMethod,
+        amount: booking.total_amount,
+      });
+      const paymentUrl = payRes.data.data.payment_url;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      } else {
+        setStep('success');
+        toast.success('Booking created! Complete payment to confirm.');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Payment initiation failed');
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -344,10 +388,10 @@ export default function CounterAgentBookPage() {
 
       {/* Step Indicator */}
       <div className="flex items-center gap-2 text-sm">
-        {['search', 'book'].map((s, i) => {
-          const labels: Record<string, string> = { search: 'Search', book: 'Book & Pay' };
+        {['search', 'book', 'payment'].map((s, i) => {
+          const labels: Record<string, string> = { search: 'Search', book: 'Book Seats', payment: 'Payment' };
           const isActive = step === s;
-          const isDone = ['search', 'book', 'success'].indexOf(step) > i;
+          const isDone = ['search', 'book', 'payment', 'success'].indexOf(step) > i;
           return (
             <div key={s} className="flex items-center gap-2">
               {i > 0 && <div className={`w-8 h-px ${isDone || isActive ? 'bg-[#d84e55]' : 'bg-gray-200'}`} />}
@@ -636,7 +680,7 @@ export default function CounterAgentBookPage() {
                 {isSubmitting ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
                 ) : (
-                  <><Banknote className="h-4 w-4" /> Book & Collect Cash</>
+                  <><CreditCard className="h-4 w-4" /> Continue to Payment</>
                 )}
               </button>
             </div>
@@ -644,7 +688,144 @@ export default function CounterAgentBookPage() {
         </div>
       )}
 
-      {/* STEP 3: Success with Print */}
+      {/* STEP 3: Payment Method Selection */}
+      {step === 'payment' && (
+        <div className="max-w-lg mx-auto space-y-4">
+          {/* Fare Summary */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
+            <div className="space-y-2 text-sm mb-4 pb-4 border-b border-gray-100">
+              <div className="flex justify-between text-gray-600">
+                <span>Route</span>
+                <span className="font-medium">{selectedTrip?.route?.origin_city} → {selectedTrip?.route?.destination_city}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Date</span>
+                <span className="font-medium">{selectedTrip?.trip_date}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Passengers</span>
+                <span className="font-medium">{selectedSeats.length}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Seats</span>
+                <span className="font-medium">{selectedSeats.join(', ')}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Base fare ({selectedSeats.length} x NPR {fare})</span>
+                <span className="font-medium">NPR {baseTotal}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>GST (13%)</span>
+                <span className="font-medium">NPR {gst}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Service fee ({selectedSeats.length} x NPR 50)</span>
+                <span className="font-medium">NPR {serviceFee}</span>
+              </div>
+              <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-100">
+                <span>Total</span>
+                <span className="text-[#d84e55]">NPR {totalAmount}</span>
+              </div>
+            </div>
+
+            {/* Payment Method Options */}
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Select Payment Method</h4>
+            <div className="space-y-3">
+              <button
+                onClick={() => setPaymentMethod('CASH')}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all btn-press ${
+                  paymentMethod === 'CASH'
+                    ? 'border-[#d84e55] bg-red-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${paymentMethod === 'CASH' ? 'bg-[#d84e55]' : 'bg-green-100'}`}>
+                  <Banknote className={`h-6 w-6 ${paymentMethod === 'CASH' ? 'text-white' : 'text-green-600'}`} />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-gray-800">Cash</p>
+                  <p className="text-xs text-gray-500">Collect cash from passenger at counter</p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  paymentMethod === 'CASH' ? 'border-[#d84e55]' : 'border-gray-300'
+                }`}>
+                  {paymentMethod === 'CASH' && <div className="w-2.5 h-2.5 rounded-full bg-[#d84e55]" />}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setPaymentMethod('ESEWA')}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all btn-press ${
+                  paymentMethod === 'ESEWA'
+                    ? 'border-[#d84e55] bg-red-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${paymentMethod === 'ESEWA' ? 'bg-[#d84e55]' : 'bg-purple-100'}`}>
+                  <span className={`text-lg font-bold ${paymentMethod === 'ESEWA' ? 'text-white' : 'text-purple-600'}`}>eS</span>
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-gray-800">eSewa</p>
+                  <p className="text-xs text-gray-500">Pay via eSewa digital wallet</p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  paymentMethod === 'ESEWA' ? 'border-[#d84e55]' : 'border-gray-300'
+                }`}>
+                  {paymentMethod === 'ESEWA' && <div className="w-2.5 h-2.5 rounded-full bg-[#d84e55]" />}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setPaymentMethod('KHALTI')}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all btn-press ${
+                  paymentMethod === 'KHALTI'
+                    ? 'border-[#d84e55] bg-red-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${paymentMethod === 'KHALTI' ? 'bg-[#d84e55]' : 'bg-blue-100'}`}>
+                  <span className={`text-lg font-bold ${paymentMethod === 'KHALTI' ? 'text-white' : 'text-blue-600'}`}>K</span>
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-gray-800">Khalti</p>
+                  <p className="text-xs text-gray-500">Pay via Khalti digital wallet</p>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  paymentMethod === 'KHALTI' ? 'border-[#d84e55]' : 'border-gray-300'
+                }`}>
+                  {paymentMethod === 'KHALTI' && <div className="w-2.5 h-2.5 rounded-full bg-[#d84e55]" />}
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep('book')}
+              className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors btn-press"
+            >
+              Back
+            </button>
+            <button
+              onClick={paymentMethod === 'CASH' ? handleCashPayment : handleOnlinePayment}
+              disabled={!paymentMethod || processingPayment}
+              className="flex-1 py-2.5 bg-[#d84e55] text-white font-bold text-sm rounded-lg hover:bg-[#c4424a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 btn-press"
+            >
+              {processingPayment ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+              ) : paymentMethod === 'CASH' ? (
+                <><Banknote className="h-4 w-4" /> Confirm Cash Payment</>
+              ) : (
+                <><CreditCard className="h-4 w-4" /> Pay with {paymentMethod === 'ESEWA' ? 'eSewa' : 'Khalti'}</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: Success with Print */}
       {step === 'success' && bookingResult && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center max-w-lg mx-auto">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">

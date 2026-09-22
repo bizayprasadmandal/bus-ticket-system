@@ -50,9 +50,9 @@ export default function CounterAgentDashboard() {
   }, [fetchRecentBookings]);
 
   const statCards = [
-    { label: "Today's Available Trips", value: stats.today_trips_count ?? 0, icon: Calendar, color: 'text-[#d84e55]', bgColor: 'bg-red-50' },
+    { label: "Today's Available Trips", value: stats.today_trips ?? 0, icon: Calendar, color: 'text-[#d84e55]', bgColor: 'bg-red-50' },
     { label: 'Available Seats', value: stats.available_seats ?? 0, icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { label: "Today's Bookings", value: stats.today_bookings_count ?? 0, icon: Ticket, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { label: "Today's Bookings", value: stats.today_bookings ?? 0, icon: Ticket, color: 'text-green-600', bgColor: 'bg-green-50' },
     { label: "Today's Revenue", value: `NPR ${(stats.today_revenue || 0).toLocaleString()}`, icon: IndianRupee, color: 'text-purple-600', bgColor: 'bg-purple-50' },
   ];
 

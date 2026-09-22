@@ -56,7 +56,7 @@ export default function ConductorDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Conductor Dashboard</h1>
@@ -69,7 +69,7 @@ export default function ConductorDashboard() {
           <button
             onClick={refresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors btn-press"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -78,10 +78,10 @@ export default function ConductorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {statCards.map((card) => {
+        {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow">
+            <div key={card.label} className={`bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow card-hover animate-stagger-in stagger-${index + 1}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 ${card.bgColor} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${card.color}`} />
@@ -101,7 +101,7 @@ export default function ConductorDashboard() {
           <h3 className="text-lg font-semibold text-gray-800">Today's Trips</h3>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
-            <Link to="/conductor/trips" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+            <Link to="/conductor/trips" className="text-sm text-[#d84e55] font-medium hover:underline btn-press">View All →</Link>
           </div>
         </div>
         {stats.today_trips && stats.today_trips.length > 0 ? (
@@ -154,7 +154,7 @@ export default function ConductorDashboard() {
         )}
       </div>
 
-      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white card-hover animate-gradient">
         <div className="grid grid-cols-3 gap-6">
           <div className="text-center">
             <p className="text-3xl font-bold">{stats.total_trips || 0}</p>

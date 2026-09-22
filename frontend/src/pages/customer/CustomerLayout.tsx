@@ -112,7 +112,7 @@ export default function CustomerLayout() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 animate-fade-in">
         <Outlet />
       </main>
 
@@ -120,8 +120,8 @@ export default function CustomerLayout() {
         <div className="flex justify-around items-center h-14">
           <Link
             to="/"
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
-              isActive('/') ? 'text-[#d84e55]' : 'text-gray-500'
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 sidebar-nav-item ${
+              isActive('/') ? 'sidebar-nav-item active text-primary-700' : 'sidebar-nav-item text-gray-500'
             }`}
           >
             <Home className="h-5 w-5" />
@@ -129,8 +129,8 @@ export default function CustomerLayout() {
           </Link>
           <Link
             to="/my-bookings"
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
-              isActive('/my-bookings') ? 'text-[#d84e55]' : 'text-gray-500'
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 sidebar-nav-item ${
+              isActive('/my-bookings') ? 'sidebar-nav-item active text-primary-700' : 'sidebar-nav-item text-gray-500'
             }`}
           >
             <Ticket className="h-5 w-5" />
@@ -138,8 +138,8 @@ export default function CustomerLayout() {
           </Link>
           <Link
             to="/wallet"
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
-              isActive('/wallet') ? 'text-[#d84e55]' : 'text-gray-500'
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 sidebar-nav-item ${
+              isActive('/wallet') ? 'sidebar-nav-item active text-primary-700' : 'sidebar-nav-item text-gray-500'
             }`}
           >
             <Wallet className="h-5 w-5" />
@@ -147,8 +147,8 @@ export default function CustomerLayout() {
           </Link>
           <Link
             to="/reviews"
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
-              isActive('/reviews') ? 'text-[#d84e55]' : 'text-gray-500'
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 sidebar-nav-item ${
+              isActive('/reviews') ? 'sidebar-nav-item active text-primary-700' : 'sidebar-nav-item text-gray-500'
             }`}
           >
             <Star className="h-5 w-5" />
@@ -156,8 +156,8 @@ export default function CustomerLayout() {
           </Link>
           <Link
             to="/profile"
-            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 ${
-              isActive('/profile') ? 'text-[#d84e55]' : 'text-gray-500'
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 sidebar-nav-item ${
+              isActive('/profile') ? 'sidebar-nav-item active text-primary-700' : 'sidebar-nav-item text-gray-500'
             }`}
           >
             <UserCircle className="h-5 w-5" />

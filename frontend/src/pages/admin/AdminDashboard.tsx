@@ -111,13 +111,13 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
         <button
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-all"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-all btn-press"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           Refresh
@@ -126,10 +126,10 @@ export default function AdminDashboard() {
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card) => {
+        {statCards.map((card, index) => {
           const href = card.label === 'Total Users' ? '/admin/users' : card.label === 'Operators' ? '/admin/operators' : card.label === 'Total Bookings' ? '/admin/reports' : '#';
           return (
-            <Link to={href} key={card.label} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow block">
+            <Link to={href} key={card.label} className={`bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow block card-hover animate-stagger-in stagger-${index + 1}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">{card.label}</p>
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
         <h2 className="text-lg font-semibold text-gray-800 mb-4">System Overview</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {systemCards.map((card) => (
-            <div key={card.label} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+            <div key={card.label} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg card-hover">
               <card.icon className={`h-5 w-5 ${card.color}`} />
               <div>
                 <p className="text-xs text-gray-500">{card.label}</p>
@@ -209,7 +209,7 @@ export default function AdminDashboard() {
 
       {/* Quick Stats Bar */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white card-hover animate-gradient">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-100 text-xs">Today's Bookings</p>
@@ -223,7 +223,7 @@ export default function AdminDashboard() {
             <ArrowUpRight className="h-5 w-5 text-blue-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white card-hover animate-gradient">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-xs">Confirmed</p>
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
             <ArrowUpRight className="h-5 w-5 text-green-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white card-hover animate-gradient">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-xs">Completed</p>
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
             <ArrowUpRight className="h-5 w-5 text-purple-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-white card-hover animate-gradient">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-red-100 text-xs">Cancelled</p>

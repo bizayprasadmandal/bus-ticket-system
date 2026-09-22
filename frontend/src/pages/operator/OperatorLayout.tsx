@@ -59,10 +59,10 @@ export default function OperatorLayout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-sm border-r flex flex-col transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 sidebar-gradient shadow-sm border-r flex flex-col transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center justify-between px-6 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center logo-glow">
               <Bus className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -81,8 +81,8 @@ export default function OperatorLayout() {
               key={item.to}
               to={item.to}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                isActive(item) ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium sidebar-nav-item ${
+                isActive(item) ? 'active' : ''
               }`}
             >
               <item.icon className="h-5 w-5" />
@@ -94,8 +94,8 @@ export default function OperatorLayout() {
         {/* User Info */}
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-semibold text-sm">
+            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
+              <span className="text-primary-600 font-semibold text-sm">
                 {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'OP'}
               </span>
             </div>
@@ -146,8 +146,8 @@ export default function OperatorLayout() {
                 <ExternalLink className="h-4 w-4" /> View Site
               </Link>
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold text-xs">
+                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                  <span className="text-primary-600 font-semibold text-xs">
                     {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'OP'}
                   </span>
                 </div>
@@ -160,7 +160,7 @@ export default function OperatorLayout() {
           </div>
         </div>
 
-        <main className="flex-1 p-8 overflow-auto">
+        <main className="flex-1 p-8 overflow-auto animate-fade-in">
           <Outlet />
         </main>
       </div>

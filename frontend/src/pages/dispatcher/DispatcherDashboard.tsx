@@ -92,7 +92,7 @@ export default function DispatcherDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -106,7 +106,7 @@ export default function DispatcherDashboard() {
           <button
             onClick={refresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors btn-press"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -116,10 +116,10 @@ export default function DispatcherDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {statCards.map((card) => {
+        {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow">
+            <div key={card.label} className={`bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow card-hover${index < 4 ? ` animate-stagger-in stagger-${index + 1}` : ''}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 ${card.bgColor} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${card.color}`} />
@@ -140,7 +140,7 @@ export default function DispatcherDashboard() {
           <h3 className="text-lg font-semibold text-gray-800">Today's Trips</h3>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
-            <Link to="/dispatcher/trips" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+            <Link to="/dispatcher/trips" className="text-sm text-[#d84e55] font-medium hover:underline btn-press">View All →</Link>
           </div>
         </div>
         {stats.today_trips && stats.today_trips.length > 0 ? (
@@ -170,7 +170,7 @@ export default function DispatcherDashboard() {
                 {nextStatusMap[trip.status] && (
                   <button
                     onClick={() => handleQuickStatusUpdate(trip.id, nextStatusMap[trip.status])}
-                    className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                    className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap btn-press"
                   >
                     Mark {nextStatusMap[trip.status]}
                   </button>
@@ -191,7 +191,7 @@ export default function DispatcherDashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-800">Available Buses</h3>
-            <Link to="/dispatcher/buses" className="text-sm text-[#d84e55] font-medium hover:underline">View All →</Link>
+            <Link to="/dispatcher/buses" className="text-sm text-[#d84e55] font-medium hover:underline btn-press">View All →</Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {stats.available_buses_list.map((bus) => (

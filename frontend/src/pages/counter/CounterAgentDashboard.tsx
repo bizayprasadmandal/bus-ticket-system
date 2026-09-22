@@ -48,7 +48,7 @@ export default function CounterAgentDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Counter Agent Dashboard</h1>
@@ -61,7 +61,7 @@ export default function CounterAgentDashboard() {
           <button
             onClick={refresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors btn-press"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -71,10 +71,10 @@ export default function CounterAgentDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card) => {
+        {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow">
+            <div key={card.label} className={`bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow card-hover animate-stagger-in stagger-${index + 1}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 ${card.bgColor} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${card.color}`} />
@@ -125,7 +125,7 @@ export default function CounterAgentDashboard() {
                 </div>
                 <button
                   onClick={() => navigate(`/counter/book?tripId=${trip.id}`)}
-                  className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shrink-0"
+                  className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shrink-0 btn-press"
                 >
                   Quick Book
                 </button>

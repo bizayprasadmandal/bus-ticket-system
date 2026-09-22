@@ -125,10 +125,14 @@ export const driverTripAPI = {
 
 export const conductorTripAPI = {
   getMyTrips: () => api.get('/trips/conductor/my-trips'),
+  getSchedule: (params?: { start_date?: string; end_date?: string }) => api.get('/trips/conductor/schedule', { params }),
 };
 
 export const conductorBookingAPI = {
   getMyBookings: (params?: any) => api.get('/bookings/conductor/my-bookings', { params }),
+  verifyPNR: (pnr: string) => api.get(`/bookings/verify-pnr/${pnr}`),
+  board: (id: number) => api.post(`/bookings/${id}/board`),
+  noShow: (id: number) => api.post(`/bookings/${id}/no-show`),
 };
 
 export const counterAgentBookingAPI = {

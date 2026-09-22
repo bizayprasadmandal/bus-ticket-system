@@ -436,15 +436,17 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
     const dispatcherRole = userRoles.find(r => r.role === 'DISPATCHER' && r.is_active);
     const driverRole = userRoles.find(r => r.role === 'DRIVER' && r.is_active);
 
-    if (!isAdmin && !operatorRole && !dispatcherRole && !driverRole) {
+    const conductorRole = userRoles.find(r => r.role === 'CONDUCTOR' && r.is_active);
+
+    if (!isAdmin && !operatorRole && !dispatcherRole && !driverRole && !conductorRole) {
       return res.status(403).json({
         success: false,
-        message: 'Only operators, dispatchers, drivers, or admins can update trip status',
+        message: 'Only operators, dispatchers, drivers, conductors, or admins can update trip status',
       });
     }
 
-    // If operator, dispatcher, or driver, verify they own/are assigned to this trip
-    if (!isAdmin && (operatorRole || dispatcherRole || driverRole)) {
+    // If operator, dispatcher, driver, or conductor, verify they own/are assigned to this trip
+    if (!isAdmin && (operatorRole || dispatcherRole || driverRole || conductorRole)) {
       const tripWithBus = await Trip.findByPk(id, {
         include: [{ model: Bus, as: 'bus', attributes: ['operator_id'] }],
       });
@@ -453,6 +455,15 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
         const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
         const driverName = user?.full_name;
         if (!tripWithBus || tripWithBus.driver_name !== driverName) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only update status of trips assigned to you',
+          });
+        }
+      } else if (conductorRole) {
+        const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+        const conductorName = user?.full_name;
+        if (!tripWithBus || tripWithBus.conductor_name !== conductorName) {
           return res.status(403).json({
             success: false,
             message: 'You can only update status of trips assigned to you',
@@ -700,7 +711,16 @@ router.get('/conductor/my-trips', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Conductor operator information not found' });
     }
 
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    const conductorName = user?.full_name;
+
+    const whereClause = {};
+    if (conductorName) {
+      whereClause.conductor_name = conductorName;
+    }
+
     const trips = await Trip.findAll({
+      where: whereClause,
       include: [
         { model: Bus, as: 'bus', where: { operator_id: conductorRole.operator_id }, required: true },
         { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
@@ -840,6 +860,43 @@ router.get('/driver/schedule', authenticateToken, requireRole(['DRIVER']), async
     });
   } catch (error) {
     console.error('Driver schedule error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get schedule', error: error.message });
+  }
+});
+
+// Get conductor's weekly schedule
+router.get('/conductor/schedule', authenticateToken, requireRole(['CONDUCTOR']), async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    const conductorName = user?.full_name;
+
+    if (!conductorName) {
+      return res.status(400).json({ success: false, message: 'Conductor name not found' });
+    }
+
+    const { start_date, end_date } = req.query;
+    const today = new Date();
+    const weekStart = start_date || new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
+    const weekEnd = end_date || new Date(today.setDate(today.getDate() - today.getDay() + 6)).toISOString().split('T')[0];
+
+    const trips = await Trip.findAll({
+      where: {
+        conductor_name: conductorName,
+        trip_date: { [Op.between]: [weekStart, weekEnd] },
+      },
+      include: [
+        { model: Route, as: 'route', attributes: ['id', 'route_name', 'origin_city', 'destination_city'] },
+        { model: Bus, as: 'bus', attributes: ['id', 'bus_number', 'bus_type'] },
+      ],
+      order: [['trip_date', 'ASC'], ['departure_time', 'ASC']],
+    });
+
+    res.json({
+      success: true,
+      data: { trips, start_date: weekStart, end_date: weekEnd },
+    });
+  } catch (error) {
+    console.error('Conductor schedule error:', error);
     res.status(500).json({ success: false, message: 'Failed to get schedule', error: error.message });
   }
 });

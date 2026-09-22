@@ -658,4 +658,123 @@ router.get('/counter-agent/my-bookings', authenticateToken, async (req, res) => 
   }
 });
 
+// Verify a ticket by PNR (for conductor/driver verification)
+router.get('/verify-pnr/:pnr', authenticateToken, async (req, res) => {
+  try {
+    const { pnr } = req.params;
+
+    const booking = await Booking.findOne({
+      where: { pnr },
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'] },
+        {
+          model: Trip,
+          as: 'trip',
+          include: [
+            { model: Route, as: 'route', attributes: ['route_name', 'origin_city', 'destination_city'] },
+            { model: Bus, as: 'bus', attributes: ['bus_number', 'bus_type'] },
+          ],
+        },
+        { model: BookingPassenger, as: 'passengers' },
+      ],
+    });
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found for this PNR' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        booking: {
+          id: booking.id,
+          pnr: booking.pnr,
+          booking_status: booking.booking_status,
+          payment_status: booking.payment_status,
+          total_amount: booking.total_amount,
+          passenger_name: booking.user?.full_name,
+          passenger_phone: booking.user?.phone_number,
+          route: booking.trip?.route,
+          bus: booking.trip?.bus,
+          trip_date: booking.trip?.trip_date,
+          departure_time: booking.trip?.departure_time,
+          passengers: booking.passengers?.map(p => ({
+            name: p.passenger_name || p.name,
+            seat_number: p.seat_number,
+          })),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Verify PNR error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify ticket', error: error.message });
+  }
+});
+
+// Mark a booking as boarded
+router.post('/:id/board', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const booking = await Booking.findByPk(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.booking_status === 'CANCELLED') {
+      return res.status(400).json({ success: false, message: 'Cannot board a cancelled booking' });
+    }
+
+    // Update status to COMPLETED (boarded)
+    booking.booking_status = 'COMPLETED';
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: 'Passenger marked as boarded',
+      data: { booking_id: booking.id, status: booking.booking_status },
+    });
+  } catch (error) {
+    console.error('Board passenger error:', error);
+    res.status(500).json({ success: false, message: 'Failed to mark as boarded', error: error.message });
+  }
+});
+
+// Mark a booking as no-show
+router.post('/:id/no-show', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const booking = await Booking.findByPk(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.booking_status === 'CANCELLED') {
+      return res.status(400).json({ success: false, message: 'Cannot mark cancelled booking as no-show' });
+    }
+
+    // Mark as cancelled (no-show)
+    booking.booking_status = 'CANCELLED';
+    booking.cancellation_reason = 'No-show';
+    await booking.save();
+
+    // Release seats back to the trip
+    const trip = await Trip.findByPk(booking.trip_id);
+    if (trip) {
+      trip.available_seats = (trip.available_seats || 0) + (booking.total_passengers || 1);
+      await trip.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Passenger marked as no-show',
+      data: { booking_id: booking.id, status: booking.booking_status },
+    });
+  } catch (error) {
+    console.error('No-show error:', error);
+    res.status(500).json({ success: false, message: 'Failed to mark as no-show', error: error.message });
+  }
+});
+
 module.exports = router;

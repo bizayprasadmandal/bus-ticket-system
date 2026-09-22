@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, LogOut, Menu, X, ChevronRight, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, ScanSearch, Clock, LogOut, Menu, X, ChevronRight, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,8 @@ const navItems = [
   { to: '/conductor', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/conductor/trips', label: 'My Trips', icon: Calendar },
   { to: '/conductor/passengers', label: 'Passengers', icon: Users },
+  { to: '/conductor/verify', label: 'Verify Ticket', icon: ScanSearch },
+  { to: '/conductor/schedule', label: 'Schedule', icon: Clock },
 ];
 
 export default function ConductorLayout() {

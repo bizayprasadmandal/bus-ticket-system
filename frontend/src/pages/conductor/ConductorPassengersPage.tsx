@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Ticket, MapPin, Phone, Users, Loader2, CheckCircle, RefreshCw } from 'lucide-react';
+import { Search, Ticket, MapPin, Phone, Users, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
 import { conductorBookingAPI } from '../../api';
+import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
 interface PassengerDetail {
@@ -31,7 +33,7 @@ export default function ConductorPassengersPage() {
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [boardedMap, setBoardedMap] = useState<Record<number, boolean>>({});
+  const [boardingId, setBoardingId] = useState<number | null>(null);
 
   const loadBookings = useCallback(async () => {
     try {
@@ -61,9 +63,32 @@ export default function ConductorPassengersPage() {
     });
   }, [bookings, searchQuery]);
 
-  const handleMarkBoarded = (bookingId: number) => {
-    setBoardedMap(prev => ({ ...prev, [bookingId]: !prev[bookingId] }));
-    toast.success(boardedMap[bookingId] ? 'Marked as not boarded' : 'Passenger boarded');
+  const handleMarkBoarded = async (bookingId: number) => {
+    setBoardingId(bookingId);
+    try {
+      await api.post(`/bookings/${bookingId}/board`);
+      setBookings(prev =>
+        prev.map(b => b.id === bookingId ? { ...b, boarded: true } : b)
+      );
+      toast.success('Passenger boarded successfully');
+    } catch {
+      toast.error('Failed to mark as boarded');
+    } finally {
+      setBoardingId(null);
+    }
+  };
+
+  const handleNoShow = async (bookingId: number) => {
+    setBoardingId(bookingId);
+    try {
+      await api.post(`/bookings/${bookingId}/no-show`);
+      toast.success('Passenger marked as no-show');
+      loadBookings();
+    } catch {
+      toast.error('Failed to mark as no-show');
+    } finally {
+      setBoardingId(null);
+    }
   };
 
   const statusColors: Record<string, string> = {
@@ -71,14 +96,17 @@ export default function ConductorPassengersPage() {
     PENDING: 'bg-amber-100 text-amber-700',
     CANCELLED: 'bg-red-100 text-red-700',
     COMPLETED: 'bg-blue-100 text-blue-700',
+    BOARDING: 'bg-yellow-100 text-yellow-700',
+    'NO-SHOW': 'bg-red-100 text-red-700',
+  };
+
+  const getBookingDisplayStatus = (booking: BookingItem) => {
+    if (booking.boarded) return 'BOARDING';
+    return booking.booking_status;
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin h-8 w-8 text-purple-600" />
-      </div>
-    );
+    return <TableSkeleton rows={5} cols={4} />;
   }
 
   return (
@@ -141,7 +169,8 @@ export default function ConductorPassengersPage() {
           </div>
         ) : (
           filteredBookings.map((booking) => {
-            const isBoarded = boardedMap[booking.id] || false;
+            const displayStatus = getBookingDisplayStatus(booking);
+            const isBoarded = booking.boarded;
             return (
               <div
                 key={booking.id}
@@ -163,9 +192,9 @@ export default function ConductorPassengersPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-purple-600">{booking.pnr}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[booking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
-                            {booking.booking_status}
+                          <span className="font-mono font-bold text-[#d84e55]">{booking.pnr}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[displayStatus] || 'bg-gray-100 text-gray-600'}`}>
+                            {displayStatus}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-600">
@@ -177,17 +206,30 @@ export default function ConductorPassengersPage() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleMarkBoarded(booking.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isBoarded
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'bg-purple-600 text-white hover:bg-purple-700'
-                      }`}
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      {isBoarded ? 'Boarded' : 'Mark Boarded'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleMarkBoarded(booking.id)}
+                        disabled={boardingId === booking.id}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isBoarded
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-[#d84e55] text-white hover:bg-[#c23e44]'
+                        } disabled:opacity-50`}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        {boardingId === booking.id ? 'Processing...' : isBoarded ? 'Boarded' : 'Mark Boarded'}
+                      </button>
+                      {!isBoarded && (
+                        <button
+                          onClick={() => handleNoShow(booking.id)}
+                          disabled={boardingId === booking.id}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          No-Show
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">

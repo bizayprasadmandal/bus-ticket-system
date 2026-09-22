@@ -65,6 +65,9 @@ import ConductorLayout from './pages/conductor/ConductorLayout';
 import ConductorDashboard from './pages/conductor/ConductorDashboard';
 import ConductorTripsPage from './pages/conductor/ConductorTripsPage';
 import ConductorPassengersPage from './pages/conductor/ConductorPassengersPage';
+import ConductorVerifyPage from './pages/conductor/ConductorVerifyPage';
+import ConductorSeatMapPage from './pages/conductor/ConductorSeatMapPage';
+import ConductorSchedulePage from './pages/conductor/ConductorSchedulePage';
 import CounterAgentLayout from './pages/counter/CounterAgentLayout';
 import CounterAgentDashboard from './pages/counter/CounterAgentDashboard';
 import CounterAgentBookPage from './pages/counter/CounterAgentBookPage';
@@ -167,6 +170,9 @@ function App() {
             <Route index element={<ConductorDashboard />} />
             <Route path="trips" element={<ConductorTripsPage />} />
             <Route path="passengers" element={<ConductorPassengersPage />} />
+            <Route path="verify" element={<ConductorVerifyPage />} />
+            <Route path="seat-map/:tripId" element={<ConductorSeatMapPage />} />
+            <Route path="schedule" element={<ConductorSchedulePage />} />
           </Route>
 
           <Route path="/counter" element={

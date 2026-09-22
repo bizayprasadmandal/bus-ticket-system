@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, Clock, CheckCircle, MapPin, ArrowRight, RefreshCw, Loader2, Play, CheckCircle2 } from 'lucide-react';
+import { Calendar, Users, Clock, CheckCircle, MapPin, ArrowRight, RefreshCw, Loader2, Route } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
@@ -19,9 +19,10 @@ interface TripItem {
 }
 
 interface Stats {
-  today_trips_count?: number;
-  completed_trips?: number;
-  upcoming_trips?: number;
+  total_today?: number;
+  completed?: number;
+  upcoming?: number;
+  boarding?: number;
   total_passengers?: number;
   today_trips?: TripItem[];
   [key: string]: any;
@@ -44,20 +45,11 @@ export default function DriverDashboard() {
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(fetchData, 30000);
 
-  const handleStatusUpdate = async (id: number, status: string) => {
-    try {
-      await api.put(`/trips/${id}/status`, { status });
-      toast.success(`Trip marked as ${status.toLowerCase()}`);
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update status');
-    }
-  };
-
   const statCards = [
-    { label: "Today's Trips", value: stats.today_trips_count ?? 0, icon: Calendar, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-    { label: 'Completed', value: stats.completed_trips ?? 0, icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
-    { label: 'Upcoming', value: stats.upcoming_trips ?? 0, icon: Clock, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { label: "Today's Trips", value: stats.total_today ?? 0, icon: Calendar, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    { label: 'Boarding', value: stats.boarding ?? 0, icon: Clock, color: 'text-amber-600', bgColor: 'bg-amber-50' },
+    { label: 'Completed', value: stats.completed ?? 0, icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { label: 'Upcoming', value: stats.upcoming ?? 0, icon: Clock, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { label: 'Total Passengers', value: stats.total_passengers ?? 0, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50' },
   ];
 
@@ -67,6 +59,7 @@ export default function DriverDashboard() {
     DEPARTED: 'bg-purple-100 text-purple-700',
     COMPLETED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
+    ARRIVED: 'bg-purple-100 text-purple-700',
   };
 
   if (isLoading) {
@@ -79,7 +72,6 @@ export default function DriverDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Driver Dashboard</h1>
@@ -100,8 +92,7 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -120,7 +111,6 @@ export default function DriverDashboard() {
         })}
       </div>
 
-      {/* Today's Trips */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Today's Trips</h3>
@@ -132,7 +122,7 @@ export default function DriverDashboard() {
         {stats.today_trips && stats.today_trips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: TripItem) => (
-              <div key={trip.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+              <div key={trip.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
                   <Calendar className="h-6 w-6 text-emerald-600" />
                 </div>
@@ -159,22 +149,12 @@ export default function DriverDashboard() {
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[trip.status] || 'bg-gray-100 text-gray-600'}`}>
                     {trip.status}
                   </span>
-                  {trip.status === 'SCHEDULED' && (
-                    <button
-                      onClick={() => handleStatusUpdate(trip.id, 'DEPARTED')}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-                    >
-                      <Play className="h-3 w-3" /> Depart
-                    </button>
-                  )}
-                  {trip.status === 'DEPARTED' && (
-                    <button
-                      onClick={() => handleStatusUpdate(trip.id, 'COMPLETED')}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <CheckCircle2 className="h-3 w-3" /> Complete
-                    </button>
-                  )}
+                  <Link
+                    to={`/driver/trip/${trip.id}`}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-[#d84e55] text-white text-xs font-medium rounded-lg hover:bg-[#c4434a] transition-colors"
+                  >
+                    <Route className="h-3 w-3" /> Route Info
+                  </Link>
                 </div>
               </div>
             ))}

@@ -117,6 +117,10 @@ export const dispatcherTripAPI = {
 export const driverTripAPI = {
   getMyTrips: () => api.get('/trips/driver/my-trips'),
   updateStatus: (id: number, status: string) => api.put(`/trips/${id}/status`, { status }),
+  getSchedule: (params?: { start_date?: string; end_date?: string }) => api.get('/trips/driver/schedule', { params }),
+  getPassengers: (id: number) => api.get(`/trips/${id}/passengers`),
+  reportLocation: (id: number, data: { latitude: number; longitude: number; speed?: number; heading?: number }) =>
+    api.post(`/trips/${id}/location`, data),
 };
 
 export const conductorTripAPI = {

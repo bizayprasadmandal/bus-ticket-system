@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Clock } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
 const navItems = [
   { to: '/driver', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/driver/trips', label: 'My Trips', icon: Calendar },
+  { to: '/driver/schedule', label: 'Schedule', icon: Clock },
 ];
 
 export default function DriverLayout() {

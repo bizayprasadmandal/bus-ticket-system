@@ -1,7 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Calendar, Search, Clock, Bus, MapPin, ArrowRight, RefreshCw, Play, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Calendar, Search, Clock, Bus, MapPin, ArrowRight, RefreshCw, Route } from 'lucide-react';
 import { driverTripAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
 interface TripItem {
@@ -14,6 +16,12 @@ interface TripItem {
   available_seats?: number;
   [key: string]: any;
 }
+
+const statusWorkflow: Record<string, { next: string; label: string; color: string }> = {
+  SCHEDULED: { next: 'BOARDING', label: 'Start Boarding', color: 'bg-blue-600 hover:bg-blue-700' },
+  BOARDING: { next: 'DEPARTED', label: 'Mark Departed', color: 'bg-green-600 hover:bg-green-700' },
+  DEPARTED: { next: 'ARRIVED', label: 'Mark Arrived', color: 'bg-purple-600 hover:bg-purple-700' },
+};
 
 export default function DriverTripsPage() {
   const [trips, setTrips] = useState<TripItem[]>([]);
@@ -61,32 +69,13 @@ export default function DriverTripsPage() {
     DEPARTED: 'bg-purple-100 text-purple-700',
     COMPLETED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
+    ARRIVED: 'bg-purple-100 text-purple-700',
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <div className="h-10 bg-gray-200 animate-pulse rounded-lg w-full" />
-        </div>
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-xl p-6 border border-gray-100">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gray-200 animate-pulse rounded-lg" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 animate-pulse rounded w-1/3" />
-                <div className="h-3 bg-gray-200 animate-pulse rounded w-1/4" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  if (loading) return <TableSkeleton rows={5} cols={5} />;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">My Trips</h1>
@@ -107,7 +96,6 @@ export default function DriverTripsPage() {
         </div>
       </div>
 
-      {/* Search Bar */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -121,61 +109,59 @@ export default function DriverTripsPage() {
         </div>
       </div>
 
-      {/* Trip Cards */}
       {filteredTrips.length > 0 ? (
         <div className="space-y-4">
-          {filteredTrips.map((trip) => (
-            <div key={trip.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                {/* Route Info */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
-                    <Calendar className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                      <span className="font-medium text-gray-800">{trip.route?.origin_city}</span>
-                      <ArrowRight className="h-3 w-3 text-gray-400" />
-                      <span className="font-medium text-gray-800">{trip.route?.destination_city}</span>
+          {filteredTrips.map((trip) => {
+            const workflow = statusWorkflow[trip.status];
+            return (
+              <div key={trip.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
+                      <Calendar className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {trip.departure_time}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Bus className="h-3 w-3" /> {trip.bus?.bus_number}
-                      </span>
-                      <span>{trip.trip_date}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="font-medium text-gray-800">{trip.route?.origin_city}</span>
+                        <ArrowRight className="h-3 w-3 text-gray-400" />
+                        <span className="font-medium text-gray-800">{trip.route?.destination_city}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> {trip.departure_time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Bus className="h-3 w-3" /> {trip.bus?.bus_number}
+                        </span>
+                        <span>{trip.trip_date}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Status & Actions */}
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[trip.status] || 'bg-gray-100 text-gray-600'}`}>
-                    {trip.status}
-                  </span>
-                  {trip.status === 'SCHEDULED' && (
-                    <button
-                      onClick={() => handleStatusUpdate(trip.id, 'DEPARTED')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      to={`/driver/trip/${trip.id}`}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
                     >
-                      <Play className="h-3 w-3" /> Mark DEPARTED
-                    </button>
-                  )}
-                  {trip.status === 'DEPARTED' && (
-                    <button
-                      onClick={() => handleStatusUpdate(trip.id, 'COMPLETED')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <CheckCircle2 className="h-3 w-3" /> Mark COMPLETED
-                    </button>
-                  )}
+                      <Route className="h-3 w-3" /> Route Info
+                    </Link>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[trip.status] || 'bg-gray-100 text-gray-600'}`}>
+                      {trip.status}
+                    </span>
+                    {workflow && (
+                      <button
+                        onClick={() => handleStatusUpdate(trip.id, workflow.next)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-lg transition-colors ${workflow.color}`}
+                      >
+                        {workflow.label}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">

@@ -429,30 +429,43 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
       });
     }
 
-    // Verify operator owns this trip or is admin or dispatcher
+    // Verify operator owns this trip or is admin, dispatcher, or driver
     const userRoles = req.user.roles || [];
     const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
     const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
     const dispatcherRole = userRoles.find(r => r.role === 'DISPATCHER' && r.is_active);
+    const driverRole = userRoles.find(r => r.role === 'DRIVER' && r.is_active);
 
-    if (!isAdmin && !operatorRole && !dispatcherRole) {
+    if (!isAdmin && !operatorRole && !dispatcherRole && !driverRole) {
       return res.status(403).json({
         success: false,
-        message: 'Only operators, dispatchers, or admins can update trip status',
+        message: 'Only operators, dispatchers, drivers, or admins can update trip status',
       });
     }
 
-    // If operator or dispatcher, verify they own this trip
-    if (!isAdmin && (operatorRole || dispatcherRole)) {
+    // If operator, dispatcher, or driver, verify they own/are assigned to this trip
+    if (!isAdmin && (operatorRole || dispatcherRole || driverRole)) {
       const tripWithBus = await Trip.findByPk(id, {
         include: [{ model: Bus, as: 'bus', attributes: ['operator_id'] }],
       });
-      const ownerId = operatorRole ? operatorRole.operator_id : dispatcherRole.operator_id;
-      if (!tripWithBus || tripWithBus.bus.operator_id !== ownerId) {
-        return res.status(403).json({
-          success: false,
-          message: 'You can only update status of your own trips',
-        });
+
+      if (driverRole) {
+        const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+        const driverName = user?.full_name;
+        if (!tripWithBus || tripWithBus.driver_name !== driverName) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only update status of trips assigned to you',
+          });
+        }
+      } else {
+        const ownerId = operatorRole ? operatorRole.operator_id : dispatcherRole.operator_id;
+        if (!tripWithBus || tripWithBus.bus.operator_id !== ownerId) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only update status of your own trips',
+          });
+        }
       }
     }
 
@@ -517,7 +530,7 @@ router.put('/:id/assign-crew', authenticateToken, requireRole(['OPERATOR', 'SUPE
 });
 
 // Get passenger manifest for a trip
-router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER_ADMIN', 'DISPATCHER', 'CONDUCTOR']), async (req, res) => {
+router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER_ADMIN', 'DISPATCHER', 'CONDUCTOR', 'DRIVER']), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -648,7 +661,17 @@ router.get('/driver/my-trips', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Driver operator information not found' });
     }
 
+    // Get the driver's full name from their user record
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    const driverName = user?.full_name;
+
+    const whereClause = {};
+    if (driverName) {
+      whereClause.driver_name = driverName;
+    }
+
     const trips = await Trip.findAll({
+      where: whereClause,
       include: [
         { model: Bus, as: 'bus', where: { operator_id: driverRole.operator_id }, required: true },
         { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
@@ -781,6 +804,91 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Delete trip error:', error);
     res.status(500).json({ success: false, message: 'Failed to delete trip', error: error.message });
+  }
+});
+
+// Get driver's weekly schedule
+router.get('/driver/schedule', authenticateToken, requireRole(['DRIVER']), async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    const driverName = user?.full_name;
+
+    if (!driverName) {
+      return res.status(400).json({ success: false, message: 'Driver name not found' });
+    }
+
+    const { start_date, end_date } = req.query;
+    const today = new Date();
+    const weekStart = start_date || new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
+    const weekEnd = end_date || new Date(today.setDate(today.getDate() - today.getDay() + 6)).toISOString().split('T')[0];
+
+    const trips = await Trip.findAll({
+      where: {
+        driver_name: driverName,
+        trip_date: { [Op.between]: [weekStart, weekEnd] },
+      },
+      include: [
+        { model: Route, as: 'route', attributes: ['id', 'route_name', 'origin_city', 'destination_city'] },
+        { model: Bus, as: 'bus', attributes: ['id', 'bus_number', 'bus_type'] },
+      ],
+      order: [['trip_date', 'ASC'], ['departure_time', 'ASC']],
+    });
+
+    res.json({
+      success: true,
+      data: { trips, start_date: weekStart, end_date: weekEnd },
+    });
+  } catch (error) {
+    console.error('Driver schedule error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get schedule', error: error.message });
+  }
+});
+
+// Report driver's GPS location
+router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { latitude, longitude } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ success: false, message: 'Latitude and longitude required' });
+    }
+
+    const trip = await Trip.findByPk(id);
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    // Upsert location
+    const [location, created] = await BusLocation.findOrCreate({
+      where: { trip_id: id },
+      defaults: {
+        bus_id: trip.bus_id,
+        latitude,
+        longitude,
+        speed: req.body.speed || 0,
+        heading: req.body.heading || 0,
+        recorded_at: new Date(),
+      },
+    });
+
+    if (!created) {
+      location.latitude = latitude;
+      location.longitude = longitude;
+      location.speed = req.body.speed || location.speed;
+      location.heading = req.body.heading || location.heading;
+      location.recorded_at = new Date();
+      await location.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Location updated',
+      data: { latitude, longitude, recorded_at: new Date() },
+    });
+  } catch (error) {
+    console.error('Report location error:', error);
+    res.status(500).json({ success: false, message: 'Failed to report location', error: error.message });
   }
 });
 

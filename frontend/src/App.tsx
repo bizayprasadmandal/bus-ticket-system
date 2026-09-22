@@ -59,6 +59,8 @@ import DispatcherSchedulePage from './pages/dispatcher/DispatcherSchedulePage';
 import DriverLayout from './pages/driver/DriverLayout';
 import DriverDashboard from './pages/driver/DriverDashboard';
 import DriverTripsPage from './pages/driver/DriverTripsPage';
+import DriverRoutePage from './pages/driver/DriverRoutePage';
+import DriverSchedulePage from './pages/driver/DriverSchedulePage';
 import ConductorLayout from './pages/conductor/ConductorLayout';
 import ConductorDashboard from './pages/conductor/ConductorDashboard';
 import ConductorTripsPage from './pages/conductor/ConductorTripsPage';
@@ -153,6 +155,8 @@ function App() {
           }>
             <Route index element={<DriverDashboard />} />
             <Route path="trips" element={<DriverTripsPage />} />
+            <Route path="trip/:id" element={<DriverRoutePage />} />
+            <Route path="schedule" element={<DriverSchedulePage />} />
           </Route>
 
           <Route path="/conductor" element={

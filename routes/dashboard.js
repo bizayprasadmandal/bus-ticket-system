@@ -10,6 +10,7 @@ const {
   User,
   Payment,
   WalletTransaction,
+  BookingPassenger,
 } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
@@ -616,17 +617,27 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
       });
     }
 
+    // Get the driver's full name from their user record
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    const driverName = user?.full_name;
+
     const operatorId = driverRole.operator_id;
     const currentDate = new Date();
     const todayStr = currentDate.toISOString().split('T')[0];
 
+    const todayTripWhere = { trip_date: todayStr };
+    if (driverName) {
+      todayTripWhere.driver_name = driverName;
+    }
+
     const [
       todayTrips,
       tripStatuses,
+      totalPassengersToday,
     ] = await Promise.all([
-      // Today's trips for the operator
+      // Today's trips for this driver
       Trip.findAll({
-        where: { trip_date: todayStr },
+        where: todayTripWhere,
         include: [
           {
             model: Route,
@@ -641,23 +652,48 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
         order: [['departure_time', 'ASC']],
       }),
 
-      // Trip statuses
+      // Trip statuses for this driver
       Promise.all([
         Trip.count({
-          where: { trip_date: todayStr },
+          where: todayTripWhere,
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
         Trip.count({
-          where: { trip_date: todayStr, status: 'COMPLETED' },
+          where: { ...todayTripWhere, status: 'COMPLETED' },
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
         Trip.count({
-          where: { trip_date: todayStr, status: { [Op.in]: ['SCHEDULED', 'BOARDING'] } },
+          where: { ...todayTripWhere, status: { [Op.in]: ['SCHEDULED', 'BOARDING'] } },
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
-      ]).then(([total_today, completed, upcoming]) => ({
-        total_today, completed, upcoming,
+        Trip.count({
+          where: { ...todayTripWhere, status: 'BOARDING' },
+          include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
+        }),
+      ]).then(([total_today, completed, upcoming, boarding]) => ({
+        total_today, completed, upcoming, boarding,
       })),
+
+      // Total passengers for today's trips
+      BookingPassenger.count({
+        include: [
+          {
+            model: Booking,
+            as: 'booking',
+            where: { booking_status: ['CONFIRMED', 'COMPLETED'] },
+            include: [
+              {
+                model: Trip,
+                as: 'trip',
+                where: todayTripWhere,
+                include: [
+                  { model: Route, as: 'route', where: { operator_id: operatorId } },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
     ]);
 
     res.json({
@@ -668,6 +704,8 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
           total_today: tripStatuses.total_today,
           completed: tripStatuses.completed,
           upcoming: tripStatuses.upcoming,
+          boarding: tripStatuses.boarding,
+          total_passengers: totalPassengersToday,
         },
         today_trips: todayTrips,
       },

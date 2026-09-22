@@ -214,7 +214,8 @@ export default function DispatcherPassengersPage() {
           {loadingPassengers ? (
             <TableSkeleton rows={5} cols={7} />
           ) : passengers.length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
@@ -276,6 +277,7 @@ export default function DispatcherPassengersPage() {
                 </div>
               </div>
             )}
+            </>
           ) : (
             <div className="text-center py-12">
               <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />

@@ -20,12 +20,14 @@ export default function CounterAgentDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [availableTrips, setAvailableTrips] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
       setError(null);
       const res = await api.get('/dashboard/counter-agent');
       setStats(res.data.data.stats || {});
+      setAvailableTrips(res.data.data.available_trips || []);
     } catch {
       setError('Failed to load dashboard data');
       toast.error('Failed to load dashboard');
@@ -128,11 +130,11 @@ export default function CounterAgentDashboard() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Available Trips for Today</h3>
-          <span className="text-sm text-gray-500">{stats.today_trips?.length || 0} trips</span>
+          <span className="text-sm text-gray-500">{availableTrips.length} trips</span>
         </div>
-        {stats.today_trips && stats.today_trips.length > 0 ? (
+        {availableTrips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {stats.today_trips.map((trip: any, i: number) => (
+            {availableTrips.map((trip: any, i: number) => (
               <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
                   <Calendar className="h-5 w-5 text-[#d84e55]" />

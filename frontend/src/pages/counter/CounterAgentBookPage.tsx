@@ -132,6 +132,7 @@ export default function CounterAgentBookPage() {
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ESEWA' | 'KHALTI' | ''>('');
   const [processingPayment, setProcessingPayment] = useState(false);
   const [loadingTrip, setLoadingTrip] = useState(false);
+  const fetchedTripIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     cityAPI
@@ -141,27 +142,29 @@ export default function CounterAgentBookPage() {
   }, []);
 
   // Auto-select trip from ?tripId= param (Quick Book from dashboard)
+  const tripIdFromUrl = searchParams.get('tripId');
   useEffect(() => {
-    const tripId = searchParams.get('tripId');
-    if (tripId && !selectedTrip && !loadingTrip) {
-      setLoadingTrip(true);
-      tripAPI.getSeats(Number(tripId))
-        .then(async (seatRes) => {
-          const tripRes = await api.get(`/trips/${tripId}`);
-          const trip = tripRes.data.data;
-          setSelectedTrip(trip);
-          setSeatLayout(seatRes.data.data);
-          setSelectedSeats([]);
-          setPassengers([]);
-          setStep('book');
-        })
-        .catch(() => {
-          toast.error('Failed to load trip');
-          navigate('/counter/book');
-        })
-        .finally(() => setLoadingTrip(false));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!tripIdFromUrl) return;
+    if (fetchedTripIdRef.current === tripIdFromUrl) return;
+    if (loadingTrip) return;
+    fetchedTripIdRef.current = tripIdFromUrl;
+    setLoadingTrip(true);
+    tripAPI.getSeats(Number(tripIdFromUrl))
+      .then(async (seatRes) => {
+        const tripRes = await api.get(`/trips/${tripIdFromUrl}`);
+        const trip = tripRes.data.data;
+        setSelectedTrip(trip);
+        setSeatLayout(seatRes.data.data);
+        setSelectedSeats([]);
+        setPassengers([]);
+        setStep('book');
+      })
+      .catch(() => {
+        toast.error('Failed to load trip');
+        navigate('/counter/book');
+      })
+      .finally(() => setLoadingTrip(false));
+  });
 
   const swapCities = () => {
     setOrigin(destination);

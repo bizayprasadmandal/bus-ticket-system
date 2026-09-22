@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer, Clock, CheckCircle, XCircle, CreditCard } from 'lucide-react';
+import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -75,14 +75,6 @@ export default function CounterAgentBookingsPage() {
   useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
   const displayBookings = statusFilter === 'ALL' ? bookings : bookings.filter(b => b.booking_status === statusFilter);
-
-  const stats = {
-    total: bookings.length,
-    confirmed: bookings.filter((b) => b.booking_status === 'CONFIRMED').length,
-    pending: bookings.filter((b) => b.booking_status === 'PENDING').length,
-    cancelled: bookings.filter((b) => b.booking_status === 'CANCELLED').length,
-    totalRevenue: bookings.reduce((sum, b) => sum + (b.booking_status === 'CONFIRMED' ? b.total_amount : 0), 0),
-  };
 
   if (loading) return <TableSkeleton rows={5} cols={6} />;
 
@@ -160,54 +152,6 @@ export default function CounterAgentBookingsPage() {
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-1">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
-              <Clock className="h-5 w-5 text-[#d84e55]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Bookings</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Confirmed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
-              <XCircle className="h-5 w-5 text-[#d84e55]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Cancelled</p>
-              <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-[#d84e55]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Revenue</p>
-              <p className="text-2xl font-bold text-[#d84e55]">NPR {stats.totalRevenue.toLocaleString()}</p>
-            </div>
-          </div>
         </div>
       </div>
 

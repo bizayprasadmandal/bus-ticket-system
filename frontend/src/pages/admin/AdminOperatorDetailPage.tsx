@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import api from '../../api';
 import toast from 'react-hot-toast';
 import { TableSkeleton } from '../../components/Skeleton';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface OperatorDetail {
   id: number;
@@ -270,7 +271,7 @@ export default function AdminOperatorDetailPage() {
                             b.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                             b.booking_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                             'bg-gray-100 text-gray-600'
-                          }`}>{b.booking_status}</span>
+                          }`}>{bookingStatusLabel(b.booking_status)}</span>
                         </td>
                       </tr>
                     ))}

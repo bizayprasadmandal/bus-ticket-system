@@ -4,6 +4,7 @@ import { Bus, Route, Calendar, Ticket, TrendingUp, MapPin, Clock, RefreshCw, Loa
 import { dashboardAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface Stats {
   total_routes?: number;
@@ -170,7 +171,7 @@ export default function OperatorDashboard() {
                       booking.booking_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
-                      {booking.booking_status}
+                      {bookingStatusLabel(booking.booking_status)}
                     </span>
                   </div>
                 </div>

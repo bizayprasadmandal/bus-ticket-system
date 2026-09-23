@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { reportAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 export default function AdminReportsPage() {
   const [activeReport, setActiveReport] = useState('revenue');
@@ -302,7 +303,7 @@ export default function AdminReportsPage() {
                                 b.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-600'
                               }`}>
-                                {b.status}
+                                {bookingStatusLabel(b.status)}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-gray-600">{b.trip_date}</td>

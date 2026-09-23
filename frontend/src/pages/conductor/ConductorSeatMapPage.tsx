@@ -5,6 +5,7 @@ import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface PassengerDetail {
   name: string;
@@ -321,7 +322,7 @@ export default function ConductorSeatMapPage() {
                   selectedSeat.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                   'bg-gray-100 text-gray-600'
                 }`}>
-                  {selectedSeat.booking_status}
+                  {bookingStatusLabel(selectedSeat.booking_status)}
                 </span>
               </div>
             </div>

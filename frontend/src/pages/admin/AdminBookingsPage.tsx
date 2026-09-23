@@ -4,6 +4,7 @@ import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel, paymentStatusLabel } from '../../utils/statusLabels';
 
 interface BookingItem {
   id: number;
@@ -125,7 +126,7 @@ export default function AdminBookingsPage() {
           >
             <option value="ALL">All Status</option>
             <option value="CONFIRMED">Confirmed</option>
-            <option value="PENDING">Pending</option>
+            <option value="PENDING">Awaiting Payment</option>
             <option value="CANCELLED">Cancelled</option>
             <option value="COMPLETED">Completed</option>
           </select>
@@ -136,7 +137,7 @@ export default function AdminBookingsPage() {
           >
             <option value="ALL">All Payments</option>
             <option value="PAID">Paid</option>
-            <option value="PENDING">Pending</option>
+            <option value="PENDING">Awaiting Payment</option>
             <option value="REFUNDED">Refunded</option>
             <option value="FAILED">Failed</option>
           </select>
@@ -197,12 +198,12 @@ export default function AdminBookingsPage() {
                   <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {booking.total_amount?.toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getBookingStatusColor(booking.booking_status)}`}>
-                      {booking.booking_status}
+                      {bookingStatusLabel(booking.booking_status)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.payment_status)}`}>
-                      {booking.payment_status}
+                      {paymentStatusLabel(booking.payment_status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">

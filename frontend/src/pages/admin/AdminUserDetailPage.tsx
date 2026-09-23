@@ -4,6 +4,7 @@ import { ArrowLeft, User, Phone, Mail, Shield, Calendar, Ticket, Wallet, Loader2
 import api from '../../api';
 import toast from 'react-hot-toast';
 import { TableSkeleton } from '../../components/Skeleton';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface UserDetail {
   id: number;
@@ -310,7 +311,7 @@ export default function AdminUserDetailPage() {
                             b.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                             b.booking_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                             'bg-gray-100 text-gray-600'
-                          }`}>{b.booking_status}</span>
+                          }`}>{bookingStatusLabel(b.booking_status)}</span>
                         </td>
                       </tr>
                     ))}
@@ -356,7 +357,7 @@ export default function AdminUserDetailPage() {
                           b.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                           b.booking_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                           'bg-gray-100 text-gray-600'
-                        }`}>{b.booking_status}</span>
+                        }`}>{bookingStatusLabel(b.booking_status)}</span>
                       </td>
                     </tr>
                   ))}

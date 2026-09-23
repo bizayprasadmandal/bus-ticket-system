@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Search, Phone, Ticket, MapPin, Calendar, Clock, Users, Printer, X, Loader2, Download } from 'lucide-react';
 import api from '../../api';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel, paymentStatusLabel } from '../../utils/statusLabels';
 
 interface BookingDetail {
   id: number;
@@ -166,7 +167,7 @@ export default function CounterAgentPNRPage() {
         <div class="info-row"><span>Bus</span><strong>${sanitize(target.trip?.bus?.bus_type || '')} (${sanitize(target.trip?.bus?.bus_number || '')})</strong></div>
         <table><thead><tr><th>#</th><th>Passenger</th><th>Seat</th><th>Phone</th></tr></thead><tbody>${passengerRows}</tbody></table>
         <div class="total">Total: NPR ${target.total_amount?.toLocaleString()}</div>
-        <div class="stamp"><span>${target.payment_status === 'COMPLETED' ? 'PAID - CASH' : sanitize(target.booking_status)}</span></div>
+        <div class="stamp"><span>${target.payment_status === 'COMPLETED' ? 'PAID - CASH' : sanitize(bookingStatusLabel(target.booking_status))}</span></div>
       </div>
       <script>window.onload=function(){window.print();window.close();}</script>
       </body></html>
@@ -231,10 +232,10 @@ export default function CounterAgentPNRPage() {
         </div>
         <div className="flex gap-2">
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[booking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
-            {booking.booking_status}
+            {bookingStatusLabel(booking.booking_status)}
           </span>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${booking.payment_status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-red-50 text-[#d84e55]'}`}>
-            {booking.payment_status}
+            {paymentStatusLabel(booking.payment_status)}
           </span>
         </div>
       </div>

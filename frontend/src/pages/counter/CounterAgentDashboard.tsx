@@ -4,6 +4,7 @@ import { Calendar, Ticket, MapPin, ArrowRight, Clock, RefreshCw, Loader2, Users,
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface DashboardStats {
   today_trips_count?: number;
@@ -212,7 +213,7 @@ export default function CounterAgentDashboard() {
                         b.booking_status === 'CANCELLED' ? 'bg-red-50 text-red-700' :
                         b.booking_status === 'PENDING' ? 'bg-yellow-50 text-yellow-700' :
                         'bg-gray-100 text-gray-600'
-                      }`}>{b.booking_status}</span>
+                      }`}>{bookingStatusLabel(b.booking_status)}</span>
                     </td>
                   </tr>
                 ))}

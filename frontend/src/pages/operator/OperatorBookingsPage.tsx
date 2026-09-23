@@ -4,6 +4,7 @@ import { operatorBookingAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface BookingItem {
   id: number;
@@ -111,7 +112,7 @@ export default function OperatorBookingsPage() {
           <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Pending</p>
+          <p className="text-sm text-gray-500">Awaiting Payment</p>
           <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
@@ -144,7 +145,7 @@ export default function OperatorBookingsPage() {
           >
             <option value="ALL">All Status</option>
             <option value="CONFIRMED">Confirmed</option>
-            <option value="PENDING">Pending</option>
+            <option value="PENDING">Awaiting Payment</option>
             <option value="CANCELLED">Cancelled</option>
             <option value="COMPLETED">Completed</option>
           </select>
@@ -209,7 +210,7 @@ export default function OperatorBookingsPage() {
                   <td className="px-4 py-3 font-medium text-gray-800">NPR {booking.total_amount.toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[booking.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {booking.status}
+                      {bookingStatusLabel(booking.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -284,7 +285,7 @@ export default function OperatorBookingsPage() {
                   <p className="text-xl font-mono font-bold text-blue-600">{selectedBooking.pnr}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[selectedBooking.status] || 'bg-gray-100 text-gray-600'}`}>
-                  {selectedBooking.status}
+                  {bookingStatusLabel(selectedBooking.status)}
                 </span>
               </div>
 

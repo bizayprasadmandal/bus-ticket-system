@@ -5,6 +5,7 @@ import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface PassengerDetail {
   name: string;
@@ -194,7 +195,7 @@ export default function ConductorPassengersPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-bold text-[#d84e55]">{booking.pnr}</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[displayStatus] || 'bg-gray-100 text-gray-600'}`}>
-                            {displayStatus}
+                            {bookingStatusLabel(displayStatus)}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-600">

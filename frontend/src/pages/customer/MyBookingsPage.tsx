@@ -14,12 +14,14 @@ import {
   Armchair,
   XCircle,
   RefreshCw,
+  CreditCard,
 } from 'lucide-react';
 import { bookingAPI } from '../../api';
 import type { Booking } from '../../types';
 import toast from 'react-hot-toast';
 import CancelBookingModal from '../../components/CancelBookingModal';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   CONFIRMED: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
@@ -254,7 +256,7 @@ export default function MyBookingsPage() {
                             </span>
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${colors.bg} ${colors.text}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-                              <span className="text-xs font-bold">{status}</span>
+                              <span className="text-xs font-bold">{bookingStatusLabel(status)}</span>
                             </span>
                           </div>
                         </div>
@@ -304,6 +306,15 @@ export default function MyBookingsPage() {
                             </div>
                           ))}
                         </div>
+                        {status === 'PENDING' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/payment/${booking.id}`); }}
+                            className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#d84e55] hover:bg-[#c4424a] rounded-full transition-colors"
+                          >
+                            <CreditCard className="h-3.5 w-3.5" />
+                            Pay Now
+                          </button>
+                        )}
                         {status === 'CONFIRMED' && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setCancelBookingId(booking.id); }}

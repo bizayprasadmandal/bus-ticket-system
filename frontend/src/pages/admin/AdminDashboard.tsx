@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Users, UserCog, Ticket, DollarSign, Bus, Route, CreditCard, TrendingUp, RefreshCw, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { dashboardAPI } from '../../api';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface SystemStats {
   active_trips: number;
@@ -195,7 +196,7 @@ export default function AdminDashboard() {
                 <div className="flex-shrink-0 text-right">
                   <p className="text-sm font-semibold text-gray-800">Rs. {activity.total_amount?.toLocaleString()}</p>
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(activity.booking_status)}`}>
-                    {activity.booking_status}
+                    {bookingStatusLabel(activity.booking_status)}
                   </span>
                 </div>
                 <div className="flex-shrink-0 text-xs text-gray-400 w-16 text-right">

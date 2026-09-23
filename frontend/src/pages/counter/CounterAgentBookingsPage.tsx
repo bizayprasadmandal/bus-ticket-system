@@ -4,6 +4,7 @@ import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface BookingItem {
   id: number;
@@ -135,7 +136,7 @@ export default function CounterAgentBookingsPage() {
         <div class="info-row"><span>Bus</span><strong>${sanitize(booking.trip?.bus?.bus_type)} (${sanitize(booking.trip?.bus?.bus_number)})</strong></div>
         <table><thead><tr><th>#</th><th>Passenger</th><th>Seat</th></tr></thead><tbody>${passengerRows}</tbody></table>
         <div class="total">Total: NPR ${booking.total_amount.toLocaleString()}</div>
-        <div class="stamp"><span>${booking.payment_status === 'PAID' ? 'PAID - CASH' : sanitize(booking.booking_status)}</span></div>
+        <div class="stamp"><span>${booking.payment_status === 'PAID' || booking.payment_status === 'COMPLETED' ? 'PAID - CASH' : sanitize(bookingStatusLabel(booking.booking_status))}</span></div>
       </div>
       <script>window.onload=function(){window.print();window.close();}</script>
       </body></html>
@@ -237,7 +238,7 @@ export default function CounterAgentBookingsPage() {
             <option value="CONFIRMED">Confirmed</option>
             <option value="COMPLETED">Completed</option>
             <option value="CANCELLED">Cancelled</option>
-            <option value="PENDING">Pending</option>
+            <option value="PENDING">Awaiting Payment</option>
           </select>
         </div>
       </div>
@@ -300,7 +301,7 @@ export default function CounterAgentBookingsPage() {
                   <td className="px-4 py-3 font-medium text-gray-800">NPR {booking.total_amount.toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[booking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
-                      {booking.booking_status}
+                      {bookingStatusLabel(booking.booking_status)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -411,7 +412,7 @@ export default function CounterAgentBookingsPage() {
                   <p className="text-xl font-mono font-bold text-[#d84e55]">{selectedBooking.pnr}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[selectedBooking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
-                  {selectedBooking.booking_status}
+                  {bookingStatusLabel(selectedBooking.booking_status)}
                 </span>
               </div>
 

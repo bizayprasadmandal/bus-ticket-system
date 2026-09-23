@@ -5,6 +5,7 @@ import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
+import { bookingStatusLabel, paymentStatusLabel } from '../../utils/statusLabels';
 
 interface TripItem {
   id: number;
@@ -238,12 +239,12 @@ export default function DispatcherPassengersPage() {
                       <td className="px-4 py-3 text-gray-700 font-mono text-xs">{p.pnr}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.booking_status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : p.booking_status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {p.booking_status}
+                          {bookingStatusLabel(p.booking_status)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.payment_status === 'PAID' ? 'bg-green-100 text-green-700' : p.payment_status === 'REFUNDED' ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {p.payment_status}
+                          {paymentStatusLabel(p.payment_status)}
                         </span>
                       </td>
                     </tr>

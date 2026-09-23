@@ -936,6 +936,55 @@ router.get('/counter-agent/my-bookings', authenticateToken, async (req, res) => 
 });
 
 // Verify a ticket by PNR (for conductor/driver verification)
+// Search bookings by phone (counter agent)
+router.get('/counter/search-by-phone', authenticateToken, requireRole(['COUNTER_AGENT', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+
+    const bookings = await Booking.findAll({
+      where: { user_id: req.user.id },
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'] },
+        {
+          model: Trip,
+          as: 'trip',
+          include: [
+            { model: Route, as: 'route', attributes: ['route_name', 'origin_city', 'destination_city'] },
+            { model: Bus, as: 'bus', attributes: ['bus_number', 'bus_type'] },
+          ],
+        },
+        {
+          model: BookingPassenger,
+          as: 'passengers',
+          where: { phone_number: { [Op.like]: `%${phone}%` } },
+          required: false,
+        },
+      ],
+      order: [['booking_date', 'DESC']],
+      distinct: true,
+    });
+
+    const matched = bookings.filter(b =>
+      b.user?.phone_number?.includes(phone) ||
+      b.passengers?.some(p => p.phone_number?.includes(phone))
+    );
+
+    res.json({
+      success: true,
+      data: {
+        bookings: matched,
+        count: matched.length,
+      },
+    });
+  } catch (error) {
+    console.error('Phone search error:', error);
+    res.status(500).json({ success: false, message: 'Failed to search bookings', error: error.message });
+  }
+});
+
 router.get('/verify-pnr/:pnr', authenticateToken, async (req, res) => {
   try {
     const { pnr } = req.params;
@@ -963,23 +1012,7 @@ router.get('/verify-pnr/:pnr', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       data: {
-        booking: {
-          id: booking.id,
-          pnr: booking.pnr,
-          booking_status: booking.booking_status,
-          payment_status: booking.payment_status,
-          total_amount: booking.total_amount,
-          passenger_name: booking.user?.full_name,
-          passenger_phone: booking.user?.phone_number,
-          route: booking.trip?.route,
-          bus: booking.trip?.bus,
-          trip_date: booking.trip?.trip_date,
-          departure_time: booking.trip?.departure_time,
-          passengers: booking.passengers?.map(p => ({
-            name: p.passenger_name || p.name,
-            seat_number: p.seat_number,
-          })),
-        },
+        booking: booking.toJSON(),
       },
     });
   } catch (error) {

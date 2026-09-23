@@ -7,21 +7,22 @@ interface BookingDetail {
   id: number;
   pnr: string;
   total_passengers: number;
-  base_amount: number;
-  tax_amount: number;
-  service_fee: number;
-  total_amount: number;
+  base_amount: string | number;
+  tax_amount: string | number;
+  service_fee: string | number;
+  total_amount: string | number;
   payment_status: string;
   booking_status: string;
-  created_at: string;
+  booking_date: string;
+  user?: { id?: number; full_name: string; phone_number: string };
   trip?: {
     trip_date: string;
     departure_time: string;
     arrival_time?: string;
-    route?: { origin_city: string; destination_city: string; distance_km?: number };
+    current_fare?: string;
+    route?: { route_name?: string; origin_city: string; destination_city: string; distance_km?: number };
     bus?: { bus_number: string; bus_type: string; total_seats?: number };
   };
-  user?: { full_name: string; phone_number: string };
   passengers?: { passenger_name: string; seat_number: string; phone_number?: string; age?: number; gender?: string }[];
 }
 
@@ -88,8 +89,8 @@ export default function CounterAgentPNRPage() {
     setResult(null);
     setResults([]);
     try {
-      const res = await api.get('/bookings', { params: { search: query } });
-      const bookings = res.data.data.bookings || res.data.data;
+      const res = await api.get('/bookings/counter/search-by-phone', { params: { phone: query } });
+      const bookings = res.data.data.bookings || [];
       if (Array.isArray(bookings) && bookings.length > 0) {
         setResults(bookings);
         setResult(bookings[0]);
@@ -154,7 +155,7 @@ export default function CounterAgentPNRPage() {
         th { background: #f3f4f6; padding: 4px 8px; border: 1px solid #ddd; text-align: left; font-size: 12px; }
         .total { text-align: right; font-size: 18px; font-weight: bold; color: #d84e55; margin-top: 8px; border-top: 2px solid #d84e55; padding-top: 8px; }
         .stamp { text-align: center; margin: 12px 0; }
-        .stamp span { display: inline-block; border: 3px solid ${target.payment_status === 'PAID' ? '#16a34a' : '#f59e0b'}; color: ${target.payment_status === 'PAID' ? '#16a34a' : '#f59e0b'}; font-size: 16px; font-weight: bold; padding: 4px 16px; border-radius: 4px; transform: rotate(-5deg); }
+        .stamp span { display: inline-block; border: 3px solid ${target.payment_status === 'COMPLETED' ? '#16a34a' : '#f59e0b'}; color: ${target.payment_status === 'COMPLETED' ? '#16a34a' : '#f59e0b'}; font-size: 16px; font-weight: bold; padding: 4px 16px; border-radius: 4px; transform: rotate(-5deg); }
       </style></head><body>
       <div class="ticket">
         <div class="header"><h1>Gadi Yatra</h1></div>
@@ -165,7 +166,7 @@ export default function CounterAgentPNRPage() {
         <div class="info-row"><span>Bus</span><strong>${sanitize(target.trip?.bus?.bus_type || '')} (${sanitize(target.trip?.bus?.bus_number || '')})</strong></div>
         <table><thead><tr><th>#</th><th>Passenger</th><th>Seat</th><th>Phone</th></tr></thead><tbody>${passengerRows}</tbody></table>
         <div class="total">Total: NPR ${target.total_amount?.toLocaleString()}</div>
-        <div class="stamp"><span>${target.payment_status === 'PAID' ? 'PAID - CASH' : sanitize(target.booking_status)}</span></div>
+        <div class="stamp"><span>${target.payment_status === 'COMPLETED' ? 'PAID - CASH' : sanitize(target.booking_status)}</span></div>
       </div>
       <script>window.onload=function(){window.print();window.close();}</script>
       </body></html>
@@ -232,7 +233,7 @@ export default function CounterAgentPNRPage() {
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[booking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
             {booking.booking_status}
           </span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${booking.payment_status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-50 text-[#d84e55]'}`}>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${booking.payment_status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-red-50 text-[#d84e55]'}`}>
             {booking.payment_status}
           </span>
         </div>

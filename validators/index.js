@@ -119,7 +119,7 @@ const paymentValidation = {
       .isInt({ min: 1 })
       .withMessage('Valid booking ID is required'),
     body('payment_method')
-      .isIn(['ESEWA', 'KHALTI', 'FONEPAY', 'CONNECTIPS', 'CARD', 'WALLET'])
+      .isIn(['ESEWA', 'KHALTI', 'FONEPAY', 'CONNECTIPS', 'CARD', 'WALLET', 'CASH'])
       .withMessage('Valid payment method is required'),
     body('amount')
       .isDecimal({ decimal_digits: '0,2' })

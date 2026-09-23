@@ -288,7 +288,7 @@ export default function CounterAgentBookPage() {
       const passengerData = passengers.map((p, i) => ({
         seat_number: selectedSeats[i],
         passenger_name: p.name,
-        phone: p.phone,
+        phone_number: p.phone,
         age: Number(p.age),
         gender: p.gender.toUpperCase(),
         id_type: p.id_type,
@@ -301,7 +301,7 @@ export default function CounterAgentBookPage() {
       const booking = response.data.data.booking;
       setBookingResult(booking);
 
-      const payRes = await api.post('/payments/initiate', {
+      const payRes = await api.post('/payments', {
         booking_id: booking.id,
         payment_method: paymentMethod,
         amount: booking.total_amount,

@@ -19,7 +19,7 @@ const notificationService = new NotificationService();
 const router = express.Router();
 
 // Initiate payment
-router.post('/', authenticateToken, paymentValidation.initiate, handleValidationErrors, async (req, res) => {
+const initiatePaymentHandler = async (req, res) => {
   try {
     const { booking_id, payment_method, amount } = req.body;
     const userId = req.user.id;
@@ -185,7 +185,11 @@ router.post('/', authenticateToken, paymentValidation.initiate, handleValidation
       error: error.message,
     });
   }
-});
+};
+
+const initiateMiddleware = [authenticateToken, paymentValidation.initiate, handleValidationErrors];
+router.post('/', ...initiateMiddleware, initiatePaymentHandler);
+router.post('/initiate', ...initiateMiddleware, initiatePaymentHandler);
 
 // Public callback endpoint for payment gateway redirects (no auth required)
 router.get('/:id/callback', async (req, res) => {

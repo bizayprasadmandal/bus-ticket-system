@@ -35,11 +35,11 @@ services:
       - key: DB_PASSWORD
         sync: false
       - key: BASE_URL
-        sync: false # e.g. https://samaya-api.onrender.com
+        sync: false
       - key: FRONTEND_URL
-        sync: false # e.g. https://samaya-web.onrender.com
+        sync: false
       - key: ALLOWED_ORIGINS
-        sync: false # FRONTEND_URL,API_URL (comma-separated)
+        sync: false
       - key: ESEWA_MERCHANT_CODE
         sync: false
       - key: ESEWA_SECRET_KEY
@@ -53,8 +53,10 @@ services:
       - key: KHALTI_PUBLIC_KEY
         sync: false
 
-staticSites:
-  - name: samaya-web
+  - type: web
+    name: samaya-web
+    runtime: static
+    plan: free
     repo: https://github.com/bizayprasadmandal/bus-ticket-system
     branch: main
     buildCommand: cd frontend && npm ci && npm run build
@@ -62,9 +64,9 @@ staticSites:
     autoDeploy: true
     envVars:
       - key: VITE_API_URL
-        sync: false # e.g. https://samaya-api.onrender.com/api
+        sync: false
       - key: VITE_WS_URL
-        sync: false # e.g. https://samaya-api.onrender.com
+        sync: false
     routes:
       - type: rewrite
         source: /*

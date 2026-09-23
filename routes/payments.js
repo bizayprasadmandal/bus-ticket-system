@@ -20,6 +20,9 @@ const notificationService = new NotificationService();
 
 const router = express.Router();
 
+const getFrontendUrl = () =>
+  (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+
 // Initiate payment
 const initiatePaymentHandler = async (req, res) => {
   try {
@@ -202,12 +205,12 @@ router.get('/:id/callback', async (req, res) => {
     const gateway = req.query.gateway || req.query.payment_method || '';
 
     // Forward to the frontend callback page with all query params
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     const queryParams = new URLSearchParams(req.query).toString();
     res.redirect(`${frontendUrl}/payment/callback/${id}?${queryParams}`);
   } catch (error) {
     console.error('Payment callback redirect error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     res.redirect(`${frontendUrl}/payment/callback/${req.params.id}?error=callback_failed`);
   }
 });
@@ -233,7 +236,7 @@ router.get('/:id/verify', async (req, res) => {
     if (payment.status !== 'PENDING') {
       await transaction.rollback();
       // Still redirect to frontend success page
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = getFrontendUrl();
       return res.redirect(`${frontendUrl}/payment/callback/${id}?status=already_processed`);
     }
 
@@ -347,13 +350,13 @@ router.get('/:id/verify', async (req, res) => {
     }
 
     // Redirect to frontend callback page
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     const status = verificationResult.success ? 'success' : 'failed';
     res.redirect(`${frontendUrl}/payment/callback/${id}?status=${status}`);
   } catch (error) {
     await transaction.rollback();
     console.error('Verify payment callback error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
     res.redirect(`${frontendUrl}/payment/callback/${req.params.id}?error=verification_failed`);
   }
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer } from 'lucide-react';
+import { Ticket, Search, ChevronLeft, ChevronRight, MapPin, Calendar, Phone, Users, RefreshCw, X, Printer, Clock, CheckCircle, XCircle, CreditCard } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -30,6 +30,14 @@ interface Pagination {
   items_per_page: number;
 }
 
+interface BookingStats {
+  total: number;
+  confirmed: number;
+  pending: number;
+  cancelled: number;
+  totalRevenue: number;
+}
+
 const statusColors: Record<string, string> = {
   CONFIRMED: 'bg-green-100 text-green-700',
   PENDING: 'bg-red-50 text-[#d84e55]',
@@ -51,6 +59,7 @@ export default function CounterAgentBookingsPage() {
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null);
   const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [stats, setStats] = useState<BookingStats | null>(null);
 
   const itemsPerPage = 10;
 
@@ -63,6 +72,7 @@ export default function CounterAgentBookingsPage() {
       const res = await api.get(`/bookings/counter/my-bookings?${params.toString()}`);
       setBookings(res.data.data.items || []);
       setPagination(res.data.data.pagination || null);
+      setStats(res.data.data.stats || null);
     } catch {
       toast.error('Failed to load bookings');
     } finally {
@@ -154,6 +164,56 @@ export default function CounterAgentBookingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-[#d84e55]" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Total Bookings</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Confirmed</p>
+                <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                <XCircle className="h-5 w-5 text-[#d84e55]" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Cancelled</p>
+                <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100 animate-stagger-in stagger-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-[#d84e55]" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Revenue</p>
+                <p className="text-2xl font-bold text-[#d84e55]">NPR {stats.totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">

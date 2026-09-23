@@ -487,10 +487,29 @@ router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGEN
       };
     });
 
+    const [statsResult] = await sequelize.query(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN booking_status = 'CONFIRMED' THEN 1 ELSE 0 END) as confirmed,
+        SUM(CASE WHEN booking_status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN booking_status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled,
+        COALESCE(SUM(CASE WHEN booking_status = 'CONFIRMED' THEN total_amount ELSE 0 END), 0) as total_revenue
+      FROM bookings WHERE user_id = ?
+    `, { replacements: [req.user.id] });
+
+    const stats = {
+      total: parseInt(statsResult[0]?.total) || 0,
+      confirmed: parseInt(statsResult[0]?.confirmed) || 0,
+      pending: parseInt(statsResult[0]?.pending) || 0,
+      cancelled: parseInt(statsResult[0]?.cancelled) || 0,
+      totalRevenue: parseFloat(statsResult[0]?.total_revenue) || 0,
+    };
+
     res.json({
       success: true,
       data: {
         items,
+        stats,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(count / limit),

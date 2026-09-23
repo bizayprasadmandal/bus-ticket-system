@@ -14,26 +14,28 @@ const sanitize = (str: string) => str
   .replace(/'/g, '&#039;');
 
 interface ReconciliationData {
-  total_collected: number;
-  total_bookings: number;
-  total_refunds: number;
-  net_collection: number;
-  cash_payments: CashPayment[];
+  summary: {
+    total_collected: number;
+    total_bookings: number;
+    total_refunds: number;
+    net_collection: number;
+  };
+  payments: CashPayment[];
   cancellations: Cancellation[];
 }
 
 interface CashPayment {
   id: number;
-  created_at: string;
+  time: string;
   pnr: string;
-  route: string;
+  route?: { origin_city?: string; destination_city?: string };
   passengers: number;
   amount: number;
 }
 
 interface Cancellation {
   id: number;
-  created_at: string;
+  time: string;
   pnr: string;
   amount: number;
 }
@@ -72,16 +74,16 @@ export default function CounterAgentReconciliationPage() {
     if (!data) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const paymentRows = data.cash_payments
+    const paymentRows = data.payments
       ?.map(
         (p, i) =>
-          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(p.created_at).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.route)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(String(p.passengers))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(p.amount.toLocaleString())}</td></tr>`
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(p.time).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.route?.origin_city || '')} → ${sanitize(p.route?.destination_city || '')}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(String(p.passengers))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(p.amount.toLocaleString())}</td></tr>`
       )
       .join('') || '';
     const cancellationRows = data.cancellations
       ?.map(
         (c) =>
-          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(c.created_at).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(c.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(c.amount.toLocaleString())}</td></tr>`
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(c.time).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(c.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(c.amount.toLocaleString())}</td></tr>`
       )
       .join('') || '';
     printWindow.document.write(`
@@ -103,12 +105,12 @@ export default function CounterAgentReconciliationPage() {
         <h1>Cash Reconciliation Report</h1>
         <p><strong>Date:</strong> ${sanitize(date)}</p>
         <div class="summary">
-          <div class="summary-card"><div class="label">Total Collected</div><div class="value">NPR ${data.total_collected.toLocaleString()}</div></div>
-          <div class="summary-card"><div class="label">Total Bookings</div><div class="value">${data.total_bookings}</div></div>
-          <div class="summary-card"><div class="label">Total Refunds</div><div class="value">NPR ${data.total_refunds.toLocaleString()}</div></div>
-          <div class="summary-card"><div class="label">Net Collection</div><div class="value">NPR ${data.net_collection.toLocaleString()}</div></div>
+          <div class="summary-card"><div class="label">Total Collected</div><div class="value">NPR ${data.summary?.total_collected?.toLocaleString() || 0}</div></div>
+          <div class="summary-card"><div class="label">Total Bookings</div><div class="value">${data.summary?.total_bookings || 0}</div></div>
+          <div class="summary-card"><div class="label">Total Refunds</div><div class="value">NPR ${data.summary?.total_refunds?.toLocaleString() || 0}</div></div>
+          <div class="summary-card"><div class="label">Net Collection</div><div class="value">NPR ${data.summary?.net_collection?.toLocaleString() || 0}</div></div>
         </div>
-        <h2>Cash Payments (${data.cash_payments?.length || 0})</h2>
+        <h2>Cash Payments (${data.payments?.length || 0})</h2>
         <table>
           <thead><tr><th>Time</th><th>PNR</th><th>Route</th><th>Passengers</th><th style="text-align:right;">Amount</th></tr></thead>
           <tbody>${paymentRows || '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;">No cash payments</td></tr>'}</tbody>
@@ -143,10 +145,10 @@ export default function CounterAgentReconciliationPage() {
   }
 
   const summaryCards = [
-    { label: 'Total Collected', value: `NPR ${(data?.total_collected || 0).toLocaleString()}`, icon: Banknote, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Total Bookings', value: data?.total_bookings || 0, icon: Ticket, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Total Refunds', value: `NPR ${(data?.total_refunds || 0).toLocaleString()}`, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Net Collection', value: `NPR ${(data?.net_collection || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-[#d84e55]', bg: 'bg-red-50' },
+    { label: 'Total Collected', value: `NPR ${(data?.summary?.total_collected || 0).toLocaleString()}`, icon: Banknote, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'Total Bookings', value: data?.summary?.total_bookings || 0, icon: Ticket, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Total Refunds', value: `NPR ${(data?.summary?.total_refunds || 0).toLocaleString()}`, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Net Collection', value: `NPR ${(data?.summary?.net_collection || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-[#d84e55]', bg: 'bg-red-50' },
   ];
 
   return (
@@ -216,7 +218,7 @@ export default function CounterAgentReconciliationPage() {
       {/* Cash Payments Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-800">Cash Payments ({data?.cash_payments?.length || 0})</h3>
+          <h3 className="text-base font-semibold text-gray-800">Cash Payments ({data?.payments?.length || 0})</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -230,18 +232,18 @@ export default function CounterAgentReconciliationPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {data?.cash_payments?.map((payment) => (
+              {data?.payments?.map((payment) => (
                 <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-gray-600">{new Date(payment.created_at).toLocaleTimeString()}</td>
+                  <td className="px-4 py-3 text-gray-600">{new Date(payment.time).toLocaleTimeString()}</td>
                   <td className="px-4 py-3">
                     <Link to={`/counter/lookup?pnr=${payment.pnr}`} className="font-mono font-medium text-[#d84e55] hover:underline">{payment.pnr}</Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-800">{payment.route}</td>
+                  <td className="px-4 py-3 text-gray-800">{payment.route?.origin_city} → {payment.route?.destination_city}</td>
                   <td className="px-4 py-3 text-gray-600">{payment.passengers}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {payment.amount.toLocaleString()}</td>
                 </tr>
               ))}
-              {(!data?.cash_payments || data.cash_payments.length === 0) && (
+              {(!data?.payments || data.payments.length === 0) && (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center">
                     <Banknote className="h-10 w-10 text-gray-300 mx-auto mb-2" />
@@ -271,7 +273,7 @@ export default function CounterAgentReconciliationPage() {
             <tbody className="divide-y divide-gray-50">
               {data?.cancellations?.map((cancel) => (
                 <tr key={cancel.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-gray-600">{new Date(cancel.created_at).toLocaleTimeString()}</td>
+                  <td className="px-4 py-3 text-gray-600">{new Date(cancel.time).toLocaleTimeString()}</td>
                   <td className="px-4 py-3">
                     <Link to={`/counter/lookup?pnr=${cancel.pnr}`} className="font-mono font-medium text-[#d84e55] hover:underline">{cancel.pnr}</Link>
                   </td>

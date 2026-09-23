@@ -154,6 +154,8 @@ const seed = async () => {
     const existingRoutes = await Route.findAll({ attributes: ['route_name'] });
     const existingRouteNames = new Set(existingRoutes.map(r => r.route_name));
     const newRouteData = [
+      { route_name: 'Kathmandu - Pokhara Express', origin_city: 'Kathmandu', destination_city: 'Pokhara', distance_km: 200, estimated_duration_minutes: 360, base_fare: 1200, stops: [] },
+      { route_name: 'Pokhara - Kathmandu Express', origin_city: 'Pokhara', destination_city: 'Kathmandu', distance_km: 200, estimated_duration_minutes: 360, base_fare: 1200, stops: [] },
       { route_name: 'Kathmandu - Gorkha Express', origin_city: 'Kathmandu', destination_city: 'Gorkha', distance_km: 140, estimated_duration_minutes: 240, base_fare: 700, stops: [] },
       { route_name: 'Pokhara - Chitwan Safari', origin_city: 'Pokhara', destination_city: 'Chitwan', distance_km: 170, estimated_duration_minutes: 300, base_fare: 1000, stops: [] },
       { route_name: 'Biratnagar - Kathmandu Express', origin_city: 'Biratnagar', destination_city: 'Kathmandu', distance_km: 365, estimated_duration_minutes: 600, base_fare: 1800, stops: [] },
@@ -198,7 +200,7 @@ const seed = async () => {
     const routeOpLicenses = ['ME-004', 'ME-004', 'TD-005', 'TD-005', 'HY-006', 'HY-006', 'GD-007', 'GD-007', 'NE-008', 'NE-008', 'ME-004', 'TD-005', 'HY-006', 'GD-007', 'NE-008', 'ME-004', 'TD-005', 'HY-006', 'GD-007', 'NE-008', 'ME-004', 'TD-005', 'HY-006', 'GD-007', 'NE-008', 'ME-004', 'TD-005', 'HY-006', 'GD-007', 'NE-008', 'ME-004', 'TD-005', 'HY-006', 'GD-007', 'NE-008', 'ME-004', 'TD-005', 'HY-006', 'GD-007', 'NE-008'];
     const routesToCreate = newRouteData
       .filter(r => !existingRouteNames.has(r.route_name))
-      .map((r, i) => ({ ...r, operator_id: operatorMap[routeOpLicenses[i]], is_active: true }));
+      .map((r, i) => ({ ...r, operator_id: operatorMap[routeOpLicenses[i % routeOpLicenses.length]], is_active: true }));
     if (routesToCreate.length > 0) {
       await Route.bulkCreate(routesToCreate);
       console.log(`Created ${routesToCreate.length} new routes`);

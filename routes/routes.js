@@ -11,9 +11,10 @@ const router = express.Router();
 // Get all routes (optionally filtered by operator, origin, destination)
 router.get('/', cachingService.cacheMiddleware(3600), async (req, res) => {
   try {
-    const { operator_id, origin_city, destination_city, is_active = true } = req.query;
+    const { operator_id, origin_city, destination_city, is_active } = req.query;
+    const activeOnly = is_active === undefined ? true : is_active === 'true';
 
-    let whereClause = { is_active: is_active === 'true' };
+    let whereClause = { is_active: activeOnly };
 
     if (operator_id) {
       whereClause.operator_id = operator_id;
@@ -52,6 +53,37 @@ router.get('/', cachingService.cacheMiddleware(3600), async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get routes',
+      error: error.message,
+    });
+  }
+});
+
+// Popular routes (must be before /:id)
+router.get('/popular', async (req, res) => {
+  try {
+    const routes = await Route.findAll({
+      where: { is_active: true },
+      include: [
+        {
+          model: Operator,
+          as: 'operator',
+          attributes: ['company_name', 'company_name_nepali', 'logo_url'],
+        },
+      ],
+      order: [['base_fare', 'ASC']],
+      limit: 12,
+    });
+
+    res.json({
+      success: true,
+      message: 'Popular routes retrieved successfully',
+      data: { routes, total: routes.length },
+    });
+  } catch (error) {
+    console.error('Get popular routes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get popular routes',
       error: error.message,
     });
   }

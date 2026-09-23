@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 import { LanguageProvider } from './i18n/LanguageContext';
+import { getHomePath } from './utils/homePath';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import CustomerLayout from './pages/customer/CustomerLayout';
@@ -88,7 +89,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     const userRoles = user.roles?.map(r => r.role) || [];
     const hasAccess = allowedRoles.some(role => userRoles.includes(role as any));
     if (!hasAccess) {
-      return <Navigate to="/" replace />;
+      return <Navigate to={getHomePath(user)} replace />;
     }
   }
 

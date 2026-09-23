@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Bus, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getHomePath } from '../../utils/homePath';
 
 export default function LoginPage() {
   const [phone_number, setPhoneNumber] = useState('');
@@ -16,26 +17,9 @@ export default function LoginPage() {
     try {
       await login(phone_number, password);
       toast.success('Login successful!');
-      
-      // Get user from store after login
+
       const user = useAuthStore.getState().user;
-      const roles = user?.roles?.map(r => r.role) || [];
-      
-      if (roles.includes('SUPER_ADMIN')) {
-        navigate('/admin');
-      } else if (roles.includes('OPERATOR')) {
-        navigate('/operator');
-      } else if (roles.includes('DISPATCHER')) {
-        navigate('/dispatcher');
-      } else if (roles.includes('DRIVER')) {
-        navigate('/driver');
-      } else if (roles.includes('CONDUCTOR')) {
-        navigate('/conductor');
-      } else if (roles.includes('COUNTER_AGENT')) {
-        navigate('/counter');
-      } else {
-        navigate('/');
-      }
+      navigate(getHomePath(user));
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
     }

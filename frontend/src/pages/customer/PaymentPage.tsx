@@ -4,6 +4,8 @@ import { bookingAPI, paymentAPI } from '../../api';
 import type { Booking } from '../../types';
 import { CreditCard, CheckCircle, XCircle, ArrowLeft, Bus, Ticket, Shield, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '../../store/authStore';
+import { getBookAnotherPath, getMyBookingsPath } from '../../utils/homePath';
 
 const PAYMENT_TABS = [
   { id: 'upi', label: 'UPI' },
@@ -21,6 +23,9 @@ const WALLET_OPTIONS = [
 export default function PaymentPage() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const myBookingsPath = getMyBookingsPath(user);
+  const bookAnotherPath = getBookAnotherPath(user);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -38,7 +43,7 @@ export default function PaymentPage() {
       setBooking(response.data.data.booking);
     } catch {
       toast.error('Failed to load booking details');
-      navigate('/my-bookings');
+      navigate(myBookingsPath);
     } finally {
       setLoading(false);
     }
@@ -93,7 +98,7 @@ export default function PaymentPage() {
           <XCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-800 mb-2">Booking Not Found</h2>
           <p className="text-gray-500 text-sm mb-6">The booking you are looking for does not exist or has been removed.</p>
-          <Link to="/my-bookings" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-colors" style={{ backgroundColor: '#d84e55' }}>
+          <Link to={myBookingsPath} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-colors" style={{ backgroundColor: '#d84e55' }}>
             <ArrowLeft className="w-4 h-4" />
             Go to My Bookings
           </Link>
@@ -123,10 +128,10 @@ export default function PaymentPage() {
             Save this PNR for future reference. You will also receive SMS and email confirmation.
           </p>
           <div className="flex gap-3">
-            <Link to="/my-bookings" className="flex-1 py-3 rounded-xl font-semibold text-white text-center transition-colors" style={{ backgroundColor: '#d84e55' }}>
+            <Link to={myBookingsPath} className="flex-1 py-3 rounded-xl font-semibold text-white text-center transition-colors" style={{ backgroundColor: '#d84e55' }}>
               View My Bookings
             </Link>
-            <Link to="/" className="flex-1 py-3 rounded-xl font-semibold text-center transition-colors border-2 border-gray-200 text-gray-700 hover:bg-gray-50">
+            <Link to={bookAnotherPath} className="flex-1 py-3 rounded-xl font-semibold text-center transition-colors border-2 border-gray-200 text-gray-700 hover:bg-gray-50">
               Book Another
             </Link>
           </div>
@@ -139,7 +144,7 @@ export default function PaymentPage() {
     <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
-          <Link to="/my-bookings" className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm hover:shadow-md transition-shadow">
+          <Link to={myBookingsPath} className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm hover:shadow-md transition-shadow">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </Link>
           <div>

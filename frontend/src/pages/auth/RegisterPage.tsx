@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Bus, Phone, Lock, User, Mail, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getHomePath } from '../../utils/homePath';
 
 export default function RegisterPage() {
   const [phone_number, setPhoneNumber] = useState('');
@@ -25,7 +26,7 @@ export default function RegisterPage() {
         gender: gender || undefined,
       });
       toast.success('Registration successful!');
-      navigate('/');
+      navigate(getHomePath(useAuthStore.getState().user));
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed');
     }

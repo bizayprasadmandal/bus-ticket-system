@@ -3,10 +3,15 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { paymentAPI } from '../../api';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '../../store/authStore';
+import { getBookAnotherPath, getMyBookingsPath } from '../../utils/homePath';
 
 export default function PaymentCallbackPage() {
   const { paymentId } = useParams<{ paymentId: string }>();
   const [searchParams] = useSearchParams();
+  const user = useAuthStore((s) => s.user);
+  const myBookingsPath = getMyBookingsPath(user);
+  const bookAnotherPath = getBookAnotherPath(user);
   const [status, setStatus] = useState<'loading' | 'success' | 'failed' | 'error'>('loading');
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
 
@@ -122,10 +127,10 @@ export default function PaymentCallbackPage() {
           )}
           <p className="text-sm text-gray-400 mb-6">Save this PNR for future reference. You will also receive SMS & email confirmation.</p>
           <div className="flex gap-3">
-            <Link to="/my-bookings" className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
+            <Link to={myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
               View Bookings
             </Link>
-            <Link to="/" className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
+            <Link to={bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
               Book Another
             </Link>
           </div>
@@ -147,10 +152,10 @@ export default function PaymentCallbackPage() {
         </p>
         <p className="text-sm text-gray-400 mb-6">No money has been deducted. Please try again.</p>
         <div className="flex gap-3">
-          <Link to="/my-bookings" className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
+          <Link to={myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
             View Bookings
           </Link>
-          <Link to="/" className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
+          <Link to={bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
             Try Again
           </Link>
         </div>

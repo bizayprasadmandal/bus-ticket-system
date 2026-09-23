@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
-import { Tag, Search, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, X, Power, PowerOff } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Tag, Search, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, X, Power, PowerOff, RefreshCw } from 'lucide-react';
+import api from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
@@ -17,13 +19,6 @@ interface PromoCode {
   description: string;
 }
 
-const initialPromos: PromoCode[] = [
-  { id: 1, code: 'WELCOME10', discount_type: 'percentage', discount_value: 10, min_amount: 500, max_uses: 1000, used_count: 342, valid_from: '2026-01-01', valid_until: '2026-12-31', status: 'ACTIVE', description: 'Welcome discount for new users' },
-  { id: 2, code: 'FESTIVE20', discount_type: 'percentage', discount_value: 20, min_amount: 1000, max_uses: 500, used_count: 500, valid_from: '2026-09-01', valid_until: '2026-09-15', status: 'EXPIRED', description: 'Festival season special offer' },
-  { id: 3, code: 'FLAT100', discount_type: 'fixed', discount_value: 100, min_amount: 800, max_uses: 200, used_count: 87, valid_from: '2026-08-01', valid_until: '2026-12-31', status: 'ACTIVE', description: 'Flat NPR 100 off on bookings above NPR 800' },
-  { id: 4, code: 'SUMMER15', discount_type: 'percentage', discount_value: 15, min_amount: 600, max_uses: 300, used_count: 150, valid_from: '2026-06-01', valid_until: '2026-08-31', status: 'ACTIVE', description: 'Summer travel discount' },
-];
-
 const emptyForm: Omit<PromoCode, 'id' | 'used_count' | 'status'> = {
   code: '',
   discount_type: 'percentage',
@@ -35,9 +30,16 @@ const emptyForm: Omit<PromoCode, 'id' | 'used_count' | 'status'> = {
   description: '',
 };
 
+function deriveStatus(p: PromoCode): PromoCode['status'] {
+  if (p.status === 'DISABLED') return 'DISABLED';
+  if (p.valid_until && new Date(p.valid_until) < new Date()) return 'EXPIRED';
+  if (p.max_uses > 0 && p.used_count >= p.max_uses) return 'EXPIRED';
+  return 'ACTIVE';
+}
+
 export default function AdminPromoCodesPage() {
-  const [loading] = useState(false);
-  const [promos, setPromos] = useState<PromoCode[]>(initialPromos);
+  const [loading, setLoading] = useState(true);
+  const [promos, setPromos] = useState<PromoCode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,6 +48,28 @@ export default function AdminPromoCodesPage() {
   const [form, setForm] = useState(emptyForm);
 
   const itemsPerPage = 8;
+
+  const loadPromos = useCallback(async () => {
+    try {
+      const res = await api.get('/admin/promo-codes', { params: { page: currentPage, limit: 50 } });
+      const items = (res.data.data.items || []).map((p: any) => ({
+        ...p,
+        discount_value: Number(p.discount_value) || 0,
+        min_amount: Number(p.min_amount) || 0,
+        max_uses: Number(p.max_uses) || 0,
+        used_count: Number(p.used_count) || 0,
+        status: deriveStatus(p),
+      }));
+      setPromos(items);
+    } catch {
+      toast.error('Failed to load promo codes');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage]);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadPromos, 30000);
+  useEffect(() => { loadPromos(); }, [loadPromos]);
 
   const totalCodes = promos.length;
   const activeCount = promos.filter(p => p.status === 'ACTIVE').length;
@@ -57,7 +81,7 @@ export default function AdminPromoCodesPage() {
     if (statusFilter !== 'ALL') result = result.filter(p => p.status === statusFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(p => p.code.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+      result = result.filter(p => p.code.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
     }
     return result;
   }, [promos, statusFilter, searchQuery]);
@@ -86,14 +110,14 @@ export default function AdminPromoCodesPage() {
       discount_value: promo.discount_value,
       min_amount: promo.min_amount,
       max_uses: promo.max_uses,
-      valid_from: promo.valid_from,
-      valid_until: promo.valid_until,
+      valid_from: promo.valid_from?.slice(0, 10),
+      valid_until: promo.valid_until?.slice(0, 10),
       description: promo.description,
     });
     setShowModal(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.code || !form.discount_value || !form.valid_from || !form.valid_until) {
       toast.error('Please fill all required fields');
       return;
@@ -103,35 +127,40 @@ export default function AdminPromoCodesPage() {
       return;
     }
 
-    if (editingPromo) {
-      setPromos(prev => prev.map(p => p.id === editingPromo.id ? { ...p, ...form } : p));
-      toast.success('Promo code updated');
-    } else {
-      const newPromo: PromoCode = {
-        ...form,
-        id: Date.now(),
-        used_count: 0,
-        status: 'ACTIVE',
-      };
-      setPromos(prev => [newPromo, ...prev]);
-      toast.success('Promo code created');
+    try {
+      if (editingPromo) {
+        await api.put(`/admin/promo-codes/${editingPromo.id}`, form);
+        toast.success('Promo code updated');
+      } else {
+        await api.post('/admin/promo-codes', form);
+        toast.success('Promo code created');
+      }
+      setShowModal(false);
+      loadPromos();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Operation failed');
     }
-    setShowModal(false);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this promo code?')) return;
-    setPromos(prev => prev.filter(p => p.id !== id));
-    toast.success('Promo code deleted');
+    try {
+      await api.delete(`/admin/promo-codes/${id}`);
+      toast.success('Promo code deleted');
+      loadPromos();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete');
+    }
   };
 
-  const toggleStatus = (id: number) => {
-    setPromos(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      const newStatus = p.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
-      return { ...p, status: newStatus };
-    }));
-    toast.success('Status updated');
+  const toggleStatus = async (promo: PromoCode) => {
+    try {
+      await api.put(`/admin/promo-codes/${promo.id}`, { status: promo.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' });
+      toast.success('Status updated');
+      loadPromos();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -155,11 +184,20 @@ export default function AdminPromoCodesPage() {
           <p className="text-sm text-gray-500 mt-1">Manage discount and promotional codes</p>
         </div>
         <button
+          onClick={refresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
+        <button
           onClick={openCreateModal}
           className="flex items-center gap-2 bg-[#d84e55] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#c4434b] transition-colors"
         >
           <Plus className="h-4 w-4" /> Create Promo Code
         </button>
+        {lastUpdated && <span className="text-xs text-gray-400">{lastUpdated.toLocaleTimeString()}</span>}
       </div>
 
       {/* Summary Cards */}
@@ -255,7 +293,7 @@ export default function AdminPromoCodesPage() {
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => toggleStatus(promo.id)}
+                        onClick={() => toggleStatus(promo)}
                         className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
                         title={promo.status === 'ACTIVE' ? 'Disable' : 'Enable'}
                       >

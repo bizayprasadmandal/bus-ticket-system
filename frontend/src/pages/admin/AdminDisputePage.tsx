@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
-import { AlertTriangle, Search, ChevronLeft, ChevronRight, Plus, Eye, MessageSquare, Filter, XCircle } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { AlertTriangle, Search, ChevronLeft, ChevronRight, Plus, Eye, MessageSquare, Filter, XCircle, RefreshCw } from 'lucide-react';
+import api from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
@@ -19,27 +21,42 @@ interface DisputeItem {
 
 export default function AdminDisputePage() {
   const [disputes, setDisputes] = useState<DisputeItem[]>([]);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ customer_name: '', customer_phone: '', booking_pnr: '', type: 'complaint', subject: '', description: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   const itemsPerPage = 10;
 
+  const loadDisputes = useCallback(async () => {
+    try {
+      const params: any = { page: currentPage, limit: 50 };
+      if (statusFilter !== 'ALL') params.status = statusFilter;
+      if (searchQuery) params.search = searchQuery;
+      const res = await api.get('/admin/disputes', { params });
+      setDisputes(res.data.data.items || []);
+    } catch {
+      toast.error('Failed to load disputes');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, statusFilter, searchQuery]);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadDisputes, 30000);
+  useEffect(() => { loadDisputes(); }, [loadDisputes]);
+
   const filteredDisputes = useMemo(() => {
     return disputes.filter((d) => {
-      const matchSearch = !searchQuery ||
-        d.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.booking_pnr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.subject.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = statusFilter === 'ALL' || d.status === statusFilter;
       const matchType = typeFilter === 'ALL' || d.type === typeFilter;
-      return matchSearch && matchStatus && matchType;
+      return matchType;
     });
-  }, [disputes, searchQuery, statusFilter, typeFilter]);
+  }, [disputes, typeFilter]);
 
   const totalPages = Math.ceil(filteredDisputes.length / itemsPerPage);
   const paginatedDisputes = filteredDisputes.slice(
@@ -54,43 +71,50 @@ export default function AdminDisputePage() {
     resolved: disputes.filter(d => d.status === 'RESOLVED').length,
   }), [disputes]);
 
-  const handleInvestigate = (dispute: DisputeItem) => {
-    setDisputes(prev => prev.map(d =>
-      d.id === dispute.id
-        ? { ...d, status: 'INVESTIGATING' as const, updated_at: new Date().toISOString() }
-        : d
-    ));
-    toast.success(`Dispute #${dispute.id} set to Investigating`);
+  const handleInvestigate = async (dispute: DisputeItem) => {
+    try {
+      await api.put(`/admin/disputes/${dispute.id}`, { status: 'INVESTIGATING' });
+      toast.success(`Dispute #${dispute.id} set to Investigating`);
+      loadDisputes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed');
+    }
   };
 
-  const handleResolve = () => {
+  const handleResolve = async () => {
     if (!selectedDispute) return;
-    setDisputes(prev => prev.map(d =>
-      d.id === selectedDispute.id
-        ? { ...d, status: 'RESOLVED' as const, resolution_notes: resolutionNotes, updated_at: new Date().toISOString() }
-        : d
-    ));
-    toast.success(`Dispute #${selectedDispute.id} resolved`);
-    setSelectedDispute(null);
-    setResolutionNotes('');
+    setSubmitting(true);
+    try {
+      await api.put(`/admin/disputes/${selectedDispute.id}`, { status: 'RESOLVED', resolution_notes: resolutionNotes });
+      toast.success(`Dispute #${selectedDispute.id} resolved`);
+      setSelectedDispute(null);
+      setResolutionNotes('');
+      loadDisputes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const addTestDispute = () => {
-    const newDispute: DisputeItem = {
-      id: Date.now(),
-      customer_name: 'Ram Bahadur',
-      customer_phone: '9841000000',
-      booking_pnr: `PNR${String(Math.floor(Math.random() * 9000) + 1000)}`,
-      type: ['complaint', 'refund_request', 'service_issue'][Math.floor(Math.random() * 3)] as any,
-      subject: 'Bus was delayed by 2 hours',
-      description: 'The bus scheduled for 10:00 AM departure did not arrive until 12:00 PM. No communication was provided about the delay.',
-      status: 'OPEN',
-      resolution_notes: '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setDisputes(prev => [newDispute, ...prev]);
-    toast.success('Test dispute created');
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.subject.trim()) {
+      toast.error('Subject is required');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.post('/admin/disputes', createForm);
+      toast.success('Dispute created');
+      setShowCreate(false);
+      setCreateForm({ customer_name: '', customer_phone: '', booking_pnr: '', type: 'complaint', subject: '', description: '' });
+      loadDisputes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create dispute');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -120,12 +144,24 @@ export default function AdminDisputePage() {
           <h1 className="text-2xl font-bold text-gray-800">Disputes</h1>
           <p className="text-sm text-gray-500 mt-1">Customer complaint and dispute resolution</p>
         </div>
-        <button
-          onClick={addTestDispute}
-          className="flex items-center gap-2 bg-[#d84e55] text-white px-4 py-2 rounded-lg hover:bg-[#c4434a] transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Create Test Dispute
-        </button>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <button
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-[#d84e55] text-white px-4 py-2 rounded-lg hover:bg-[#c4434a] transition-colors"
+          >
+            <Plus className="h-4 w-4" /> New Dispute
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -365,13 +401,103 @@ export default function AdminDisputePage() {
                 </button>
                 <button
                   onClick={handleResolve}
-                  disabled={!resolutionNotes.trim()}
+                  disabled={!resolutionNotes.trim() || submitting}
                   className="flex-1 bg-[#d84e55] text-white py-2.5 rounded-lg font-medium hover:bg-[#c4434a] transition-colors disabled:opacity-50"
                 >
-                  Mark Resolved
+                  {submitting ? 'Saving...' : 'Mark Resolved'}
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-800">New Dispute</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Subject *</label>
+                <input
+                  value={createForm.subject}
+                  onChange={(e) => setCreateForm({ ...createForm, subject: e.target.value })}
+                  placeholder="Brief subject"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Customer Name</label>
+                  <input
+                    value={createForm.customer_name}
+                    onChange={(e) => setCreateForm({ ...createForm, customer_name: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
+                  <input
+                    value={createForm.customer_phone}
+                    onChange={(e) => setCreateForm({ ...createForm, customer_phone: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">PNR</label>
+                  <input
+                    value={createForm.booking_pnr}
+                    onChange={(e) => setCreateForm({ ...createForm, booking_pnr: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Type</label>
+                  <select
+                    value={createForm.type}
+                    onChange={(e) => setCreateForm({ ...createForm, type: e.target.value as any })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  >
+                    <option value="complaint">Complaint</option>
+                    <option value="refund_request">Refund Request</option>
+                    <option value="service_issue">Service Issue</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none resize-none"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 bg-[#d84e55] text-white py-2.5 rounded-lg font-medium hover:bg-[#c4434a] transition-colors disabled:opacity-50"
+                >
+                  {submitting ? 'Creating...' : 'Create Dispute'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -10,8 +10,8 @@ interface UserItem {
   email: string;
   phone_number: string;
   gender?: string;
-  is_verified: boolean;
-  is_active: boolean;
+  status: string;
+  is_phone_verified?: boolean;
   created_at: string;
   roles?: { role: string; is_active: boolean }[];
 }
@@ -43,10 +43,11 @@ export default function AdminUsersPage() {
         user.phone_number?.includes(searchQuery) ||
         user.email?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRole = roleFilter === 'ALL' || user.roles?.some(r => r.role === roleFilter);
+      const isActive = user.status === 'ACTIVE';
       const matchesStatus =
         statusFilter === 'ALL' ||
-        (statusFilter === 'ACTIVE' && user.is_active) ||
-        (statusFilter === 'INACTIVE' && !user.is_active);
+        (statusFilter === 'ACTIVE' && isActive) ||
+        (statusFilter === 'SUSPENDED' && !isActive);
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, searchQuery, roleFilter, statusFilter]);
@@ -61,10 +62,10 @@ export default function AdminUsersPage() {
     setCurrentPage(1);
   }, [searchQuery, roleFilter, statusFilter]);
 
-  const toggleStatus = async (userId: number, currentStatus: boolean) => {
+  const toggleStatus = async (userId: number, currentStatus: string) => {
     try {
-      await adminUserAPI.updateStatus(userId, !currentStatus);
-      toast.success(`User ${currentStatus ? 'deactivated' : 'activated'}`);
+      await adminUserAPI.updateStatus(userId, currentStatus !== 'ACTIVE');
+      toast.success(`User ${currentStatus === 'ACTIVE' ? 'suspended' : 'activated'}`);
       loadUsers();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
@@ -88,8 +89,8 @@ export default function AdminUsersPage() {
 
   const stats = {
     total: users.length,
-    active: users.filter(u => u.is_active).length,
-    inactive: users.filter(u => !u.is_active).length,
+    active: users.filter(u => u.status === 'ACTIVE').length,
+    inactive: users.filter(u => u.status !== 'ACTIVE').length,
     customers: users.filter(u => u.roles?.some(r => r.role === 'CUSTOMER')).length,
     operators: users.filter(u => u.roles?.some(r => r.role === 'OPERATOR')).length,
     admins: users.filter(u => u.roles?.some(r => r.role === 'SUPER_ADMIN')).length,
@@ -163,7 +164,7 @@ export default function AdminUsersPage() {
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="SUSPENDED">Suspended</option>
           </select>
         </div>
       </div>
@@ -221,9 +222,9 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-                      <span className={`text-xs font-medium ${user.is_active ? 'text-green-700' : 'text-red-700'}`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
+                      <span className={`w-2 h-2 rounded-full ${user.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <span className={`text-xs font-medium ${user.status === 'ACTIVE' ? 'text-green-700' : 'text-red-700'}`}>
+                        {user.status === 'ACTIVE' ? 'Active' : user.status === 'SUSPENDED' ? 'Suspended' : 'Deleted'}
                       </span>
                     </div>
                   </td>
@@ -243,14 +244,14 @@ export default function AdminUsersPage() {
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => toggleStatus(user.id, user.is_active)}
+                        onClick={() => toggleStatus(user.id, user.status)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          user.is_active
+                          user.status === 'ACTIVE'
                             ? 'bg-red-100 text-red-700 hover:bg-red-200'
                             : 'bg-green-100 text-green-700 hover:bg-green-200'
                         }`}
                       >
-                        {user.is_active ? 'Deactivate' : 'Activate'}
+                        {user.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
                       </button>
                     </div>
                   </td>
@@ -343,16 +344,16 @@ export default function AdminUsersPage() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Status</p>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${selectedUser.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {selectedUser.is_active ? <UserCheck className="h-3 w-3" /> : <UserX className="h-3 w-3" />}
-                    {selectedUser.is_active ? 'Active' : 'Inactive'}
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${selectedUser.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {selectedUser.status === 'ACTIVE' ? <UserCheck className="h-3 w-3" /> : <UserX className="h-3 w-3" />}
+                    {selectedUser.status === 'ACTIVE' ? 'Active' : selectedUser.status === 'SUSPENDED' ? 'Suspended' : 'Deleted'}
                   </span>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Verified</p>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${selectedUser.is_verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${selectedUser.is_phone_verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     <Shield className="h-3 w-3" />
-                    {selectedUser.is_verified ? 'Verified' : 'Unverified'}
+                    {selectedUser.is_phone_verified ? 'Verified' : 'Unverified'}
                   </span>
                 </div>
               </div>

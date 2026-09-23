@@ -8,11 +8,13 @@ import toast from 'react-hot-toast';
 interface CityItem {
   id: number;
   name: string;
-  state_province: string;
+  name_nepali?: string;
+  district?: string;
+  province?: string;
   latitude: number;
   longitude: number;
-  is_active: boolean;
-  created_at: string;
+  is_major_city: boolean;
+  created_at?: string;
 }
 
 export default function AdminCitiesPage() {
@@ -22,7 +24,7 @@ export default function AdminCitiesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingCity, setEditingCity] = useState<CityItem | null>(null);
-  const [form, setForm] = useState({ name: '', state_province: '', latitude: 0, longitude: 0 });
+  const [form, setForm] = useState({ name: '', name_nepali: '', district: '', province: '', latitude: 0, longitude: 0, is_major_city: false });
   const [submitting, setSubmitting] = useState(false);
 
   const itemsPerPage = 10;
@@ -47,7 +49,8 @@ export default function AdminCitiesPage() {
       const q = searchQuery.toLowerCase();
       return (
         city.name?.toLowerCase().includes(q) ||
-        city.state_province?.toLowerCase().includes(q)
+        city.province?.toLowerCase().includes(q) ||
+        city.district?.toLowerCase().includes(q)
       );
     });
   }, [cities, searchQuery]);
@@ -62,7 +65,7 @@ export default function AdminCitiesPage() {
 
   const openCreate = () => {
     setEditingCity(null);
-    setForm({ name: '', state_province: '', latitude: 0, longitude: 0 });
+    setForm({ name: '', name_nepali: '', district: '', province: '', latitude: 0, longitude: 0, is_major_city: false });
     setShowModal(true);
   };
 
@@ -70,9 +73,12 @@ export default function AdminCitiesPage() {
     setEditingCity(city);
     setForm({
       name: city.name,
-      state_province: city.state_province,
+      name_nepali: city.name_nepali || '',
+      district: city.district || '',
+      province: city.province || '',
       latitude: city.latitude,
       longitude: city.longitude,
+      is_major_city: city.is_major_city,
     });
     setShowModal(true);
   };
@@ -98,10 +104,10 @@ export default function AdminCitiesPage() {
     }
   };
 
-  const toggleActive = async (city: CityItem) => {
+  const toggleMajor = async (city: CityItem) => {
     try {
-      await api.put(`/cities/${city.id}`, { is_active: !city.is_active });
-      toast.success(`City ${city.is_active ? 'deactivated' : 'activated'}`);
+      await api.put(`/cities/${city.id}`, { is_major_city: !city.is_major_city });
+      toast.success(`City ${city.is_major_city ? 'removed from' : 'added to'} major cities`);
       loadCities();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed');
@@ -142,7 +148,7 @@ export default function AdminCitiesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by city name or state..."
+            placeholder="Search by city name, district, or province..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
@@ -156,9 +162,9 @@ export default function AdminCitiesPage() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">City</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">State/Province</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Created</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">District</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Province</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Major City</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
@@ -170,25 +176,26 @@ export default function AdminCitiesPage() {
                       <div className="w-9 h-9 bg-[#d84e55]/10 rounded-lg flex items-center justify-center">
                         <MapPin className="h-4 w-4 text-[#d84e55]" />
                       </div>
-                      <span className="font-medium text-gray-800">{city.name}</span>
+                      <div>
+                        <span className="font-medium text-gray-800">{city.name}</span>
+                        {city.name_nepali && <p className="text-xs text-gray-400">{city.name_nepali}</p>}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{city.state_province || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600">{city.district || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600">{city.province || '-'}</td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => toggleActive(city)}
+                      onClick={() => toggleMajor(city)}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                        city.is_active
+                        city.is_major_city
                           ? 'bg-green-100 text-green-700 hover:bg-green-200'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${city.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
-                      {city.is_active ? 'Active' : 'Inactive'}
+                      <span className={`w-1.5 h-1.5 rounded-full ${city.is_major_city ? 'bg-green-500' : 'bg-gray-400'}`} />
+                      {city.is_major_city ? 'Major' : 'Minor'}
                     </button>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">
-                    {new Date(city.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
@@ -277,14 +284,43 @@ export default function AdminCitiesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">State/Province</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">City Name (Nepali)</label>
                 <input
-                  placeholder="e.g. Bagmati"
-                  value={form.state_province}
-                  onChange={(e) => setForm({ ...form, state_province: e.target.value })}
+                  placeholder="e.g. काठमाडौं"
+                  value={form.name_nepali}
+                  onChange={(e) => setForm({ ...form, name_nepali: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">District</label>
+                  <input
+                    placeholder="e.g. Kathmandu"
+                    value={form.district}
+                    onChange={(e) => setForm({ ...form, district: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Province</label>
+                  <input
+                    placeholder="e.g. Bagmati"
+                    value={form.province}
+                    onChange={(e) => setForm({ ...form, province: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.is_major_city}
+                  onChange={(e) => setForm({ ...form, is_major_city: e.target.checked })}
+                  className="rounded border-gray-300 text-[#d84e55] focus:ring-[#d84e55]"
+                />
+                Major city (shown in search defaults)
+              </label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Latitude</label>

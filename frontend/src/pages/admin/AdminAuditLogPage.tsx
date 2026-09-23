@@ -1,32 +1,24 @@
-import { useState, useMemo } from 'react';
-import { Shield, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Shield, Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import api from '../../api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import toast from 'react-hot-toast';
 
 interface AuditEntry {
   id: number;
   timestamp: string;
   user: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity_type: 'operator' | 'user' | 'booking' | 'settings';
+  action: string;
+  entity_type: string;
   entity_id: string;
   details: string;
   ip_address: string;
 }
 
-const sampleData: AuditEntry[] = [
-  { id: 1, timestamp: '2026-09-22T10:30:00Z', user: 'admin@gadi.com', action: 'CREATE', entity_type: 'operator', entity_id: 'OP-1042', details: 'Created new operator account for Himalayan Express', ip_address: '192.168.1.100' },
-  { id: 2, timestamp: '2026-09-22T09:15:00Z', user: 'admin@gadi.com', action: 'UPDATE', entity_type: 'user', entity_id: 'USR-5021', details: 'Suspended user account for policy violation', ip_address: '192.168.1.100' },
-  { id: 3, timestamp: '2026-09-21T16:45:00Z', user: 'supervisor@gadi.com', action: 'UPDATE', entity_type: 'booking', entity_id: 'BK-88234', details: 'Approved refund of NPR 1,500 for cancelled booking', ip_address: '192.168.1.105' },
-  { id: 4, timestamp: '2026-09-21T14:20:00Z', user: 'admin@gadi.com', action: 'UPDATE', entity_type: 'settings', entity_id: 'CFG-001', details: 'Modified platform commission rate from 5% to 7%', ip_address: '192.168.1.100' },
-  { id: 5, timestamp: '2026-09-20T11:00:00Z', user: 'admin@gadi.com', action: 'DELETE', entity_type: 'operator', entity_id: 'OP-0987', details: 'Removed inactive operator - Mountain Travels', ip_address: '192.168.1.100' },
-  { id: 6, timestamp: '2026-09-20T09:30:00Z', user: 'supervisor@gadi.com', action: 'CREATE', entity_type: 'operator', entity_id: 'OP-1043', details: 'Created new operator account for Valley Transport', ip_address: '192.168.1.105' },
-  { id: 7, timestamp: '2026-09-19T15:10:00Z', user: 'admin@gadi.com', action: 'UPDATE', entity_type: 'user', entity_id: 'USR-3412', details: 'Changed user role from PASSENGER to OPERATOR_ADMIN', ip_address: '192.168.1.100' },
-  { id: 8, timestamp: '2026-09-19T12:00:00Z', user: 'admin@gadi.com', action: 'CREATE', entity_type: 'settings', entity_id: 'CFG-002', details: 'Added new holiday surcharge configuration', ip_address: '192.168.1.100' },
-];
-
 export default function AdminAuditLogPage() {
-  const [loading] = useState(false);
-  const [entries] = useState<AuditEntry[]>(sampleData);
+  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [actionFilter, setActionFilter] = useState<string>('ALL');
   const [entityFilter, setEntityFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,14 +28,26 @@ export default function AdminAuditLogPage() {
 
   const itemsPerPage = 8;
 
+  const loadEntries = useCallback(async () => {
+    try {
+      const params: any = { page: currentPage, limit: 50 };
+      if (actionFilter !== 'ALL') params.action = actionFilter;
+      if (entityFilter !== 'ALL') params.entity_type = entityFilter;
+      if (searchQuery) params.search = searchQuery;
+      const res = await api.get('/admin/audit-log', { params });
+      setEntries(res.data.data.items || []);
+    } catch {
+      toast.error('Failed to load audit log');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, actionFilter, entityFilter, searchQuery]);
+
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadEntries, 30000);
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+
   const filteredEntries = useMemo(() => {
     let result = entries;
-    if (actionFilter !== 'ALL') result = result.filter(e => e.action === actionFilter);
-    if (entityFilter !== 'ALL') result = result.filter(e => e.entity_type === entityFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(e => e.user.toLowerCase().includes(q) || e.details.toLowerCase().includes(q));
-    }
     if (dateFrom) result = result.filter(e => new Date(e.timestamp) >= new Date(dateFrom));
     if (dateTo) {
       const to = new Date(dateTo);
@@ -51,26 +55,27 @@ export default function AdminAuditLogPage() {
       result = result.filter(e => new Date(e.timestamp) <= to);
     }
     return result;
-  }, [entries, actionFilter, entityFilter, searchQuery, dateFrom, dateTo]);
+  }, [entries, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(filteredEntries.length / itemsPerPage);
   const paginatedEntries = filteredEntries.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getActionColor = (action: string) => {
-    switch (action) {
-      case 'CREATE': return 'bg-green-100 text-green-700';
-      case 'UPDATE': return 'bg-blue-100 text-blue-700';
-      case 'DELETE': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-600';
-    }
+    if (action.includes('CREATE') || action.includes('CREATED') || action.includes('ASSIGNED') || action.includes('SENT')) return 'bg-green-100 text-green-700';
+    if (action.includes('DELETE') || action.includes('REMOVED') || action.includes('REJECT')) return 'bg-red-100 text-red-700';
+    if (action.includes('UPDATE') || action.includes('UPDATED') || action.includes('SUSPEND') || action.includes('APPROV')) return 'bg-blue-100 text-blue-700';
+    return 'bg-gray-100 text-gray-600';
   };
 
   const getEntityColor = (type: string) => {
-    switch (type) {
-      case 'operator': return 'bg-purple-100 text-purple-700';
-      case 'user': return 'bg-blue-100 text-blue-700';
-      case 'booking': return 'bg-[#d84e55]/10 text-[#d84e55]';
-      case 'settings': return 'bg-yellow-100 text-yellow-700';
+    switch (type?.toUpperCase()) {
+      case 'OPERATOR': return 'bg-purple-100 text-purple-700';
+      case 'USER':
+      case 'USER_ROLE': return 'bg-blue-100 text-blue-700';
+      case 'BOOKING':
+      case 'PAYMENT': return 'bg-[#d84e55]/10 text-[#d84e55]';
+      case 'SYSTEM':
+      case 'SETTINGS': return 'bg-yellow-100 text-yellow-700';
       default: return 'bg-gray-100 text-gray-600';
     }
   };
@@ -104,9 +109,13 @@ export default function AdminAuditLogPage() {
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Actions</option>
-            <option value="CREATE">CREATE</option>
-            <option value="UPDATE">UPDATE</option>
-            <option value="DELETE">DELETE</option>
+            <option value="CREATE">Create</option>
+            <option value="UPDATE">Update</option>
+            <option value="DELETE">Delete</option>
+            <option value="LOGIN">Login</option>
+            <option value="REFUND">Refund</option>
+            <option value="SUSPEND">Suspend</option>
+            <option value="ANNOUNCE">Announce</option>
           </select>
           <select
             value={entityFilter}
@@ -114,10 +123,13 @@ export default function AdminAuditLogPage() {
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Entities</option>
-            <option value="operator">Operator</option>
-            <option value="user">User</option>
-            <option value="booking">Booking</option>
-            <option value="settings">Settings</option>
+            <option value="USER">User</option>
+            <option value="OPERATOR">Operator</option>
+            <option value="BOOKING">Booking</option>
+            <option value="SYSTEM">System</option>
+            <option value="PROMO_CODE">Promo</option>
+            <option value="DISPUTE">Dispute</option>
+            <option value="ANNOUNCEMENT">Announcement</option>
           </select>
           <div className="flex items-center gap-2">
             <input
@@ -134,7 +146,17 @@ export default function AdminAuditLogPage() {
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
           </div>
+          <button
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
+        {lastUpdated && (
+          <p className="mt-2 text-xs text-gray-400">Updated {lastUpdated.toLocaleTimeString()}</p>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

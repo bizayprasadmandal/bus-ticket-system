@@ -35,20 +35,34 @@ export default function AdminBookingsPage() {
 
   const loadBookings = useCallback(async () => {
     try {
-      const params: any = {};
+      const params: any = { page: currentPage, limit: itemsPerPage };
       if (searchQuery) params.search = searchQuery;
       if (statusFilter !== 'ALL') params.booking_status = statusFilter;
       if (paymentFilter !== 'ALL') params.payment_status = paymentFilter;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      const res = await api.get('/bookings', { params });
-      setBookings(res.data.data.bookings || res.data.data || []);
+      if (dateFrom) params.start_date = dateFrom;
+      if (dateTo) params.end_date = dateTo;
+      const res = await api.get('/admin/bookings', { params });
+      const items = res.data.data.items || [];
+      setBookings(items.map((b: any) => ({
+        id: b.id,
+        pnr: b.pnr,
+        passenger_name: b.user?.full_name || 'N/A',
+        passenger_phone: b.user?.phone_number || '',
+        origin_city: b.trip?.route?.origin_city || '-',
+        destination_city: b.trip?.route?.destination_city || '-',
+        trip_date: b.trip?.trip_date || '',
+        total_passengers: b.total_passengers || 0,
+        total_amount: Number(b.total_amount) || 0,
+        booking_status: b.booking_status,
+        payment_status: b.payment_status,
+        created_at: b.booking_date || b.created_at,
+      })));
     } catch {
       toast.error('Failed to load bookings');
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, statusFilter, paymentFilter, dateFrom, dateTo]);
+  }, [searchQuery, statusFilter, paymentFilter, dateFrom, dateTo, currentPage]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000);
 
@@ -76,6 +90,7 @@ export default function AdminBookingsPage() {
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
+      case 'COMPLETED':
       case 'PAID': return 'bg-green-100 text-green-700';
       case 'PENDING': return 'bg-yellow-100 text-yellow-700';
       case 'REFUNDED': return 'bg-purple-100 text-purple-700';
@@ -136,7 +151,7 @@ export default function AdminBookingsPage() {
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Payments</option>
-            <option value="PAID">Paid</option>
+            <option value="COMPLETED">Paid</option>
             <option value="PENDING">Awaiting Payment</option>
             <option value="REFUNDED">Refunded</option>
             <option value="FAILED">Failed</option>

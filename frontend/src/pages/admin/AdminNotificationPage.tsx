@@ -24,20 +24,20 @@ export default function AdminNotificationPage() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [target, setTarget] = useState('ALL');
-  const [priority, setPriority] = useState('NORMAL');
+  const [priority, setPriority] = useState('MEDIUM');
 
   const itemsPerPage = 10;
 
   const loadNotifications = useCallback(async () => {
     try {
-      const res = await api.get('/notifications', { params: { type: 'announcement' } });
-      setNotifications(res.data.data.notifications || res.data.data || []);
+      const res = await api.get('/admin/notifications', { params: { page: currentPage, limit: 20 } });
+      setNotifications(res.data.data.items || res.data.data.notifications || []);
     } catch {
       setNotifications([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadNotifications, 30000);
 
@@ -72,7 +72,7 @@ export default function AdminNotificationPage() {
       setTitle('');
       setMessage('');
       setTarget('ALL');
-      setPriority('NORMAL');
+      setPriority('MEDIUM');
       loadNotifications();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to send announcement');
@@ -85,6 +85,7 @@ export default function AdminNotificationPage() {
     switch (p) {
       case 'URGENT': return 'bg-red-100 text-red-700';
       case 'HIGH': return 'bg-orange-100 text-orange-700';
+      case 'MEDIUM': return 'bg-blue-100 text-blue-700';
       case 'NORMAL': return 'bg-blue-100 text-blue-700';
       case 'LOW': return 'bg-gray-100 text-gray-600';
       default: return 'bg-gray-100 text-gray-600';
@@ -169,7 +170,7 @@ export default function AdminNotificationPage() {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
                 >
                   <option value="LOW">Low</option>
-                  <option value="NORMAL">Normal</option>
+                  <option value="MEDIUM">Medium</option>
                   <option value="HIGH">High</option>
                   <option value="URGENT">Urgent</option>
                 </select>

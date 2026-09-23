@@ -1,9 +1,37 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { sequelize, User, UserRole, Operator, Bus, Route, Trip, Booking, Payment, UserWallet, WalletTransaction, Review, BookingPassenger } = require('../models');
+const { sequelize, User, UserRole, Operator, Bus, Route, Trip, Booking, Payment, UserWallet, WalletTransaction, Review, BookingPassenger, PromoCode, Dispute, SystemSetting, AuditLog, Announcement, SeatLock } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+
+const DEFAULT_SETTINGS = {
+  service_fee: 5,
+  tax_rate: 13,
+  currency: 'NPR',
+  platform_name: 'Samaya Deluxe',
+  seat_lock_timeout: 10,
+  max_passengers: 10,
+  auto_cancel_timeout: 30,
+  payment_methods: { khalti: true, esewa: true, cash: true },
+  default_payment: 'khalti',
+  notifications: { email: true, sms: true, push: true },
+};
+
+async function logAudit(userId, action, entityType, entityId, details, ip) {
+  try {
+    await AuditLog.create({
+      user: userId ? String(userId) : 'system',
+      action,
+      entity_type: entityType,
+      entity_id: entityId != null ? String(entityId) : null,
+      details: details || null,
+      ip_address: ip || null,
+    });
+  } catch (err) {
+    console.error('Audit log error:', err.message);
+  }
+}
 
 const router = express.Router();
 
@@ -219,6 +247,42 @@ router.get('/users', commonValidation.pagination, handleValidationErrors, async 
   }
 });
 
+// GET /admin/users/:id - Get user detail with roles, bookings, wallet
+router.get('/users/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      include: [{ model: UserRole, as: 'roles', where: { is_active: true }, required: false }],
+      attributes: { exclude: ['password', 'firebase_uid'] },
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const bookings = await Booking.findAll({
+      where: { user_id: user.id },
+      include: [{ model: Trip, as: 'trip', include: [{ model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] }] }],
+      order: [['booking_date', 'DESC']],
+      limit: 10,
+    });
+
+    const wallet = await UserWallet.findOne({ where: { user_id: user.id } });
+    const totalBookings = await Booking.count({ where: { user_id: user.id } });
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        bookings,
+        wallet: wallet || null,
+        total_bookings: totalBookings,
+      },
+    });
+  } catch (error) {
+    console.error('Admin get user error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get user', error: error.message });
+  }
+});
+
 // PUT /admin/users/:id/status - Update user status
 router.put('/users/:id/status', commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
@@ -228,10 +292,9 @@ router.put('/users/:id/status', commonValidation.idParam, handleValidationErrors
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    await user.update({ status: is_active ? 'ACTIVE' : 'INACTIVE' });
-
-    // Also update all user roles
+    await user.update({ status: is_active ? 'ACTIVE' : 'SUSPENDED' });
     await UserRole.update({ is_active }, { where: { user_id: user.id } });
+    await logAudit(req.user.id, is_active ? 'USER_ACTIVATED' : 'USER_SUSPENDED', 'USER', user.id, `Status set to ${user.status}`, req.ip);
 
     res.json({ success: true, message: 'User status updated successfully', data: { user: { id: user.id, status: user.status } } });
   } catch (error) {
@@ -373,6 +436,110 @@ router.get('/payments', async (req, res) => {
   } catch (error) {
     console.error('Admin get payments error:', error);
     res.status(500).json({ success: false, message: 'Failed to get payments', error: error.message });
+  }
+});
+
+// POST /admin/bookings/:id/refund - Approve refund (cancel + credit)
+router.post('/bookings/:id/refund', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+
+    const booking = await Booking.findByPk(id, {
+      include: [{ model: Trip, as: 'trip' }],
+      transaction,
+    });
+    if (!booking) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    if (booking.booking_status === 'CANCELLED' && booking.payment_status === 'REFUNDED') {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Booking already refunded' });
+    }
+
+    const bookingAmount = parseFloat(booking.total_amount || 0);
+    let refundAmount = amount != null && amount !== '' ? parseFloat(amount) : bookingAmount;
+    if (isNaN(refundAmount) || refundAmount < 0) refundAmount = 0;
+    if (refundAmount > bookingAmount) refundAmount = bookingAmount;
+
+    const wasCancelled = booking.booking_status === 'CANCELLED';
+
+    await booking.update({
+      booking_status: 'CANCELLED',
+      cancellation_reason: reason || 'Admin refund',
+      refund_amount: refundAmount,
+      payment_status: refundAmount > 0 ? 'REFUNDED' : booking.payment_status,
+    }, { transaction });
+
+    if (booking.trip_id && !wasCancelled) {
+      const trip = await Trip.findByPk(booking.trip_id, { transaction });
+      if (trip) {
+        await trip.update({ available_seats: trip.available_seats + (booking.total_passengers || 0) }, { transaction });
+      }
+    }
+
+    if (refundAmount > 0 && booking.user_id) {
+      let wallet = await UserWallet.findOne({ where: { user_id: booking.user_id }, transaction });
+      if (!wallet) {
+        wallet = await UserWallet.create({ user_id: booking.user_id, balance: 0, total_earned: 0 }, { transaction });
+      }
+      await wallet.update({
+        balance: parseFloat(wallet.balance) + refundAmount,
+        total_earned: parseFloat(wallet.total_earned) + refundAmount,
+      }, { transaction });
+
+      await WalletTransaction.create({
+        wallet_id: wallet.id,
+        transaction_type: 'CREDIT',
+        amount: refundAmount,
+        description: `Admin refund for booking PNR: ${booking.pnr}`,
+        reference_id: booking.id,
+        reference_type: 'REFUND',
+      }, { transaction });
+    }
+
+    await Payment.update(
+      { status: refundAmount > 0 ? 'REFUNDED' : 'CANCELLED' },
+      { where: { booking_id: booking.id, status: 'SUCCESS' }, transaction }
+    );
+
+    await transaction.commit();
+    await logAudit(req.user.id, 'REFUND_APPROVED', 'BOOKING', booking.id, `PNR ${booking.pnr}, amount ${refundAmount}`, req.ip);
+
+    res.json({
+      success: true,
+      message: 'Refund approved successfully',
+      data: { booking_id: booking.id, refund_amount: refundAmount, payment_status: refundAmount > 0 ? 'REFUNDED' : booking.payment_status },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Admin refund error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process refund', error: error.message });
+  }
+});
+
+// POST /admin/bookings/:id/refund/reject - Reject refund request
+router.post('/bookings/:id/refund/reject', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const booking = await Booking.findByPk(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    await booking.update({
+      cancellation_reason: reason || booking.cancellation_reason,
+    });
+    await logAudit(req.user.id, 'REFUND_REJECTED', 'BOOKING', booking.id, `PNR ${booking.pnr}: ${reason || 'rejected'}`, req.ip);
+
+    res.json({ success: true, message: 'Refund request rejected', data: { booking_id: booking.id } });
+  } catch (error) {
+    console.error('Admin reject refund error:', error);
+    res.status(500).json({ success: false, message: 'Failed to reject refund', error: error.message });
   }
 });
 
@@ -901,51 +1068,227 @@ router.get('/dashboard/analytics', authenticateToken, requireRole(['SUPER_ADMIN'
   }
 });
 
-// GET /admin/audit-log - Get audit log entries (placeholder)
-router.get('/audit-log', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+// GET /admin/promo-codes - List promo codes
+router.get('/promo-codes', async (req, res) => {
   try {
-    const { page = 1, limit = 20, action, entity_type } = req.query;
+    const { page = 1, limit = 20, search, status } = req.query;
+    const offset = (page - 1) * limit;
 
-    const sampleAuditLog = [
-      { id: 1, timestamp: '2026-09-22T10:00:00Z', user: 'admin@samaya.com', action: 'USER_LOGIN', entity_type: 'USER', entity_id: 1, details: 'Successful login', ip_address: '192.168.1.1' },
-      { id: 2, timestamp: '2026-09-22T10:15:00Z', user: 'admin@samaya.com', action: 'OPERATOR_CREATED', entity_type: 'OPERATOR', entity_id: 5, details: 'Created operator: Nepal Express', ip_address: '192.168.1.1' },
-      { id: 3, timestamp: '2026-09-22T10:30:00Z', user: 'operator@nepal.com', action: 'BUS_ADDED', entity_type: 'BUS', entity_id: 12, details: 'Added bus: NA 1234', ip_address: '192.168.1.2' },
-      { id: 4, timestamp: '2026-09-22T11:00:00Z', user: 'admin@samaya.com', action: 'ROLE_ASSIGNED', entity_type: 'USER_ROLE', entity_id: 3, details: 'Assigned OPERATOR role to user 3', ip_address: '192.168.1.1' },
-      { id: 5, timestamp: '2026-09-22T11:30:00Z', user: 'system', action: 'BOOKING_CONFIRMED', entity_type: 'BOOKING', entity_id: 45, details: 'PNR: ABC123, Amount: Rs. 1500', ip_address: '127.0.0.1' },
-      { id: 6, timestamp: '2026-09-22T12:00:00Z', user: 'admin@samaya.com', action: 'SETTINGS_UPDATED', entity_type: 'SYSTEM', entity_id: null, details: 'Updated tax_rate from 12 to 13', ip_address: '192.168.1.1' },
-      { id: 7, timestamp: '2026-09-22T12:30:00Z', user: 'driver@nepal.com', action: 'TRIP_STARTED', entity_type: 'TRIP', entity_id: 8, details: 'Trip started: Kathmandu to Pokhara', ip_address: '192.168.1.3' },
-      { id: 8, timestamp: '2026-09-22T13:00:00Z', user: 'customer@samaya.com', action: 'PAYMENT_RECEIVED', entity_type: 'PAYMENT', entity_id: 22, details: 'Khalti payment of Rs. 1800', ip_address: '192.168.1.4' },
-      { id: 9, timestamp: '2026-09-22T13:30:00Z', user: 'admin@samaya.com', action: 'USER_SUSPENDED', entity_type: 'USER', entity_id: 15, details: 'Suspended user for policy violation', ip_address: '192.168.1.1' },
-      { id: 10, timestamp: '2026-09-22T14:00:00Z', user: 'system', action: 'SEAT_LOCK_CLEANUP', entity_type: 'SEAT_LOCK', entity_id: null, details: 'Cleaned up 5 expired locks', ip_address: '127.0.0.1' },
-    ];
+    let whereClause = {};
+    if (status) whereClause.status = status.toUpperCase();
+    if (search) whereClause.code = { [Op.like]: `%${search}%` };
 
-    let filtered = [...sampleAuditLog];
-    if (action) filtered = filtered.filter(e => e.action === action.toUpperCase());
-    if (entity_type) filtered = filtered.filter(e => e.entity_type === entity_type.toUpperCase());
-
-    const startIndex = (page - 1) * limit;
-    const paginated = filtered.slice(startIndex, startIndex + parseInt(limit));
+    const { count, rows: promos } = await PromoCode.findAndCountAll({
+      where: whereClause,
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
 
     res.json({
       success: true,
       data: {
-        items: paginated,
+        items: promos,
         pagination: {
           current_page: parseInt(page),
-          total_pages: Math.ceil(filtered.length / limit),
-          total_items: filtered.length,
+          total_pages: Math.ceil(count / limit),
+          total_items: count,
           items_per_page: parseInt(limit),
         },
       },
     });
   } catch (error) {
-    console.error('Admin audit log error:', error);
-    res.status(500).json({ success: false, message: 'Failed to get audit log', error: error.message });
+    console.error('Admin get promo codes error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get promo codes', error: error.message });
   }
 });
 
-// POST /admin/notifications/announce - Send platform-wide notification (placeholder)
-router.post('/notifications/announce', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+// POST /admin/promo-codes - Create promo code
+router.post('/promo-codes', async (req, res) => {
+  try {
+    const { code, description, discount_type = 'percentage', discount_value, min_amount = 0, max_uses = 0, valid_from, valid_until, status = 'ACTIVE' } = req.body;
+
+    if (!code || discount_value == null || !valid_from || !valid_until) {
+      return res.status(400).json({ success: false, message: 'code, discount_value, valid_from, valid_until are required' });
+    }
+
+    const existing = await PromoCode.findOne({ where: { code: code.toUpperCase() } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Promo code already exists' });
+    }
+
+    const promo = await PromoCode.create({
+      code: code.toUpperCase(),
+      description,
+      discount_type,
+      discount_value,
+      min_amount,
+      max_uses,
+      valid_from,
+      valid_until,
+      status,
+    });
+
+    await logAudit(req.user.id, 'PROMO_CREATED', 'PROMO_CODE', promo.id, `Code ${promo.code}`, req.ip);
+    res.status(201).json({ success: true, message: 'Promo code created', data: { promo } });
+  } catch (error) {
+    console.error('Admin create promo error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create promo code', error: error.message });
+  }
+});
+
+// PUT /admin/promo-codes/:id - Update promo code
+router.put('/promo-codes/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const promo = await PromoCode.findByPk(req.params.id);
+    if (!promo) return res.status(404).json({ success: false, message: 'Promo code not found' });
+
+    const allowed = ['description', 'discount_type', 'discount_value', 'min_amount', 'max_uses', 'valid_from', 'valid_until', 'status'];
+    const updates = {};
+    for (const f of allowed) if (req.body[f] !== undefined) updates[f] = req.body[f];
+    await promo.update(updates);
+
+    res.json({ success: true, message: 'Promo code updated', data: { promo } });
+  } catch (error) {
+    console.error('Admin update promo error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update promo code', error: error.message });
+  }
+});
+
+// DELETE /admin/promo-codes/:id - Delete promo code
+router.delete('/promo-codes/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const promo = await PromoCode.findByPk(req.params.id);
+    if (!promo) return res.status(404).json({ success: false, message: 'Promo code not found' });
+    await promo.destroy();
+    await logAudit(req.user.id, 'PROMO_DELETED', 'PROMO_CODE', promo.id, `Code ${promo.code}`, req.ip);
+    res.json({ success: true, message: 'Promo code deleted' });
+  } catch (error) {
+    console.error('Admin delete promo error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete promo code', error: error.message });
+  }
+});
+
+// GET /admin/disputes - List disputes
+router.get('/disputes', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = {};
+    if (status) whereClause.status = status.toUpperCase();
+    if (search) {
+      whereClause[Op.or] = [
+        { subject: { [Op.like]: `%${search}%` } },
+        { customer_name: { [Op.like]: `%${search}%` } },
+        { booking_pnr: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows: disputes } = await Dispute.findAndCountAll({
+      where: whereClause,
+      include: [{ model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'], required: false }],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      distinct: true,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        items: disputes,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(count / limit),
+          total_items: count,
+          items_per_page: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Admin get disputes error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get disputes', error: error.message });
+  }
+});
+
+// POST /admin/disputes - Create dispute (admin can file on behalf)
+router.post('/disputes', async (req, res) => {
+  try {
+    const { user_id, booking_id, customer_name, customer_phone, booking_pnr, type = 'complaint', subject, description } = req.body;
+    if (!subject) return res.status(400).json({ success: false, message: 'Subject is required' });
+
+    const dispute = await Dispute.create({
+      user_id: user_id || null,
+      booking_id: booking_id || null,
+      customer_name,
+      customer_phone,
+      booking_pnr,
+      type,
+      subject,
+      description,
+    });
+
+    await logAudit(req.user.id, 'DISPUTE_CREATED', 'DISPUTE', dispute.id, subject, req.ip);
+    res.status(201).json({ success: true, message: 'Dispute created', data: { dispute } });
+  } catch (error) {
+    console.error('Admin create dispute error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create dispute', error: error.message });
+  }
+});
+
+// PUT /admin/disputes/:id - Update dispute status/resolution
+router.put('/disputes/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const dispute = await Dispute.findByPk(req.params.id);
+    if (!dispute) return res.status(404).json({ success: false, message: 'Dispute not found' });
+
+    const { status, resolution_notes } = req.body;
+    const updates = {};
+    if (status) updates.status = status.toUpperCase();
+    if (resolution_notes !== undefined) updates.resolution_notes = resolution_notes;
+    await dispute.update(updates);
+
+    await logAudit(req.user.id, 'DISPUTE_UPDATED', 'DISPUTE', dispute.id, `Status: ${dispute.status}`, req.ip);
+    res.json({ success: true, message: 'Dispute updated', data: { dispute } });
+  } catch (error) {
+    console.error('Admin update dispute error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update dispute', error: error.message });
+  }
+});
+
+// GET /admin/notifications - List announcements
+router.get('/notifications', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const { count, rows: items } = await Announcement.findAndCountAll({
+      order: [['sent_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(count / limit),
+          total_items: count,
+          items_per_page: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Admin get notifications error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get notifications', error: error.message });
+  }
+});
+
+// POST /admin/notifications/announce - Persist + emit platform announcement
+router.post('/notifications/announce', async (req, res) => {
   try {
     const { title, message, target, priority } = req.body;
 
@@ -956,17 +1299,23 @@ router.post('/notifications/announce', authenticateToken, requireRole(['SUPER_AD
     const validTargets = ['ALL', 'CUSTOMERS', 'OPERATORS', 'DRIVERS', 'DISPATCHERS'];
     const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
-    const announcement = {
-      id: Date.now(),
+    const announcement = await Announcement.create({
       title,
       message,
       target: target && validTargets.includes(target.toUpperCase()) ? target.toUpperCase() : 'ALL',
       priority: priority && validPriorities.includes(priority.toUpperCase()) ? priority.toUpperCase() : 'MEDIUM',
-      sent_by: req.user.email || req.user.id,
-      sent_at: new Date().toISOString(),
-    };
+      sent_by: req.user.email || String(req.user.id),
+    });
 
-    console.log('📢 Platform announcement:', JSON.stringify(announcement, null, 2));
+    // Emit over Socket.IO if available
+    try {
+      const io = req.app.get('io');
+      if (io) io.emit('announcement', announcement);
+    } catch (e) {
+      console.error('Socket emit failed:', e.message);
+    }
+
+    await logAudit(req.user.id, 'ANNOUNCEMENT_SENT', 'ANNOUNCEMENT', announcement.id, title, req.ip);
 
     res.status(201).json({
       success: true,
@@ -979,29 +1328,18 @@ router.post('/notifications/announce', authenticateToken, requireRole(['SUPER_AD
   }
 });
 
-// GET /admin/settings - Get system settings (placeholder)
-router.get('/settings', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+// GET /admin/settings - Get system settings (persisted)
+router.get('/settings', async (req, res) => {
   try {
-    const settings = {
-      service_fee: 5,
-      tax_rate: 13,
-      currency: 'NPR',
-      platform_name: 'Samaya Deluxe',
-      seat_lock_timeout: 10,
-      max_passengers: 10,
-      auto_cancel_timeout: 30,
-      payment_methods: {
-        khalti: true,
-        esewa: true,
-        cash: true,
-      },
-      default_payment: 'khalti',
-      notifications: {
-        email: true,
-        sms: true,
-        push: true,
-      },
-    };
+    let settings = { ...DEFAULT_SETTINGS };
+    const row = await SystemSetting.findOne({ where: { key: 'system_settings' } });
+    if (row && row.value) {
+      try {
+        settings = { ...settings, ...JSON.parse(row.value) };
+      } catch (e) {
+        console.error('Settings parse error:', e.message);
+      }
+    }
 
     res.json({ success: true, data: { settings } });
   } catch (error) {
@@ -1010,23 +1348,16 @@ router.get('/settings', authenticateToken, requireRole(['SUPER_ADMIN']), async (
   }
 });
 
-// PUT /admin/settings - Update system settings (placeholder)
-router.put('/settings', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
+// PUT /admin/settings - Update system settings (persisted)
+router.put('/settings', async (req, res) => {
   try {
-    const allowedFields = ['service_fee', 'tax_rate', 'currency', 'platform_name', 'seat_lock_timeout', 'max_passengers', 'auto_cancel_timeout', 'payment_methods', 'default_payment', 'notifications'];
+    const allowedFields = Object.keys(DEFAULT_SETTINGS);
 
-    const currentSettings = {
-      service_fee: 5,
-      tax_rate: 13,
-      currency: 'NPR',
-      platform_name: 'Samaya Deluxe',
-      seat_lock_timeout: 10,
-      max_passengers: 10,
-      auto_cancel_timeout: 30,
-      payment_methods: { khalti: true, esewa: true, cash: true },
-      default_payment: 'khalti',
-      notifications: { email: true, sms: true, push: true },
-    };
+    let current = { ...DEFAULT_SETTINGS };
+    const row = await SystemSetting.findOne({ where: { key: 'system_settings' } });
+    if (row && row.value) {
+      try { current = { ...current, ...JSON.parse(row.value) }; } catch (e) { /* use defaults */ }
+    }
 
     const updates = {};
     for (const field of allowedFields) {
@@ -1035,14 +1366,72 @@ router.put('/settings', authenticateToken, requireRole(['SUPER_ADMIN']), async (
       }
     }
 
-    const updatedSettings = { ...currentSettings, ...updates };
+    const updatedSettings = { ...current, ...updates };
 
-    console.log('⚙️ Settings updated by:', req.user.email || req.user.id, '| Changes:', JSON.stringify(updates, null, 2));
+    if (row) {
+      await row.update({ value: JSON.stringify(updatedSettings), updated_at: new Date() });
+    } else {
+      await SystemSetting.create({ key: 'system_settings', value: JSON.stringify(updatedSettings) });
+    }
+
+    await logAudit(req.user.id, 'SETTINGS_UPDATED', 'SYSTEM', null, JSON.stringify(updates), req.ip);
 
     res.json({ success: true, message: 'Settings updated successfully', data: { settings: updatedSettings } });
   } catch (error) {
     console.error('Admin update settings error:', error);
     res.status(500).json({ success: false, message: 'Failed to update settings', error: error.message });
+  }
+});
+
+// GET /admin/audit-log - Get real audit log entries
+router.get('/audit-log', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, action, entity_type, search } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = {};
+    if (action) whereClause.action = action.toUpperCase();
+    if (entity_type) whereClause.entity_type = entity_type.toUpperCase();
+    if (search) {
+      whereClause[Op.or] = [
+        { user: { [Op.like]: `%${search}%` } },
+        { details: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows } = await AuditLog.findAndCountAll({
+      where: whereClause,
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    const items = rows.map(r => ({
+      id: r.id,
+      timestamp: r.created_at,
+      user: r.user,
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      details: r.details,
+      ip_address: r.ip_address,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(count / limit),
+          total_items: count,
+          items_per_page: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Admin audit log error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get audit log', error: error.message });
   }
 });
 

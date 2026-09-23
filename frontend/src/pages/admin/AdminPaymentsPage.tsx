@@ -30,20 +30,29 @@ export default function AdminPaymentsPage() {
 
   const loadPayments = useCallback(async () => {
     try {
-      const params: any = {};
-      if (searchQuery) params.search = searchQuery;
+      const params: any = { page: currentPage, limit: itemsPerPage };
       if (methodFilter !== 'ALL') params.payment_method = methodFilter;
       if (statusFilter !== 'ALL') params.status = statusFilter;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      const res = await api.get('/payments', { params });
-      setPayments(res.data.data.payments || res.data.data || []);
+      if (dateFrom) params.start_date = dateFrom;
+      if (dateTo) params.end_date = dateTo;
+      const res = await api.get('/admin/payments', { params });
+      const items = res.data.data.items || [];
+      setPayments(items.map((p: any) => ({
+        id: p.id,
+        pnr: p.booking?.pnr || 'N/A',
+        customer_name: p.booking?.user?.full_name || 'N/A',
+        customer_phone: p.booking?.user?.phone_number || '',
+        amount: Number(p.amount) || 0,
+        payment_method: p.payment_method || '-',
+        status: p.status,
+        created_at: p.created_at,
+      })));
     } catch {
       toast.error('Failed to load payments');
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, methodFilter, statusFilter, dateFrom, dateTo]);
+  }, [methodFilter, statusFilter, dateFrom, dateTo, currentPage]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadPayments, 30000);
 
@@ -61,18 +70,20 @@ export default function AdminPaymentsPage() {
 
   const stats = useMemo(() => ({
     total: payments.reduce((sum, p) => sum + (p.amount || 0), 0),
-    completed: payments.filter(p => p.status === 'COMPLETED' || p.status === 'PAID').reduce((sum, p) => sum + (p.amount || 0), 0),
+    completed: payments.filter(p => p.status === 'SUCCESS' || p.status === 'COMPLETED' || p.status === 'PAID').reduce((sum, p) => sum + (p.amount || 0), 0),
     pending: payments.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + (p.amount || 0), 0),
-    refunded: payments.filter(p => p.status === 'REFUNDED').reduce((sum, p) => sum + (p.amount || 0), 0),
+    refunded: payments.filter(p => p.status === 'REFUNDED' || p.status === 'CANCELLED').reduce((sum, p) => sum + (p.amount || 0), 0),
   }), [payments]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'SUCCESS':
       case 'COMPLETED':
       case 'PAID': return 'bg-green-100 text-green-700';
       case 'PENDING': return 'bg-yellow-100 text-yellow-700';
       case 'REFUNDED': return 'bg-purple-100 text-purple-700';
-      case 'FAILED': return 'bg-red-100 text-red-700';
+      case 'FAILED':
+      case 'CANCELLED': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-600';
     }
   };
@@ -188,10 +199,11 @@ export default function AdminPaymentsPage() {
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Status</option>
-            <option value="COMPLETED">Completed</option>
+            <option value="SUCCESS">Completed</option>
             <option value="PENDING">Pending</option>
             <option value="REFUNDED">Refunded</option>
             <option value="FAILED">Failed</option>
+            <option value="CANCELLED">Cancelled</option>
           </select>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-gray-400" />

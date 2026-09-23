@@ -34,26 +34,25 @@ export default function AdminRefundPage() {
 
   const loadRefunds = useCallback(async () => {
     try {
-      const params: any = { booking_status: 'CANCELLED' };
+      const params: any = { booking_status: 'CANCELLED', page: currentPage, limit: itemsPerPage };
       if (searchQuery) params.search = searchQuery;
-      if (statusFilter !== 'ALL') params.refund_status = statusFilter;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
+      if (dateFrom) params.start_date = dateFrom;
+      if (dateTo) params.end_date = dateTo;
       const res = await api.get('/admin/bookings', { params });
       const bookings = res.data.data.items || [];
       const refundsList: RefundItem[] = bookings
-        .filter((b: any) => b.refund_status || b.refund_amount)
+        .filter((b: any) => b.booking_status === 'CANCELLED')
         .map((b: any) => ({
           id: b.id,
           booking_id: b.id,
           pnr: b.pnr,
-          passenger_name: b.passenger_name,
-          passenger_phone: b.passenger_phone,
-          refund_amount: b.refund_amount || b.total_amount,
+          passenger_name: b.user?.full_name || 'N/A',
+          passenger_phone: b.user?.phone_number || '',
+          refund_amount: Number(b.refund_amount || 0) || Number(b.total_amount || 0),
           reason: b.cancellation_reason || 'No reason provided',
-          refund_status: b.refund_status || 'PENDING',
-          requested_date: b.cancelled_at || b.created_at,
-          processed_date: b.refund_processed_at || null,
+          refund_status: b.payment_status === 'REFUNDED' ? 'REFUNDED' : (b.refund_amount ? 'APPROVED' : 'PENDING'),
+          requested_date: b.booking_date || b.created_at,
+          processed_date: b.payment_status === 'REFUNDED' ? (b.booking_date || b.created_at) : null,
         }));
       setRefunds(refundsList);
     } catch {
@@ -61,13 +60,16 @@ export default function AdminRefundPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, statusFilter, dateFrom, dateTo]);
+  }, [searchQuery, dateFrom, dateTo, currentPage]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadRefunds, 30000);
 
   useEffect(() => { loadRefunds(); }, [loadRefunds]);
 
-  const filteredRefunds = useMemo(() => refunds, [refunds]);
+  const filteredRefunds = useMemo(() => {
+    if (statusFilter === 'ALL') return refunds;
+    return refunds.filter(r => r.refund_status === statusFilter);
+  }, [refunds, statusFilter]);
 
   const totalPages = Math.ceil(filteredRefunds.length / itemsPerPage);
   const paginatedRefunds = filteredRefunds.slice(
@@ -87,7 +89,7 @@ export default function AdminRefundPage() {
   const handleApprove = async (refund: RefundItem) => {
     setProcessingId(refund.id);
     try {
-      await api.post(`/bookings/${refund.booking_id}/refund`, {
+      await api.post(`/admin/bookings/${refund.booking_id}/refund`, {
         amount: refund.refund_amount,
         reason: refund.reason,
       });
@@ -104,7 +106,7 @@ export default function AdminRefundPage() {
     if (!rejectModal) return;
     setProcessingId(rejectModal.id);
     try {
-      await api.post(`/bookings/${rejectModal.booking_id}/refund/reject`, {
+      await api.post(`/admin/bookings/${rejectModal.booking_id}/refund/reject`, {
         reason: rejectReason,
       });
       toast.success(`Refund rejected for ${rejectModal.pnr}`);

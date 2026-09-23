@@ -28,18 +28,28 @@ export default function AdminBusesPage() {
 
   const loadBuses = useCallback(async () => {
     try {
-      const params: any = {};
+      const params: any = { page: currentPage, limit: itemsPerPage };
       if (searchQuery) params.search = searchQuery;
       if (statusFilter !== 'ALL') params.status = statusFilter;
       if (typeFilter !== 'ALL') params.bus_type = typeFilter;
-      const res = await api.get('/buses', { params });
-      setBuses(res.data.data.buses || res.data.data || []);
+      const res = await api.get('/admin/buses', { params });
+      const items = res.data.data.items || [];
+      setBuses(items.map((b: any) => ({
+        id: b.id,
+        bus_number: b.bus_number,
+        bus_model: b.bus_model || '-',
+        bus_type: b.bus_type,
+        operator_name: b.operator?.company_name || '-',
+        total_seats: b.total_seats || 0,
+        status: b.status,
+        created_at: b.registration_date || b.created_at || new Date().toISOString(),
+      })));
     } catch {
       toast.error('Failed to load buses');
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, statusFilter, typeFilter]);
+  }, [searchQuery, statusFilter, typeFilter, currentPage]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBuses, 30000);
 
@@ -68,7 +78,7 @@ export default function AdminBusesPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'bg-green-100 text-green-700';
-      case 'INACTIVE': return 'bg-gray-100 text-gray-600';
+      case 'RETIRED': return 'bg-gray-100 text-gray-600';
       case 'MAINTENANCE': return 'bg-yellow-100 text-yellow-700';
       default: return 'bg-gray-100 text-gray-600';
     }
@@ -132,8 +142,11 @@ export default function AdminBusesPage() {
             <option value="ALL">All Types</option>
             <option value="AC">AC</option>
             <option value="DELUXE">Deluxe</option>
+            <option value="SUPER_DELUXE">Super Deluxe</option>
             <option value="SLEEPER">Sleeper</option>
-            <option value="VIP">VIP</option>
+            <option value="SEMI_SLEEPER">Semi Sleeper</option>
+            <option value="NON_AC">Non AC</option>
+            <option value="TOURIST">Tourist</option>
           </select>
           <select
             value={statusFilter}
@@ -142,8 +155,8 @@ export default function AdminBusesPage() {
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
             <option value="MAINTENANCE">Maintenance</option>
+            <option value="RETIRED">Retired</option>
           </select>
         </div>
       </div>

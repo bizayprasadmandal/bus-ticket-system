@@ -12,8 +12,8 @@ interface UserDetail {
   email?: string;
   phone_number: string;
   gender?: string;
-  is_verified: boolean;
-  is_active: boolean;
+  status: string;
+  is_phone_verified?: boolean;
   created_at: string;
   roles?: { role: string; is_active: boolean }[];
   total_bookings?: number;
@@ -70,7 +70,17 @@ export default function AdminUserDetailPage() {
   const loadUser = async () => {
     try {
       const res = await api.get(`/admin/users/${id}`);
-      setUser(res.data.data.user || res.data.data);
+      const data = res.data.data || {};
+      const u = data.user || data;
+      const enriched: UserDetail = {
+        ...u,
+        total_bookings: data.total_bookings ?? u.total_bookings,
+        wallet_balance: data.wallet ? Number(data.wallet.balance) || 0 : u.wallet_balance,
+        recent_bookings: data.bookings || u.recent_bookings,
+      };
+      setUser(enriched);
+      if (data.bookings) setBookings(data.bookings);
+      if (data.wallet) setWallet({ balance: Number(data.wallet.balance) || 0, transactions: [] });
     } catch {
       try {
         const res = await api.get('/admin/users', { params: { search: id } });
@@ -91,8 +101,16 @@ export default function AdminUserDetailPage() {
   const loadBookings = useCallback(async () => {
     setBookingsLoading(true);
     try {
-      const res = await api.get('/admin/bookings', { params: { user_id: id } });
-      setBookings(res.data.data.bookings || res.data.data || []);
+      const res = await api.get('/admin/bookings', { params: { search: id, limit: 50 } });
+      const items = res.data.data.items || [];
+      setBookings(items.filter((b: any) => String(b.user?.id) === String(id)).map((b: any) => ({
+        id: b.id,
+        pnr: b.pnr,
+        trip: b.trip,
+        total_amount: Number(b.total_amount) || 0,
+        booking_status: b.booking_status,
+        created_at: b.booking_date || b.created_at,
+      })));
     } catch {
       toast.error('Failed to load bookings');
     } finally {
@@ -103,8 +121,23 @@ export default function AdminUserDetailPage() {
   const loadWallet = useCallback(async () => {
     setWalletLoading(true);
     try {
-      const res = await api.get('/admin/wallets', { params: { user_id: id } });
-      setWallet(res.data.data);
+      const res = await api.get('/admin/wallets', { params: { search: id } });
+      const items = res.data.data.items || [];
+      const found = items.find((w: any) => String(w.user?.id) === String(id) || String(w.user_id) === String(id));
+      if (found) {
+        setWallet({
+          balance: Number(found.balance) || 0,
+          transactions: (found.transactions || []).map((t: any) => ({
+            id: t.id,
+            type: t.transaction_type || t.type,
+            amount: Number(t.amount) || 0,
+            description: t.description || '',
+            created_at: t.created_at,
+          })),
+        });
+      } else {
+        setWallet({ balance: 0, transactions: [] });
+      }
     } catch {
       toast.error('Failed to load wallet data');
     } finally {
@@ -196,8 +229,8 @@ export default function AdminUserDetailPage() {
           <div className="flex-1">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
               <h1 className="text-2xl font-bold text-gray-800">{user.full_name}</h1>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                {user.is_active ? 'Active' : 'Inactive'}
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${user.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {user.status === 'ACTIVE' ? 'Active' : user.status === 'SUSPENDED' ? 'Suspended' : user.status === 'DELETED' ? 'Deleted' : 'Inactive'}
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">

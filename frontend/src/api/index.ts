@@ -212,7 +212,7 @@ export const adminReviewAPI = {
 
 export const adminWalletAPI = {
   getAll: (params?: any) => api.get('/admin/wallets', { params }),
-  getTransactions: (params?: any) => api.get('/wallets/transactions', { params }),
+  getTransactions: (params?: any) => api.get('/admin/wallets/transactions', { params }),
 };
 
 export const adminCityAPI = {
@@ -233,7 +233,25 @@ export const adminRoleAPI = {
 export const adminNotificationAPI = {
   announce: (data: { title: string; message: string; target: string; priority: string }) =>
     api.post('/admin/notifications/announce', data),
-  getAll: (params?: any) => api.get('/notifications', { params }),
+  getAll: (params?: any) => api.get('/admin/notifications', { params }),
+};
+
+export const adminPromoAPI = {
+  getAll: (params?: any) => api.get('/admin/promo-codes', { params }),
+  create: (data: any) => api.post('/admin/promo-codes', data),
+  update: (id: number, data: any) => api.put(`/admin/promo-codes/${id}`, data),
+  delete: (id: number) => api.delete(`/admin/promo-codes/${id}`),
+};
+
+export const adminDisputeAPI = {
+  getAll: (params?: any) => api.get('/admin/disputes', { params }),
+  create: (data: any) => api.post('/admin/disputes', data),
+  update: (id: number, data: any) => api.put(`/admin/disputes/${id}`, data),
+};
+
+export const adminRefundAPI = {
+  approve: (bookingId: number, data: any) => api.post(`/admin/bookings/${bookingId}/refund`, data),
+  reject: (bookingId: number, data: any) => api.post(`/admin/bookings/${bookingId}/refund/reject`, data),
 };
 
 export const adminSettingsAPI = {

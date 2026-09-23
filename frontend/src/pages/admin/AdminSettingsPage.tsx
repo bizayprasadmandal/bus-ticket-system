@@ -76,14 +76,33 @@ export default function AdminSettingsPage() {
   const loadSettings = async () => {
     try {
       const res = await api.get('/admin/settings');
-      if (res.data?.data) {
-        setSettings({
-          platform: { ...defaultSettings.platform, ...res.data.data.platform },
-          booking: { ...defaultSettings.booking, ...res.data.data.booking },
-          payment: { ...defaultSettings.payment, ...res.data.data.payment },
-          notification: { ...defaultSettings.notification, ...res.data.data.notification },
-        });
-      }
+      const s = res.data?.data?.settings || res.data?.data || {};
+      setSettings({
+        platform: {
+          service_fee_percent: s.service_fee ?? defaultSettings.platform.service_fee_percent,
+          tax_rate_percent: s.tax_rate ?? defaultSettings.platform.tax_rate_percent,
+          currency: s.currency ?? defaultSettings.platform.currency,
+          platform_name: s.platform_name ?? defaultSettings.platform.platform_name,
+        },
+        booking: {
+          seat_lock_timeout_minutes: s.seat_lock_timeout ?? defaultSettings.booking.seat_lock_timeout_minutes,
+          max_passengers_per_booking: s.max_passengers ?? defaultSettings.booking.max_passengers_per_booking,
+          auto_cancel_timeout_minutes: s.auto_cancel_timeout ?? defaultSettings.booking.auto_cancel_timeout_minutes,
+        },
+        payment: {
+          khalti_enabled: s.payment_methods?.khalti ?? defaultSettings.payment.khalti_enabled,
+          esewa_enabled: s.payment_methods?.esewa ?? defaultSettings.payment.esewa_enabled,
+          cash_enabled: s.payment_methods?.cash ?? defaultSettings.payment.cash_enabled,
+          default_payment_method: s.default_payment
+            ? s.default_payment.charAt(0).toUpperCase() + s.default_payment.slice(1).toLowerCase()
+            : defaultSettings.payment.default_payment_method,
+        },
+        notification: {
+          email_notifications: s.notifications?.email ?? defaultSettings.notification.email_notifications,
+          sms_notifications: s.notifications?.sms ?? defaultSettings.notification.sms_notifications,
+          push_notifications: s.notifications?.push ?? defaultSettings.notification.push_notifications,
+        },
+      });
     } catch {
       setSettings(defaultSettings);
     } finally {
@@ -104,14 +123,32 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put('/admin/settings', editValues);
+      const payload = {
+        service_fee: editValues.platform.service_fee_percent,
+        tax_rate: editValues.platform.tax_rate_percent,
+        currency: editValues.platform.currency,
+        platform_name: editValues.platform.platform_name,
+        seat_lock_timeout: editValues.booking.seat_lock_timeout_minutes,
+        max_passengers: editValues.booking.max_passengers_per_booking,
+        auto_cancel_timeout: editValues.booking.auto_cancel_timeout_minutes,
+        payment_methods: {
+          khalti: editValues.payment.khalti_enabled,
+          esewa: editValues.payment.esewa_enabled,
+          cash: editValues.payment.cash_enabled,
+        },
+        default_payment: editValues.payment.default_payment_method.toLowerCase(),
+        notifications: {
+          email: editValues.notification.email_notifications,
+          sms: editValues.notification.sms_notifications,
+          push: editValues.notification.push_notifications,
+        },
+      };
+      await api.put('/admin/settings', payload);
       setSettings({ ...editValues });
       setEditingSection(null);
       toast.success('Settings saved successfully');
-    } catch {
-      setSettings({ ...editValues });
-      setEditingSection(null);
-      toast.success('Settings saved');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }

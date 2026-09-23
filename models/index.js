@@ -19,6 +19,11 @@ const UserWallet = require('./UserWallet');
 const WalletTransaction = require('./WalletTransaction');
 const Review = require('./Review');
 const FareRule = require('./FareRule');
+const PromoCode = require('./PromoCode');
+const Dispute = require('./Dispute');
+const SystemSetting = require('./SystemSetting');
+const AuditLog = require('./AuditLog');
+const Announcement = require('./Announcement');
 
 // Define associations based on SQL foreign key relationships
 
@@ -95,6 +100,10 @@ Route.hasMany(FareRule, { foreignKey: 'route_id', as: 'fareRules' });
 FareRule.belongsTo(Operator, { foreignKey: 'operator_id', as: 'operator' });
 FareRule.belongsTo(Route, { foreignKey: 'route_id', as: 'route' });
 
+// Dispute associations
+Dispute.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Dispute.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
+
 // Export all models
 module.exports = {
   sequelize,
@@ -115,4 +124,9 @@ module.exports = {
   WalletTransaction,
   Review,
   FareRule,
+  PromoCode,
+  Dispute,
+  SystemSetting,
+  AuditLog,
+  Announcement,
 };

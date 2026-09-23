@@ -19,6 +19,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { bookingValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const { NotificationService } = require('../services/notifications');
+const { expireStalePendingBookings } = require('../services/booking-cleanup');
 
 const notificationService = new NotificationService();
 
@@ -441,6 +442,8 @@ router.get('/counter/reconciliation', authenticateToken, requireRole(['COUNTER_A
 // Get counter agent's own bookings
 router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGENT', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
   try {
+    await expireStalePendingBookings();
+
     const { page = 1, limit = 20, search } = req.query;
     const offset = (page - 1) * limit;
 
@@ -527,6 +530,8 @@ router.get('/counter/my-bookings', authenticateToken, requireRole(['COUNTER_AGEN
 // Get user bookings
 router.get('/', authenticateToken, commonValidation.pagination, handleValidationErrors, async (req, res) => {
   try {
+    await expireStalePendingBookings();
+
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
     const userId = req.user.id;

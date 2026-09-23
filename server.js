@@ -16,6 +16,7 @@ const WebSocketService = require('./services/websocket');
 const cachingService = require('./services/caching');
 const RateLimitingService = require('./services/rate-limiting');
 const { NotificationService } = require('./services/notifications');
+const { expireStalePendingBookings } = require('./services/booking-cleanup');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -135,6 +136,20 @@ const startServer = async () => {
     seatLockCleanup.start();
     console.log('✅ Seat lock cleanup cron started (every 2 minutes)');
 
+    // Pending booking expiry cron (every 2 minutes, 30-minute timeout)
+    const pendingBookingCleanup = new CronJob('*/2 * * * *', async () => {
+      try {
+        const expired = await expireStalePendingBookings();
+        if (expired > 0) {
+          console.log(`🧹 Expired ${expired} stale pending booking(s)`);
+        }
+      } catch (error) {
+        console.error('Pending booking cleanup error:', error.message);
+      }
+    });
+    pendingBookingCleanup.start();
+    console.log('✅ Pending booking expiry cron started (every 2 minutes, 30-minute timeout)');
+
     const http = require('http');
     const server = http.createServer(app);
 
@@ -158,9 +173,10 @@ const startServer = async () => {
       server.close(async () => {
         console.log('HTTP server closed');
 
-        // Stop seat lock cleanup cron
+        // Stop crons
         seatLockCleanup.stop();
-        console.log('Seat lock cleanup cron stopped');
+        pendingBookingCleanup.stop();
+        console.log('Cleanup crons stopped');
 
         // Close database connections
         const { sequelize } = require('./models');

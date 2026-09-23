@@ -6,6 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { tripValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const cachingService = require('../services/caching');
+const { expireStalePendingBookings } = require('../services/booking-cleanup');
 
 const router = express.Router();
 
@@ -87,8 +88,10 @@ function normalizeBus(bus) {
  *                       type: integer
  */
 // Search trips
-router.get('/search', tripValidation.search, handleValidationErrors, cachingService.cacheMiddleware(300), async (req, res) => {
+router.get('/search', tripValidation.search, handleValidationErrors, async (req, res) => {
   try {
+    await expireStalePendingBookings();
+
     const { origin_city, destination_city, trip_date, passengers = 1 } = req.query;
 
     const trips = await Trip.findAll({
@@ -262,6 +265,8 @@ router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req,
 // Get trip seat layout
 router.get('/:id/seats', commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
+    await expireStalePendingBookings();
+
     const { id } = req.params;
 
     const trip = await Trip.findByPk(id, {

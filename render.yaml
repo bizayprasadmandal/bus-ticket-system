@@ -1,0 +1,71 @@
+# Render Blueprint: API (Docker) + Frontend (static SPA)
+# After first deploy, set sync:false vars in the Render dashboard.
+# Requires external MySQL — Render does not provide MySQL.
+
+services:
+  - type: web
+    name: samaya-api
+    runtime: docker
+    plan: free
+    repo: https://github.com/bizayprasadmandal/bus-ticket-system
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: UPLOAD_DIR
+        value: /app/uploads
+      - key: FILE_STORAGE
+        value: local
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: BASE_URL
+        sync: false # e.g. https://samaya-api.onrender.com
+      - key: FRONTEND_URL
+        sync: false # e.g. https://samaya-web.onrender.com
+      - key: ALLOWED_ORIGINS
+        sync: false # FRONTEND_URL,API_URL (comma-separated)
+      - key: ESEWA_MERCHANT_CODE
+        sync: false
+      - key: ESEWA_SECRET_KEY
+        sync: false
+      - key: ESEWA_BASE_URL
+        sync: false
+      - key: ESEWA_VERIFY_URL
+        sync: false
+      - key: KHALTI_SECRET_KEY
+        sync: false
+      - key: KHALTI_PUBLIC_KEY
+        sync: false
+
+staticSites:
+  - name: samaya-web
+    repo: https://github.com/bizayprasadmandal/bus-ticket-system
+    branch: main
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_URL
+        sync: false # e.g. https://samaya-api.onrender.com/api
+      - key: VITE_WS_URL
+        sync: false # e.g. https://samaya-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

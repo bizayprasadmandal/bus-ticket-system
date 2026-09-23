@@ -18,10 +18,9 @@ jobs:
       - name: Deploy to production
         run: |
           echo "CI passed. Ready to deploy."
-          echo "Configure your deployment target in this file."
           echo ""
-          echo "Options:"
-          echo "  - Docker: docker-compose up -d --build"
-          echo "  - Railway: railway up"
-          echo "  - Render: auto-deploy on push to main"
-          echo "  - AWS ECS: aws ecs update-service"
+          echo "Render: render.yaml blueprint in repo root"
+          echo "  - In Render: New + -> Blueprint -> connect this repo"
+          echo "  - Or point each service at this repo (API=Docker, web=static frontend/)"
+          echo "  - Set sync:false env vars after first deploy (DB_*, BASE_URL, FRONTEND_URL, VITE_*)"
+          echo "  - Seed once: Render shell -> node seed.js"

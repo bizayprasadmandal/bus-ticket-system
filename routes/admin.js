@@ -50,15 +50,21 @@ router.get('/operators', async (req, res) => {
       whereClause[Op.or] = [
         { company_name: { [Op.like]: `%${search}%` } },
         { contact_person: { [Op.like]: `%${search}%` } },
-        { contact_phone: { [Op.like]: `%${search}%` } },
+        { phone_number: { [Op.like]: `%${search}%` } },
       ];
     }
 
-    const { count, rows: operators } = await Operator.findAndCountAll({
+    const { count, rows: operatorRows } = await Operator.findAndCountAll({
       where: whereClause,
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
+    });
+
+    const operators = operatorRows.map((o) => {
+      const j = o.toJSON();
+      j.contact_phone = j.phone_number;
+      return j;
     });
 
     res.json({
@@ -124,8 +130,11 @@ router.get('/operators/:id', commonValidation.idParam, handleValidationErrors, a
     const operatorData = operator.toJSON();
     operatorData.buses_count = busCount;
     operatorData.routes_count = routeCount;
+    operatorData.total_buses = busCount;
+    operatorData.total_routes = routeCount;
     operatorData.total_bookings = totalBookings;
     operatorData.total_revenue = totalRevenue;
+    operatorData.contact_phone = operatorData.phone_number;
 
     delete operatorData.buses;
     delete operatorData.routes;
@@ -194,8 +203,15 @@ router.put('/operators/:id', commonValidation.idParam, handleValidationErrors, a
       return res.status(404).json({ success: false, message: 'Operator not found' });
     }
 
-    const { company_name, company_name_nepali, contact_person, contact_phone, email, status } = req.body;
-    await operator.update({ company_name, company_name_nepali, contact_person, contact_phone, email, status });
+    const { company_name, company_name_nepali, contact_person, contact_phone, phone_number, email, status } = req.body;
+    await operator.update({
+      company_name,
+      company_name_nepali,
+      contact_person,
+      phone_number: phone_number || contact_phone,
+      email,
+      status,
+    });
 
     res.json({ success: true, message: 'Operator updated successfully', data: { operator } });
   } catch (error) {
@@ -222,6 +238,7 @@ router.get('/users', commonValidation.pagination, handleValidationErrors, async 
 
     const { count, rows: users } = await User.findAndCountAll({
       where: whereClause,
+      attributes: { exclude: ['password', 'firebase_uid'] },
       include: [{ model: UserRole, as: 'roles', where: { is_active: true }, required: false }],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
@@ -267,6 +284,13 @@ router.get('/users/:id', commonValidation.idParam, handleValidationErrors, async
 
     const wallet = await UserWallet.findOne({ where: { user_id: user.id } });
     const totalBookings = await Booking.count({ where: { user_id: user.id } });
+    const paidTotal = await Booking.sum('total_amount', {
+      where: { user_id: user.id, payment_status: 'COMPLETED' },
+    });
+    const totalSpent = Math.max(
+      parseFloat(paidTotal || 0),
+      parseFloat(wallet?.total_spent || 0)
+    );
 
     res.json({
       success: true,
@@ -275,6 +299,7 @@ router.get('/users/:id', commonValidation.idParam, handleValidationErrors, async
         bookings,
         wallet: wallet || null,
         total_bookings: totalBookings,
+        total_spent: totalSpent,
       },
     });
   } catch (error) {
@@ -306,10 +331,11 @@ router.put('/users/:id/status', commonValidation.idParam, handleValidationErrors
 // GET /admin/bookings - List all bookings across all operators
 router.get('/bookings', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, booking_status, payment_status, start_date, end_date } = req.query;
+    const { page = 1, limit = 20, search, booking_status, payment_status, start_date, end_date, user_id } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = {};
+    if (user_id) whereClause.user_id = parseInt(user_id);
     if (booking_status) whereClause.booking_status = booking_status.toUpperCase();
     if (payment_status) whereClause.payment_status = payment_status.toUpperCase();
     if (start_date || end_date) {
@@ -726,10 +752,11 @@ router.get('/reviews', async (req, res) => {
 // GET /admin/wallets - List all user wallets
 router.get('/wallets', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search } = req.query;
+    const { page = 1, limit = 20, search, user_id } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = {};
+    if (user_id) whereClause.user_id = parseInt(user_id);
 
     const include = [
       {

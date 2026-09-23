@@ -8,6 +8,7 @@ const {
   Bus,
   Operator,
   User,
+  UserRole,
   Payment,
   WalletTransaction,
 } = require('../models');
@@ -87,10 +88,13 @@ class ReportingService {
       const reportData = {
         summary,
         bookings: bookings.map(booking => ({
+          id: booking.id,
           pnr: booking.pnr,
           booking_date: booking.booking_date,
           user_name: booking.user?.full_name,
           user_phone: booking.user?.phone_number,
+          passenger_name: booking.user?.full_name || 'N/A',
+          passenger_phone: booking.user?.phone_number || '',
           route: booking.trip?.route ? `${booking.trip.route.origin_city} → ${booking.trip.route.destination_city}` : 'N/A',
           trip_date: booking.trip?.trip_date,
           departure_time: booking.trip?.departure_time,
@@ -102,8 +106,11 @@ class ReportingService {
           service_fee: parseFloat(booking.service_fee || 0),
           total_amount: parseFloat(booking.total_amount || 0),
           booking_status: booking.booking_status,
+          status: booking.booking_status,
           payment_status: booking.payment_status,
         })),
+        total_bookings: summary.total_bookings,
+        total_revenue: summary.total_revenue,
         generated_at: new Date(),
         filters: filters,
       };
@@ -178,10 +185,26 @@ class ReportingService {
 
       const reportData = {
         summary,
+        total_bookings: summary.total_bookings,
+        total_revenue: summary.total_revenue,
+        average_fare: summary.total_bookings > 0 ? summary.total_revenue / summary.total_bookings : 0,
         revenue_data: revenueData,
         generated_at: new Date(),
         filters: filters,
       };
+
+      // Flatten + operator breakdown for admin UI
+      const byOperator = {};
+      for (const b of bookings) {
+        const name = b.trip?.route?.operator?.company_name || 'Unknown';
+        if (!byOperator[name]) byOperator[name] = { company_name: name, total_revenue: 0, total_bookings: 0 };
+        byOperator[name].total_revenue += parseFloat(b.total_amount || 0);
+        byOperator[name].total_bookings += 1;
+      }
+      const totalRev = reportData.total_revenue || 1;
+      reportData.revenue_by_operator = Object.values(byOperator)
+        .map(o => ({ ...o, percentage: Math.round((o.total_revenue / totalRev) * 1000) / 10 }))
+        .sort((a, b) => b.total_revenue - a.total_revenue);
 
       if (format === 'excel') {
         return await this.generateExcelReport(reportData, 'Revenue Report');
@@ -253,8 +276,10 @@ class ReportingService {
 
       const operatorData = operators.map(operator => {
         const allBookings = [];
+        let tripCount = 0;
         operator.routes?.forEach(route => {
           route.trips?.forEach(trip => {
+            tripCount += 1;
             if (trip.bookings) {
               allBookings.push(...trip.bookings);
             }
@@ -277,6 +302,8 @@ class ReportingService {
           total_passengers: totalPassengers,
           active_routes: activeRoutes,
           active_buses: activeBuses,
+          total_buses: activeBuses,
+          total_trips: tripCount,
           commission_earned: totalRevenue * (operator.commission_rate / 100),
           average_booking_value: totalBookings > 0 ? totalRevenue / totalBookings : 0,
         };
@@ -331,7 +358,14 @@ class ReportingService {
 
       const users = await User.findAll({
         where: userWhereClause,
+        attributes: { exclude: ['password', 'firebase_uid'] },
         include: [
+          {
+            model: UserRole,
+            as: 'roles',
+            where: { is_active: true },
+            required: false,
+          },
           {
             model: Booking,
             as: 'bookings',
@@ -366,10 +400,12 @@ class ReportingService {
             : null;
 
           return {
+            id: user.id,
             user_id: user.id,
             full_name: user.full_name,
             phone_number: user.phone_number,
             email: user.email,
+            role: user.roles?.[0]?.role || 'CUSTOMER',
             registration_date: user.created_at,
             total_bookings: user.bookings.length,
             completed_bookings: completedBookings.length,
@@ -385,8 +421,10 @@ class ReportingService {
 
       const reportData = {
         users: userData,
+        total_users: userData.length,
         summary: {
           total_active_users: userData.length,
+          total_users: userData.length,
           total_revenue: userData.reduce((sum, user) => sum + user.total_spent, 0),
           total_bookings: userData.reduce((sum, user) => sum + user.total_bookings, 0),
           average_user_value: userData.length > 0 

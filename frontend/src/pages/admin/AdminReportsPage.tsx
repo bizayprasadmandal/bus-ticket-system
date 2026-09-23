@@ -49,7 +49,7 @@ export default function AdminReportsPage() {
     const headers = Object.keys(csvData[0]);
     const csvContent = [
       headers.join(','),
-      ...csvData.map(row => headers.map(h => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(','))
+      ...csvData.map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))
     ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -58,6 +58,19 @@ export default function AdminReportsPage() {
     link.click();
     URL.revokeObjectURL(link.href);
     toast.success('Exported successfully');
+  };
+
+  const getBookingsTrend = () => {
+    const byDate = new Map<string, { date: string; bookings: number; revenue: number }>();
+    for (const b of data?.bookings || []) {
+      const date = (b.trip_date || b.booking_date || b.created_at || '').split('T')[0];
+      if (!date) continue;
+      const entry = byDate.get(date) || { date, bookings: 0, revenue: 0 };
+      entry.bookings += 1;
+      entry.revenue += Number(b.total_amount) || 0;
+      byDate.set(date, entry);
+    }
+    return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
   };
 
   const handleExport = () => {
@@ -259,11 +272,11 @@ export default function AdminReportsPage() {
                 </div>
               </div>
 
-              {data.bookings?.length > 0 && (
+              {getBookingsTrend().length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Bookings Trend</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data.bookings}>
+                    <BarChart data={getBookingsTrend()}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                       <YAxis />

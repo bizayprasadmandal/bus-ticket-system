@@ -25,6 +25,7 @@ export default function AdminPaymentsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const itemsPerPage = 10;
 
@@ -37,6 +38,8 @@ export default function AdminPaymentsPage() {
       if (dateTo) params.end_date = dateTo;
       const res = await api.get('/admin/payments', { params });
       const items = res.data.data.items || [];
+      const pagination = res.data.data.pagination || {};
+      setTotalPages(pagination.total_pages || 1);
       setPayments(items.map((p: any) => ({
         id: p.id,
         pnr: p.booking?.pnr || 'N/A',
@@ -58,13 +61,7 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
-  const filteredPayments = useMemo(() => payments, [payments]);
-
-  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
-  const paginatedPayments = filteredPayments.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedPayments = payments;
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, methodFilter, statusFilter, dateFrom, dateTo]);
 
@@ -280,7 +277,7 @@ export default function AdminPaymentsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredPayments.length)} of {filteredPayments.length}
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + payments.length)} of {(totalPages * itemsPerPage)}
             </p>
             <div className="flex items-center gap-2">
               <button

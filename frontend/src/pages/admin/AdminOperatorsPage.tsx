@@ -100,8 +100,8 @@ export default function AdminOperatorsPage() {
   const handleDelete = async (id: number, companyName: string) => {
     if (!confirm(`Are you sure you want to delete "${companyName}"?`)) return;
     try {
-      await adminOperatorAPI.update(id, { status: 'INACTIVE' });
-      toast.success('Operator deactivated');
+      await adminOperatorAPI.update(id, { status: 'SUSPENDED' });
+      toast.success('Operator suspended');
       loadOperators();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to deactivate');

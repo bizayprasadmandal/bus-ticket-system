@@ -282,17 +282,30 @@ router.get('/admin/pending', authenticateToken, requireRole(['SUPER_ADMIN']), as
 router.get('/staff', authenticateToken, async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
+    const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
     const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
-    if (!operatorRole || !operatorRole.operator_id) {
+    let operatorId = operatorRole?.operator_id || null;
+    if (isAdmin && req.query.operator_id) operatorId = parseInt(req.query.operator_id);
+    if (!operatorId) {
       return res.status(403).json({ success: false, message: 'Operator not found' });
     }
 
     const staffRoles = await UserRole.findAll({
-      where: { operator_id: operatorRole.operator_id, role: { [Op.in]: ['DISPATCHER', 'DRIVER', 'CONDUCTOR', 'COUNTER_AGENT'] } },
+      where: { operator_id: operatorId, role: { [Op.in]: ['DISPATCHER', 'DRIVER', 'CONDUCTOR', 'COUNTER_AGENT'] } },
       include: [{ model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] }],
     });
 
-    res.json({ success: true, data: { staff: staffRoles } });
+    const staff = staffRoles.map(r => ({
+      id: r.id,
+      full_name: r.user?.full_name || '',
+      phone_number: r.user?.phone_number || '',
+      email: r.user?.email || '',
+      role: r.role,
+      is_active: r.is_active,
+      user_id: r.user_id,
+    }));
+
+    res.json({ success: true, data: { staff } });
   } catch (error) {
     console.error('Get staff error:', error);
     res.status(500).json({ success: false, message: 'Failed to get staff' });

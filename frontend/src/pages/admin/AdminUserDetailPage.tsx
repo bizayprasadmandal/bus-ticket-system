@@ -101,9 +101,9 @@ export default function AdminUserDetailPage() {
   const loadBookings = useCallback(async () => {
     setBookingsLoading(true);
     try {
-      const res = await api.get('/admin/bookings', { params: { search: id, limit: 50 } });
+      const res = await api.get('/admin/bookings', { params: { user_id: id, limit: 50 } });
       const items = res.data.data.items || [];
-      setBookings(items.filter((b: any) => String(b.user?.id) === String(id)).map((b: any) => ({
+      setBookings(items.map((b: any) => ({
         id: b.id,
         pnr: b.pnr,
         trip: b.trip,
@@ -121,9 +121,9 @@ export default function AdminUserDetailPage() {
   const loadWallet = useCallback(async () => {
     setWalletLoading(true);
     try {
-      const res = await api.get('/admin/wallets', { params: { search: id } });
+      const res = await api.get('/admin/wallets', { params: { user_id: id } });
       const items = res.data.data.items || [];
-      const found = items.find((w: any) => String(w.user?.id) === String(id) || String(w.user_id) === String(id));
+      const found = items[0] || items.find((w: any) => String(w.user?.id) === String(id) || String(w.user_id) === String(id));
       if (found) {
         setWallet({
           balance: Number(found.balance) || 0,

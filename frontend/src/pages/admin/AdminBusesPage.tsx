@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bus, Search, ChevronLeft, ChevronRight, RefreshCw, Users } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -23,6 +23,7 @@ export default function AdminBusesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const itemsPerPage = 10;
 
@@ -34,6 +35,8 @@ export default function AdminBusesPage() {
       if (typeFilter !== 'ALL') params.bus_type = typeFilter;
       const res = await api.get('/admin/buses', { params });
       const items = res.data.data.items || [];
+      const pagination = res.data.data.pagination || {};
+      setTotalPages(pagination.total_pages || 1);
       setBuses(items.map((b: any) => ({
         id: b.id,
         bus_number: b.bus_number,
@@ -55,13 +58,7 @@ export default function AdminBusesPage() {
 
   useEffect(() => { loadBuses(); }, [loadBuses]);
 
-  const filteredBuses = useMemo(() => buses, [buses]);
-
-  const totalPages = Math.ceil(filteredBuses.length / itemsPerPage);
-  const paginatedBuses = filteredBuses.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedBuses = buses;
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, typeFilter]);
 
@@ -224,7 +221,7 @@ export default function AdminBusesPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredBuses.length)} of {filteredBuses.length}
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + buses.length)} of {(totalPages * itemsPerPage)}
             </p>
             <div className="flex items-center gap-2">
               <button

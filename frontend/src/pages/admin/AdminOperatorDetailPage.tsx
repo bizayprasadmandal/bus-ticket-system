@@ -27,8 +27,8 @@ interface OperatorDetail {
 interface BusItem {
   id: number;
   bus_number: string;
-  model: string;
-  type: string;
+  bus_model: string;
+  bus_type: string;
   total_seats: number;
   status: string;
 }
@@ -91,7 +91,15 @@ export default function AdminOperatorDetailPage() {
     setBusesLoading(true);
     try {
       const res = await api.get('/buses', { params: { operator_id: id } });
-      setBuses(res.data.data.buses || res.data.data || []);
+      const list = res.data.data.buses || res.data.data.items || res.data.data || [];
+      setBuses(Array.isArray(list) ? list.map((b: any) => ({
+        id: b.id,
+        bus_number: b.bus_number,
+        bus_model: b.bus_model || b.model || '-',
+        bus_type: b.bus_type || b.type || '-',
+        total_seats: b.total_seats || 0,
+        status: b.status,
+      })) : []);
     } catch {
       toast.error('Failed to load buses');
     } finally {
@@ -103,7 +111,15 @@ export default function AdminOperatorDetailPage() {
     setRevenueLoading(true);
     try {
       const res = await api.get('/reports/revenue', { params: { operator_id: id } });
-      setRevenue(res.data.data);
+      const d = res.data.data || {};
+      const revenueData = d.revenue_data || d.monthly_revenue || [];
+      setRevenue({
+        total_revenue: d.total_revenue ?? d.summary?.total_revenue ?? 0,
+        monthly_revenue: revenueData.map((r: any) => ({
+          month: r.period || r.month || '',
+          revenue: Number(r.revenue) || 0,
+        })),
+      });
     } catch {
       toast.error('Failed to load revenue data');
     } finally {
@@ -115,7 +131,13 @@ export default function AdminOperatorDetailPage() {
     setStaffLoading(true);
     try {
       const res = await api.get('/operators/staff', { params: { operator_id: id } });
-      setStaff(res.data.data.staff || res.data.data || []);
+      const list = res.data.data.staff || res.data.data.items || res.data.data || [];
+      setStaff(Array.isArray(list) ? list.map((s: any) => ({
+        id: s.id ?? s.user_id,
+        full_name: s.full_name || s.name || '-',
+        phone_number: s.phone_number || s.contact_phone || '-',
+        role: s.role || '-',
+      })) : []);
     } catch {
       toast.error('Failed to load staff');
     } finally {
@@ -308,8 +330,8 @@ export default function AdminOperatorDetailPage() {
                   {buses.map((bus) => (
                     <tr key={bus.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-800">{bus.bus_number}</td>
-                      <td className="px-4 py-3 text-gray-600">{bus.model}</td>
-                      <td className="px-4 py-3 text-gray-600">{bus.type}</td>
+                      <td className="px-4 py-3 text-gray-600">{bus.bus_model}</td>
+                      <td className="px-4 py-3 text-gray-600">{bus.bus_type}</td>
                       <td className="px-4 py-3 text-gray-600">{bus.total_seats}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(bus.status)}`}>{bus.status}</span>

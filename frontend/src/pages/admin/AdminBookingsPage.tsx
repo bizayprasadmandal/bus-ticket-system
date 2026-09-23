@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Ticket, Search, ChevronLeft, ChevronRight, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -30,6 +30,8 @@ export default function AdminBookingsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   const itemsPerPage = 10;
 
@@ -43,6 +45,9 @@ export default function AdminBookingsPage() {
       if (dateTo) params.end_date = dateTo;
       const res = await api.get('/admin/bookings', { params });
       const items = res.data.data.items || [];
+      const pagination = res.data.data.pagination || {};
+      setTotalPages(pagination.total_pages || 1);
+      setTotalItems(pagination.total_items || items.length);
       setBookings(items.map((b: any) => ({
         id: b.id,
         pnr: b.pnr,
@@ -68,13 +73,7 @@ export default function AdminBookingsPage() {
 
   useEffect(() => { loadBookings(); }, [loadBookings]);
 
-  const filteredBookings = useMemo(() => bookings, [bookings]);
-
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-  const paginatedBookings = filteredBookings.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedBookings = bookings;
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, paymentFilter, dateFrom, dateTo]);
 
@@ -241,7 +240,7 @@ export default function AdminBookingsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredBookings.length)} of {filteredBookings.length}
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + bookings.length)} of {totalItems}
             </p>
             <div className="flex items-center gap-2">
               <button

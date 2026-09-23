@@ -26,6 +26,7 @@ export default function AdminRefundPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [rejectModal, setRejectModal] = useState<RefundItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -40,6 +41,8 @@ export default function AdminRefundPage() {
       if (dateTo) params.end_date = dateTo;
       const res = await api.get('/admin/bookings', { params });
       const bookings = res.data.data.items || [];
+      const pagination = res.data.data.pagination || {};
+      setServerTotalPages(pagination.total_pages || 1);
       const refundsList: RefundItem[] = bookings
         .filter((b: any) => b.booking_status === 'CANCELLED')
         .map((b: any) => ({
@@ -71,11 +74,8 @@ export default function AdminRefundPage() {
     return refunds.filter(r => r.refund_status === statusFilter);
   }, [refunds, statusFilter]);
 
-  const totalPages = Math.ceil(filteredRefunds.length / itemsPerPage);
-  const paginatedRefunds = filteredRefunds.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = statusFilter === 'ALL' ? serverTotalPages : Math.max(1, Math.ceil(filteredRefunds.length / itemsPerPage));
+  const paginatedRefunds = statusFilter === 'ALL' ? refunds : filteredRefunds;
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, dateFrom, dateTo]);
 
@@ -321,7 +321,7 @@ export default function AdminRefundPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredRefunds.length)} of {filteredRefunds.length}
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + paginatedRefunds.length)} of {statusFilter === 'ALL' ? serverTotalPages * itemsPerPage : filteredRefunds.length}
             </p>
             <div className="flex items-center gap-2">
               <button

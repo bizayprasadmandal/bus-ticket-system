@@ -79,12 +79,8 @@ export default function AdminWalletsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    if (activeTab === 'wallets') {
-      await loadWallets();
-    } else {
-      await loadTransactions();
-    }
-  }, [activeTab, loadWallets, loadTransactions]);
+    await Promise.all([loadWallets(), loadTransactions()]);
+  }, [loadWallets, loadTransactions]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
 
@@ -105,27 +101,34 @@ export default function AdminWalletsPage() {
 
   const stats = useMemo(() => ({
     totalBalance: wallets.reduce((sum, w) => sum + (w.balance || 0), 0),
-    totalTopUps: transactions.filter(t => t.type === 'TOP_UP').reduce((sum, t) => sum + (t.amount || 0), 0),
-    totalTransfers: transactions.filter(t => t.type === 'TRANSFER').reduce((sum, t) => sum + (t.amount || 0), 0),
-    totalRefunds: transactions.filter(t => t.type === 'REFUND').reduce((sum, t) => sum + (t.amount || 0), 0),
+    totalTopUps: transactions.filter(t => t.type === 'CREDIT').reduce((sum, t) => sum + (t.amount || 0), 0),
+    totalTransfers: transactions.filter(t => t.type === 'DEBIT').reduce((sum, t) => sum + (t.amount || 0), 0),
+    totalRefunds: transactions.filter(t => t.type === 'CREDIT' && /refund/i.test(t.description || '')).reduce((sum, t) => sum + (t.amount || 0), 0),
   }), [wallets, transactions]);
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
-      case 'TOP_UP': return 'bg-green-100 text-green-700';
-      case 'TRANSFER': return 'bg-blue-100 text-blue-700';
-      case 'REFUND': return 'bg-purple-100 text-purple-700';
-      case 'PAYMENT': return 'bg-amber-100 text-amber-700';
-      case 'DEDUCTION': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-600';
+      case 'CREDIT':
+      case 'TOP_UP':
+      case 'REFUND':
+        return 'bg-green-100 text-green-700';
+      case 'DEBIT':
+      case 'TRANSFER':
+      case 'PAYMENT':
+      case 'DEDUCTION':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-600';
     }
   };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
+      case 'CREDIT':
       case 'TOP_UP':
       case 'REFUND':
         return <ArrowDownLeft className="h-4 w-4 text-green-600" />;
+      case 'DEBIT':
       case 'TRANSFER':
       case 'PAYMENT':
       case 'DEDUCTION':

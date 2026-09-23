@@ -349,6 +349,7 @@ router.get('/admin', authenticateToken, requireRole(['SUPER_ADMIN']), async (req
           total_operators: totalOperators,
           total_bookings: totalBookings,
           monthly_commission: parseFloat(monthlyRevenue || 0),
+          system_stats: systemStats,
         },
         system_stats: systemStats,
         recent_activity: recentActivity,

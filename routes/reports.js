@@ -8,9 +8,15 @@ const reportingService = new ReportingService();
 // Get booking report
 router.get('/bookings', authenticateToken, requireRole(['SUPER_ADMIN', 'OPERATOR']), async (req, res) => {
   try {
-    const { start_date, end_date, operator_id, booking_status, payment_status, format = 'json' } = req.query;
+    const { start_date, end_date, date_from, date_to, operator_id, booking_status, payment_status, format = 'json' } = req.query;
 
-    const filters = { start_date, end_date, booking_status, payment_status, format };
+    const filters = {
+      start_date: start_date || date_from,
+      end_date: end_date || date_to,
+      booking_status,
+      payment_status,
+      format,
+    };
 
     // Operators can only see their own data
     if (req.user.roles?.some(r => r.role === 'OPERATOR')) {
@@ -52,9 +58,14 @@ router.get('/bookings', authenticateToken, requireRole(['SUPER_ADMIN', 'OPERATOR
 // Get revenue report
 router.get('/revenue', authenticateToken, requireRole(['SUPER_ADMIN', 'OPERATOR']), async (req, res) => {
   try {
-    const { start_date, end_date, operator_id, group_by = 'day', format = 'json' } = req.query;
+    const { start_date, end_date, date_from, date_to, operator_id, group_by = 'day', format = 'json' } = req.query;
 
-    const filters = { start_date, end_date, group_by, format };
+    const filters = {
+      start_date: start_date || date_from,
+      end_date: end_date || date_to,
+      group_by,
+      format,
+    };
 
     if (req.user.roles?.some(r => r.role === 'OPERATOR')) {
       const operatorRole = req.user.roles.find(r => r.role === 'OPERATOR');
@@ -95,11 +106,11 @@ router.get('/revenue', authenticateToken, requireRole(['SUPER_ADMIN', 'OPERATOR'
 // Get operator performance report (admin only)
 router.get('/operators', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
   try {
-    const { start_date, end_date, operator_id, format = 'json' } = req.query;
+    const { start_date, end_date, date_from, date_to, operator_id, format = 'json' } = req.query;
 
     const report = await reportingService.generateOperatorReport({
-      start_date,
-      end_date,
+      start_date: start_date || date_from,
+      end_date: end_date || date_to,
       operator_id,
       format,
     });
@@ -134,11 +145,11 @@ router.get('/operators', authenticateToken, requireRole(['SUPER_ADMIN']), async 
 // Get user activity report (admin only)
 router.get('/users', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, res) => {
   try {
-    const { start_date, end_date, user_status, format = 'json' } = req.query;
+    const { start_date, end_date, date_from, date_to, user_status, format = 'json' } = req.query;
 
     const report = await reportingService.generateUserActivityReport({
-      start_date,
-      end_date,
+      start_date: start_date || date_from,
+      end_date: end_date || date_to,
       user_status,
       format,
     });

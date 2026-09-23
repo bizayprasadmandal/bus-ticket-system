@@ -58,17 +58,19 @@ export default function AdminAnalyticsPage() {
 
       if (dashRes.status === 'fulfilled') {
         const d = dashRes.value.data.data;
+        const stats = d.stats ?? d;
+        const sys = stats.system_stats ?? d.system_stats ?? {};
         setSummary({
-          new_users_this_month: d.new_users_this_month ?? d.total_users ?? 0,
-          new_operators: d.new_operators ?? d.total_operators ?? 0,
-          bookings_growth: d.bookings_growth ?? 0,
-          revenue_growth: d.revenue_growth ?? 0,
-          total_bookings: d.total_bookings ?? 0,
-          total_revenue: d.total_revenue ?? 0,
+          new_users_this_month: stats.new_users_this_month ?? sys.total_users ?? stats.total_users ?? 0,
+          new_operators: stats.new_operators ?? sys.total_operators ?? stats.total_operators ?? 0,
+          bookings_growth: stats.bookings_growth ?? 0,
+          revenue_growth: stats.revenue_growth ?? 0,
+          total_bookings: stats.total_bookings ?? 0,
+          total_revenue: stats.total_revenue ?? 0,
         });
-        setTotalSearches(d.total_searches ?? 0);
-        setTotalBookingsCompleted(d.total_bookings_completed ?? d.total_bookings ?? 0);
-        setTotalPaidPayments(d.total_paid_payments ?? 0);
+        setTotalSearches(stats.total_searches ?? sys.total_searches ?? 0);
+        setTotalBookingsCompleted(stats.total_bookings_completed ?? stats.total_bookings ?? 0);
+        setTotalPaidPayments(stats.total_paid_payments ?? 0);
       }
 
       if (routeRes.status === 'fulfilled') {

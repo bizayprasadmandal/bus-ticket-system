@@ -113,8 +113,33 @@ const startServer = async () => {
 
     // Sync database models
     const { sequelize } = require('./models');
+    const { DataTypes } = require('sequelize');
     await sequelize.sync();
     console.log('✅ Database models synced.');
+
+    // Ensure payments table has top-up columns (safe to re-run)
+    try {
+      const qi = sequelize.getQueryInterface();
+      const paymentCols = await qi.describeTable('payments');
+      if (!paymentCols.payment_type) {
+        await qi.addColumn('payments', 'payment_type', {
+          type: DataTypes.ENUM('BOOKING', 'TOPUP'),
+          allowNull: false,
+          defaultValue: 'BOOKING',
+        });
+        console.log('✅ Added payments.payment_type column');
+      }
+      if (!paymentCols.user_id) {
+        await qi.addColumn('payments', 'user_id', {
+          type: DataTypes.BIGINT,
+          allowNull: true,
+          references: { model: 'users', key: 'id' },
+        });
+        console.log('✅ Added payments.user_id column');
+      }
+    } catch (migrateErr) {
+      console.error('⚠️ payments table migration warning:', migrateErr.message);
+    }
 
     // Setup automated seat lock cleanup cron (every 2 minutes)
     const seatLockCleanup = new CronJob('*/2 * * * *', async () => {

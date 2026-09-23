@@ -57,9 +57,10 @@ export default function PaymentCallbackPage() {
       const response = await paymentAPI.getDetails(Number(paymentId));
       const payment = response.data.data.payment;
       setPaymentDetails(payment);
-      setStatus(payment.status === 'SUCCESS' || resultStatus === 'success' ? 'success' : 'failed');
+      const isSuccess = payment.status === 'SUCCESS' || (payment.status === 'PENDING' && resultStatus === 'success');
+      setStatus(isSuccess ? 'success' : 'failed');
       if (payment.status === 'SUCCESS') {
-        toast.success('Payment confirmed!');
+        toast.success(payment.payment_type === 'TOPUP' ? 'Wallet top-up confirmed!' : 'Payment confirmed!');
       }
     } catch {
       setStatus(resultStatus === 'success' ? 'success' : 'error');
@@ -111,27 +112,36 @@ export default function PaymentCallbackPage() {
   }
 
   if (status === 'success') {
+    const isTopup = paymentDetails?.payment_type === 'TOPUP';
     return (
       <div className="flex flex-col items-center py-16">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-gray-100">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-12 h-12 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Payment Successful!</h1>
-          <p className="text-gray-500 mb-6">Your booking has been confirmed.</p>
-          {paymentDetails?.booking && (
+          <h1 className="text-2xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+            {isTopup ? 'Top-up Successful!' : 'Payment Successful!'}
+          </h1>
+          <p className="text-gray-500 mb-6">
+            {isTopup
+              ? `NPR ${Number(paymentDetails?.amount || 0).toLocaleString()} has been added to your wallet.`
+              : 'Your booking has been confirmed.'}
+          </p>
+          {!isTopup && paymentDetails?.booking && (
             <div className="bg-primary-50 border-2 border-primary-200 rounded-xl p-5 mb-6">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Your PNR</p>
               <p className="text-3xl font-mono font-bold text-primary-600 tracking-wider">{paymentDetails.booking.pnr}</p>
             </div>
           )}
-          <p className="text-sm text-gray-400 mb-6">Save this PNR for future reference. You will also receive SMS & email confirmation.</p>
+          {!isTopup && (
+            <p className="text-sm text-gray-400 mb-6">Save this PNR for future reference. You will also receive SMS & email confirmation.</p>
+          )}
           <div className="flex gap-3">
-            <Link to={myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
-              View Bookings
+            <Link to={isTopup ? '/wallet' : myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
+              {isTopup ? 'View Wallet' : 'View Bookings'}
             </Link>
-            <Link to={bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
-              Book Another
+            <Link to={isTopup ? '/' : bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
+              {isTopup ? 'Home' : 'Book Another'}
             </Link>
           </div>
         </div>
@@ -140,22 +150,25 @@ export default function PaymentCallbackPage() {
   }
 
   // Failed or error
+  const isTopupFail = paymentDetails?.payment_type === 'TOPUP';
   return (
     <div className="flex flex-col items-center py-16">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-gray-100">
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <XCircle className="w-12 h-12 text-red-500" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Payment Failed</h1>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+          {isTopupFail ? 'Top-up Failed' : 'Payment Failed'}
+        </h1>
         <p className="text-gray-500 mb-6">
           {status === 'error' ? 'Something went wrong while verifying your payment.' : 'Your payment could not be processed.'}
         </p>
         <p className="text-sm text-gray-400 mb-6">No money has been deducted. Please try again.</p>
         <div className="flex gap-3">
-          <Link to={myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
-            View Bookings
+          <Link to={isTopupFail ? '/wallet' : myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
+            {isTopupFail ? 'Back to Wallet' : 'View Bookings'}
           </Link>
-          <Link to={bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
+          <Link to={isTopupFail ? '/wallet' : bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
             Try Again
           </Link>
         </div>

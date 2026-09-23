@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User,
   Phone,
@@ -29,6 +30,7 @@ const emptyForm = {
 
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [walletBalance, setWalletBalance] = useState(0);
@@ -497,7 +499,10 @@ export default function ProfilePage() {
                 </div>
                 <span className="text-sm font-bold text-white/90">Wallet Balance</span>
               </div>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-xs font-bold text-white transition-all backdrop-blur-sm">
+              <button
+                onClick={() => navigate('/wallet')}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-xs font-bold text-white transition-all backdrop-blur-sm"
+              >
                 Top Up
                 <ArrowRight className="h-3 w-3" />
               </button>

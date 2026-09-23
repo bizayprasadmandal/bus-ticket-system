@@ -1,16 +1,28 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const {
   UserWallet,
   WalletTransaction,
   User,
+  Payment,
 } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const { initiateGatewayForPayment } = require('../services/payment-init');
 
 const router = express.Router();
+
+const topupRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: {
+    success: false,
+    message: 'Too many top-up attempts, please try again in a few minutes.',
+  },
+});
 
 // Get wallet balance
 router.get('/balance', authenticateToken, async (req, res) => {
@@ -51,82 +63,85 @@ router.get('/balance', authenticateToken, async (req, res) => {
   }
 });
 
-// Top up wallet
-router.post('/topup', authenticateToken, async (req, res) => {
-  const transaction = await sequelize.transaction();
-
+// Top up wallet — creates a PENDING TOPUP payment and returns the gateway payment_url
+router.post('/topup', authenticateToken, topupRateLimiter, async (req, res) => {
   try {
-    const { amount, payment_method = 'CARD' } = req.body;
+    const { amount, payment_method } = req.body;
     const userId = req.user.id;
 
-    if (!amount || amount <= 0) {
-      await transaction.rollback();
+    const topupAmount = parseFloat(amount);
+    if (!Number.isFinite(topupAmount) || topupAmount < 10 || topupAmount > 100000) {
       return res.status(400).json({
         success: false,
-        message: 'Valid amount is required',
+        message: 'Amount must be between NPR 10 and NPR 100,000',
       });
     }
 
-    const topupAmount = parseFloat(amount);
+    const methodMap = {
+      esewa: 'ESEWA',
+      khalti: 'KHALTI',
+      ESEWA: 'ESEWA',
+      KHALTI: 'KHALTI',
+    };
+    const paymentMethod = methodMap[payment_method];
+    if (!paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment method must be eSewa or Khalti',
+      });
+    }
 
-    // Get or create wallet
-    let wallet = await UserWallet.findOne({
-      where: { user_id: userId },
-      transaction,
+    const payment = await Payment.create({
+      user_id: userId,
+      booking_id: null,
+      payment_type: 'TOPUP',
+      payment_method: paymentMethod,
+      amount: topupAmount.toFixed(2),
+      currency: 'NPR',
+      status: 'PENDING',
     });
 
-    if (!wallet) {
-      wallet = await UserWallet.create({
-        user_id: userId,
-        balance: 0.00,
-        total_earned: 0.00,
-        total_spent: 0.00,
-      }, { transaction });
-    }
+    const paymentResult = await initiateGatewayForPayment({
+      payment,
+      paymentMethod,
+      amount: topupAmount,
+      orderRef: `TOPUP_${payment.id}`,
+      orderName: `Wallet Top-up NPR ${topupAmount}`,
+      user: req.user,
+    });
 
-    // Simulate payment processing (in real implementation, integrate with payment gateway)
-    const isPaymentSuccessful = Math.random() > 0.1; // 90% success rate
-
-    if (!isPaymentSuccessful) {
-      await transaction.rollback();
+    if (!paymentResult.success || !paymentResult.payment_url) {
+      await payment.update({
+        status: 'FAILED',
+        gateway_response: paymentResult.message || 'Payment initiation failed',
+      });
       return res.status(400).json({
         success: false,
-        message: 'Payment failed. Please try again.',
+        message: paymentResult.message || 'Could not start payment with gateway',
       });
     }
 
-    // Update wallet balance
-    await wallet.update({
-      balance: wallet.balance + topupAmount,
-      total_earned: wallet.total_earned + topupAmount,
-    }, { transaction });
-
-    // Create transaction record
-    await WalletTransaction.create({
-      wallet_id: wallet.id,
-      transaction_type: 'CREDIT',
-      amount: topupAmount,
-      description: `Wallet top-up via ${payment_method}`,
-      reference_type: 'TOPUP',
-    }, { transaction });
-
-    await transaction.commit();
+    if (paymentResult.transaction_id) {
+      await payment.update({ gateway_transaction_id: paymentResult.transaction_id });
+    }
 
     res.json({
       success: true,
-      message: 'Wallet topped up successfully',
+      message: 'Redirecting to payment gateway',
       data: {
+        payment_id: payment.id,
+        payment_type: 'TOPUP',
+        status: 'PENDING',
+        payment_method: paymentMethod,
         amount: topupAmount,
-        new_balance: parseFloat(wallet.balance),
-        payment_method,
+        payment_url: paymentResult.payment_url,
       },
     });
   } catch (error) {
-    await transaction.rollback();
     console.error('Wallet topup error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to top up wallet',
+      message: 'Failed to start wallet top-up',
       error: error.message,
     });
   }

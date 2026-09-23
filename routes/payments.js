@@ -7,12 +7,14 @@ const {
   User,
   UserWallet,
   WalletTransaction,
+  Trip,
 } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { paymentValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const { PaymentGatewayFactory } = require('../services/payment-gateways');
 const { NotificationService } = require('../services/notifications');
+const { creditWalletTopup } = require('../services/payment-init');
 
 const notificationService = new NotificationService();
 
@@ -57,6 +59,8 @@ const initiatePaymentHandler = async (req, res) => {
     // Create payment record
     const payment = await Payment.create({
       booking_id,
+      user_id: userId,
+      payment_type: 'BOOKING',
       payment_method,
       amount,
       currency: 'NPR',
@@ -217,7 +221,7 @@ router.get('/:id/verify', async (req, res) => {
 
     const payment = await Payment.findOne({
       where: { id },
-      include: [{ model: Booking, as: 'booking' }],
+      include: [{ model: Booking, as: 'booking', required: false }],
       transaction,
     });
 
@@ -298,8 +302,7 @@ router.get('/:id/verify', async (req, res) => {
     }
 
     const paymentStatus = verificationResult.success ? 'SUCCESS' : 'FAILED';
-    const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
-    const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;
+    const isTopup = payment.payment_type === 'TOPUP';
 
     await payment.update({
       status: paymentStatus,
@@ -307,25 +310,34 @@ router.get('/:id/verify', async (req, res) => {
       gateway_response: verificationResult.raw_response || verificationResult.gateway_response,
     }, { transaction });
 
-    await payment.booking.update({
-      payment_status: bookingPaymentStatus,
-      booking_status: bookingStatus,
-    }, { transaction });
+    if (isTopup) {
+      if (verificationResult.success) {
+        await creditWalletTopup({ payment, transaction });
+      }
+    } else if (payment.booking) {
+      const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
+      const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;
 
-    // Release seats back if payment failed
-    if (!verificationResult.success) {
-      const trip = await Trip.findByPk(payment.booking.trip_id, { transaction });
-      if (trip) {
-        await trip.update({
-          available_seats: trip.available_seats + payment.booking.total_passengers,
-        }, { transaction });
+      await payment.booking.update({
+        payment_status: bookingPaymentStatus,
+        booking_status: bookingStatus,
+      }, { transaction });
+
+      // Release seats back if payment failed
+      if (!verificationResult.success) {
+        const trip = await Trip.findByPk(payment.booking.trip_id, { transaction });
+        if (trip) {
+          await trip.update({
+            available_seats: trip.available_seats + payment.booking.total_passengers,
+          }, { transaction });
+        }
       }
     }
 
     await transaction.commit();
 
-    // Send notification (non-blocking)
-    if (verificationResult.success) {
+    // Send notification (non-blocking) — booking payments only
+    if (verificationResult.success && payment.booking) {
       const user = await User.findByPk(payment.booking.user_id);
       if (user) {
         notificationService.sendPaymentConfirmation(payment, payment.booking, user).catch(err => {
@@ -360,13 +372,25 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
         {
           model: Booking,
           as: 'booking',
-          where: { user_id: userId },
+          required: false,
         },
       ],
       transaction,
     });
 
     if (!payment) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found',
+      });
+    }
+
+    const isTopup = payment.payment_type === 'TOPUP';
+    const owned = isTopup
+      ? payment.user_id === userId
+      : payment.booking && payment.booking.user_id === userId;
+    if (!owned) {
       await transaction.rollback();
       return res.status(404).json({
         success: false,
@@ -468,8 +492,6 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
 
     // Update payment status based on verification
     const paymentStatus = verificationResult.success ? 'SUCCESS' : 'FAILED';
-    const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
-    const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;
 
     await payment.update({
       status: paymentStatus,
@@ -477,15 +499,42 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
       gateway_response: verificationResult.raw_response || verificationResult.gateway_response,
     }, { transaction });
 
-    await payment.booking.update({
-      payment_status: bookingPaymentStatus,
-      booking_status: bookingStatus,
-    }, { transaction });
+    if (isTopup) {
+      if (verificationResult.success) {
+        await creditWalletTopup({ payment, transaction });
+      }
+      await transaction.commit();
+
+      res.json({
+        success: verificationResult.success,
+        message: verificationResult.success
+          ? 'Wallet topped up successfully'
+          : 'Top-up payment failed',
+        data: {
+          payment_id: payment.id,
+          payment_type: 'TOPUP',
+          status: paymentStatus,
+          amount: parseFloat(payment.amount),
+          transaction_id: verificationResult.transaction_id,
+        },
+      });
+      return;
+    }
+
+    if (payment.booking) {
+      const bookingPaymentStatus = verificationResult.success ? 'COMPLETED' : 'FAILED';
+      const bookingStatus = verificationResult.success ? 'CONFIRMED' : payment.booking.booking_status;
+
+      await payment.booking.update({
+        payment_status: bookingPaymentStatus,
+        booking_status: bookingStatus,
+      }, { transaction });
+    }
 
     await transaction.commit();
 
     // Send payment confirmation notification (non-blocking)
-    if (verificationResult.success) {
+    if (verificationResult.success && payment.booking) {
       const user = await User.findByPk(userId);
       if (user) {
         notificationService.sendPaymentConfirmation(payment, payment.booking, user).catch(err => {
@@ -500,7 +549,9 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
       data: {
         payment_id: payment.id,
         status: paymentStatus,
-        booking_status: bookingPaymentStatus,
+        booking_status: payment.booking
+          ? (verificationResult.success ? 'COMPLETED' : 'FAILED')
+          : null,
         transaction_id: verificationResult.transaction_id,
       },
     });
@@ -527,12 +578,23 @@ router.get('/:id', authenticateToken, commonValidation.idParam, handleValidation
         {
           model: Booking,
           as: 'booking',
-          where: { user_id: userId },
+          required: false,
         },
       ],
     });
 
     if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found',
+      });
+    }
+
+    const isTopup = payment.payment_type === 'TOPUP';
+    const owned = isTopup
+      ? payment.user_id === userId
+      : payment.booking && payment.booking.user_id === userId;
+    if (!owned) {
       return res.status(404).json({
         success: false,
         message: 'Payment not found',
@@ -546,17 +608,20 @@ router.get('/:id', authenticateToken, commonValidation.idParam, handleValidation
         payment: {
           id: payment.id,
           booking_id: payment.booking_id,
+          payment_type: payment.payment_type,
           payment_method: payment.payment_method,
           amount: payment.amount,
           currency: payment.currency,
           status: payment.status,
           gateway_transaction_id: payment.gateway_transaction_id,
           created_at: payment.created_at,
-          booking: {
-            pnr: payment.booking.pnr,
-            total_amount: payment.booking.total_amount,
-            payment_status: payment.booking.payment_status,
-          },
+          booking: payment.booking
+            ? {
+                pnr: payment.booking.pnr,
+                total_amount: payment.booking.total_amount,
+                payment_status: payment.booking.payment_status,
+              }
+            : null,
         },
       },
     });

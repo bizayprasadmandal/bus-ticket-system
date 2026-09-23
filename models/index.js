@@ -59,6 +59,7 @@ BookingPassenger.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' })
 
 // Payment associations
 Payment.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
+Payment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 // BusLocation associations
 BusLocation.belongsTo(Trip, { foreignKey: 'trip_id', as: 'trip' });

@@ -15,6 +15,19 @@ const Payment = sequelize.define('Payment', {
       key: 'id',
     },
   },
+  user_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id',
+    },
+  },
+  payment_type: {
+    type: DataTypes.ENUM('BOOKING', 'TOPUP'),
+    allowNull: false,
+    defaultValue: 'BOOKING',
+  },
   payment_method: {
     type: DataTypes.ENUM('ESEWA', 'KHALTI', 'FONEPAY', 'CONNECTIPS', 'CARD', 'WALLET', 'CASH'),
     allowNull: true,

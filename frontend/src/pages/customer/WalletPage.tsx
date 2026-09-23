@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw, CreditCard, Smartphone } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { walletAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -12,7 +12,7 @@ interface WalletBalance {
 
 interface Transaction {
   id: number;
-  type: string;
+  transaction_type: string;
   amount: number;
   description: string;
   created_at: string;
@@ -25,7 +25,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [topUpAmount, setTopUpAmount] = useState<number>(0);
   const [customAmount, setCustomAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('esewa');
+  const [paymentMethod, setPaymentMethod] = useState('ESEWA');
   const [loading, setLoading] = useState(true);
   const [toppingUp, setToppingUp] = useState(false);
 
@@ -68,16 +68,23 @@ export default function WalletPage() {
       toast.error('Please select or enter an amount');
       return;
     }
+    if (amount < 10) {
+      toast.error('Minimum top-up amount is NPR 10');
+      return;
+    }
     setToppingUp(true);
     try {
-      await walletAPI.topUp(amount, paymentMethod);
-      toast.success(`NPR ${amount} top-up initiated`);
-      setTopUpAmount(0);
-      setCustomAmount('');
-      await Promise.all([fetchBalance(), fetchTransactions()]);
+      const res = await walletAPI.topUp(amount, paymentMethod);
+      const paymentUrl = res.data.data?.payment_url;
+      if (!paymentUrl) {
+        toast.error('Could not start payment with gateway');
+        setToppingUp(false);
+        return;
+      }
+      toast.success('Redirecting to payment gateway...');
+      window.location.href = paymentUrl;
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Top-up failed');
-    } finally {
       setToppingUp(false);
     }
   };
@@ -177,9 +184,8 @@ export default function WalletPage() {
           <label className="text-sm font-medium text-gray-700 mb-2 block">Payment Method</label>
           <div className="flex gap-3">
             {[
-              { id: 'esewa', label: 'eSewa', icon: Smartphone },
-              { id: 'khalti', label: 'Khalti', icon: Smartphone },
-              { id: 'wallet', label: 'Wallet', icon: CreditCard },
+              { id: 'ESEWA', label: 'eSewa', icon: Smartphone },
+              { id: 'KHALTI', label: 'Khalti', icon: Smartphone },
             ].map((method) => (
               <button
                 key={method.id}
@@ -217,9 +223,9 @@ export default function WalletPage() {
               <div key={tx.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                    tx.type === 'CREDIT' ? 'bg-green-50' : 'bg-red-50'
+                    tx.transaction_type === 'CREDIT' ? 'bg-green-50' : 'bg-red-50'
                   }`}>
-                    {tx.type === 'CREDIT' ? (
+                    {tx.transaction_type === 'CREDIT' ? (
                       <ArrowDownLeft className="h-4 w-4 text-green-600" />
                     ) : (
                       <ArrowUpRight className="h-4 w-4 text-red-500" />
@@ -230,8 +236,8 @@ export default function WalletPage() {
                     <p className="text-xs text-gray-400">{new Date(tx.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 </div>
-                <span className={`font-semibold text-sm ${tx.type === 'CREDIT' ? 'text-green-600' : 'text-red-500'}`}>
-                  {tx.type === 'CREDIT' ? '+' : '-'}NPR {tx.amount.toLocaleString()}
+                <span className={`font-semibold text-sm ${tx.transaction_type === 'CREDIT' ? 'text-green-600' : 'text-red-500'}`}>
+                  {tx.transaction_type === 'CREDIT' ? '+' : '-'}NPR {tx.amount.toLocaleString()}
                 </span>
               </div>
             ))}

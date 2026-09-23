@@ -534,7 +534,7 @@ router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER']), async 
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
         Trip.count({
-          where: { trip_date: todayStr, status: 'COMPLETED' },
+          where: { trip_date: todayStr, status: 'ARRIVED' },
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
         Trip.count({
@@ -659,7 +659,7 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
         Trip.count({
-          where: { ...todayTripWhere, status: 'COMPLETED' },
+          where: { ...todayTripWhere, status: 'ARRIVED' },
           include: [{ model: Route, as: 'route', where: { operator_id: operatorId } }],
         }),
         Trip.count({

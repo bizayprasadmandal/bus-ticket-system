@@ -184,7 +184,7 @@ export default function ConductorSeatMapPage() {
             data.trip.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700' :
             data.trip.status === 'BOARDING' ? 'bg-amber-100 text-amber-700' :
             data.trip.status === 'DEPARTED' ? 'bg-green-100 text-green-700' :
-            data.trip.status === 'COMPLETED' ? 'bg-gray-100 text-gray-600' :
+            data.trip.status === 'ARRIVED' ? 'bg-gray-100 text-gray-600' :
             'bg-gray-100 text-gray-600'
           }`}>
             {data.trip.status}

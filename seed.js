@@ -257,7 +257,7 @@ const seed = async () => {
           arrival_time: arr,
           current_fare: fare,
           available_seats: isPast ? Math.max(0, bus.total_seats - Math.floor(Math.random() * 20)) : bus.total_seats,
-          status: isPast ? 'COMPLETED' : 'SCHEDULED',
+          status: isPast ? 'ARRIVED' : 'SCHEDULED',
           driver_name: drivers[i % drivers.length].name,
           driver_phone: drivers[i % drivers.length].phone,
           conductor_name: conductors[i % conductors.length].name,
@@ -336,7 +336,7 @@ const seed = async () => {
     // --- Sample Bookings ---
     const allTrips = await Trip.findAll({ include: [{ model: Route, as: 'route' }, { model: Bus, as: 'bus' }], order: [['id', 'ASC']] });
     const futureTrips = allTrips.filter(t => t.status === 'SCHEDULED');
-    const pastTrips = allTrips.filter(t => t.status === 'COMPLETED');
+    const pastTrips = allTrips.filter(t => t.status === 'ARRIVED');
 
     const existingBookings = await Booking.findAll();
     if (existingBookings.length > 5) {

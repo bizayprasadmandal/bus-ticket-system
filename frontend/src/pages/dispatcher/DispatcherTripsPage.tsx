@@ -114,7 +114,7 @@ export default function DispatcherTripsPage() {
     scheduled: trips.filter(t => t.status === 'SCHEDULED').length,
     boarding: trips.filter(t => t.status === 'BOARDING').length,
     departed: trips.filter(t => t.status === 'DEPARTED').length,
-    completed: trips.filter(t => t.status === 'COMPLETED').length,
+    completed: trips.filter(t => t.status === 'ARRIVED').length,
   };
 
   if (loading) return <TableSkeleton rows={5} cols={5} />;

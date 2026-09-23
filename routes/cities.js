@@ -7,8 +7,17 @@ const cachingService = require('../services/caching');
 
 const router = express.Router();
 
+const invalidateCitiesCache = async () => {
+  try {
+    await cachingService.clearPattern('route_GET_/api/cities');
+    await cachingService.del('cities_list');
+  } catch (e) {
+    // cache invalidation is best-effort
+  }
+};
+
 // Get all cities
-router.get('/', cachingService.cacheMiddleware(86400), async (req, res) => {
+router.get('/', cachingService.cacheMiddleware(300), async (req, res) => {
   try {
     const { major_only = false } = req.query;
 
@@ -99,6 +108,8 @@ router.post('/', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, re
       is_major_city,
     });
 
+    await invalidateCitiesCache();
+
     res.status(201).json({
       success: true,
       message: 'City created successfully',
@@ -145,6 +156,8 @@ router.put('/:id', authenticateToken, requireRole(['SUPER_ADMIN']), commonValida
       longitude,
       is_major_city,
     });
+
+    await invalidateCitiesCache();
 
     res.json({
       success: true,

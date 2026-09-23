@@ -326,7 +326,7 @@ export default function OperatorReportsPage() {
                             <td className="px-4 py-3">
                               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                                 trip.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700' :
-                                trip.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                                trip.status === 'ARRIVED' ? 'bg-green-100 text-green-700' :
                                 trip.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-600'
                               }`}>

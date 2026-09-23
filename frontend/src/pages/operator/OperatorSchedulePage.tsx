@@ -232,7 +232,7 @@ export default function OperatorSchedulePage() {
                       trip.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700' :
                       trip.status === 'BOARDING' ? 'bg-amber-100 text-amber-700' :
                       trip.status === 'DEPARTED' ? 'bg-purple-100 text-purple-700' :
-                      trip.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                      trip.status === 'ARRIVED' ? 'bg-green-100 text-green-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {trip.status}

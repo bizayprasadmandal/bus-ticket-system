@@ -121,7 +121,7 @@ export default function OperatorTripsPage() {
     total: trips.length,
     scheduled: trips.filter(t => t.status === 'SCHEDULED').length,
     boarding: trips.filter(t => t.status === 'BOARDING').length,
-    completed: trips.filter(t => t.status === 'COMPLETED').length,
+    completed: trips.filter(t => t.status === 'ARRIVED').length,
     cancelled: trips.filter(t => t.status === 'CANCELLED').length,
     totalRevenue: trips.reduce((sum, t) => sum + (t.current_fare * (t.bus?.bus_number ? 1 : 0)), 0),
   };

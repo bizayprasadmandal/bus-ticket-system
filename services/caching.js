@@ -150,10 +150,25 @@ class CachingService {
         // Store original res.json function
         const originalJson = res.json;
 
-        // Override res.json to cache successful responses
+        // Override res.json to cache successful non-empty responses
         res.json = function(data) {
-          if (res.statusCode === 200 && data.success !== false) {
-            // Cache the response
+          let isEmptyList = false;
+          if (data && typeof data === 'object') {
+            if (Array.isArray(data) && data.length === 0) {
+              isEmptyList = true;
+            } else if (data.data && typeof data.data === 'object') {
+              const d = data.data;
+              if (
+                (Array.isArray(d) && d.length === 0) ||
+                (Array.isArray(d.cities) && d.cities.length === 0) ||
+                (Array.isArray(d.routes) && d.routes.length === 0) ||
+                (Array.isArray(d.items) && d.items.length === 0)
+              ) {
+                isEmptyList = true;
+              }
+            }
+          }
+          if (res.statusCode === 200 && data.success !== false && !isEmptyList) {
             cachingService.set(cacheKey, data, ttl).catch(err => {
               console.error('Failed to cache response:', err);
             });

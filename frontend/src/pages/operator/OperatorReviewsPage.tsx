@@ -40,7 +40,7 @@ export default function OperatorReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
-  const [operatorId, setOperatorId] = useState<number | null>(null);
+  const [, setOperatorId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {

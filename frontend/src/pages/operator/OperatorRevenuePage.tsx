@@ -135,7 +135,7 @@ export default function OperatorRevenuePage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis />
-                <Tooltip formatter={(value: number) => `NPR ${value.toLocaleString()}`} />
+                <Tooltip formatter={(value: any) => `NPR ${Number(value ?? 0).toLocaleString()}`} />
                 <Legend />
                 <Line type="monotone" dataKey="revenue" stroke="#d84e55" strokeWidth={2} dot={{ r: 4 }} name="Revenue" />
               </LineChart>
@@ -154,7 +154,7 @@ export default function OperatorRevenuePage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="route" tick={{ fontSize: 11 }} />
                 <YAxis />
-                <Tooltip formatter={(value: number) => `NPR ${value.toLocaleString()}`} />
+                <Tooltip formatter={(value: any) => `NPR ${Number(value ?? 0).toLocaleString()}`} />
                 <Bar dataKey="revenue" fill="#d84e55" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -177,7 +177,7 @@ export default function OperatorRevenuePage() {
                   cy="50%"
                   outerRadius={90}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: any) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {bookingStatusData.map((_: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />

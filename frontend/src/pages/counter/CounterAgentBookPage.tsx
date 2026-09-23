@@ -126,7 +126,7 @@ export default function CounterAgentBookPage() {
   const [seatLayout, setSeatLayout] = useState<any>(null);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false);
   const [step, setStep] = useState<'search' | 'select' | 'book' | 'payment' | 'success'>('search');
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'ESEWA' | 'KHALTI' | ''>('');

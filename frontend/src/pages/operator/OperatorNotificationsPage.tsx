@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, AlertTriangle, Calendar, DollarSign, CheckCircle, Clock, Trash2, Filter, Loader2 } from 'lucide-react';
+import { Bell, AlertTriangle, Calendar, CheckCircle, Clock, Trash2, Filter, Loader2 } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';

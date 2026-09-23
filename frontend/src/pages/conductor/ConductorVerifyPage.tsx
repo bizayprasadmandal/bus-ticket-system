@@ -50,7 +50,7 @@ export default function ConductorVerifyPage() {
     // this refresh keeps the hook's timer active for consistency.
   }, []);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadHistory, 30000);
+  const { lastUpdated } = useAutoRefresh(loadHistory, 30000);
 
   useEffect(() => {
     inputRef.current?.focus();

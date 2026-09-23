@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Banknote, Ticket, TrendingDown, TrendingUp, Printer, Loader2, RefreshCw } from 'lucide-react';
+import { Calendar, Banknote, Ticket, TrendingDown, TrendingUp, Printer, RefreshCw } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -76,7 +76,7 @@ export default function CounterAgentReconciliationPage() {
     if (!printWindow) return;
     const paymentRows = data.payments
       ?.map(
-        (p, i) =>
+        (p) =>
           `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(new Date(p.time).toLocaleTimeString())}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.pnr)}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(p.route?.origin_city || '')} → ${sanitize(p.route?.destination_city || '')}</td><td style="padding:4px 8px;border:1px solid #ddd;">${sanitize(String(p.passengers))}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">NPR ${sanitize(p.amount.toLocaleString())}</td></tr>`
       )
       .join('') || '';

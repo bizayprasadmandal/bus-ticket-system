@@ -394,7 +394,7 @@ export default function AdminReportsPage() {
                               cy="50%"
                               outerRadius={90}
                               dataKey="value"
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              label={({ name, percent }: any) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                             >
                               {pieData.map((_: any, index: number) => (
                                 <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />

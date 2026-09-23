@@ -344,7 +344,7 @@ export default function AdminOperatorDetailPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v: number) => `NPR ${v.toLocaleString()}`} />
+                      <Tooltip formatter={(v: any) => `NPR ${Number(v ?? 0).toLocaleString()}`} />
                       <Bar dataKey="revenue" fill="#d84e55" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>

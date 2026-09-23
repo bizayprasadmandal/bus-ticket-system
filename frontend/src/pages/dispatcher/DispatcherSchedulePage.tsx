@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Calendar, MapPin, ArrowRight, Clock, Bus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, ArrowRight, Bus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { dispatcherTripAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';

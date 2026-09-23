@@ -269,7 +269,7 @@ export default function OperatorReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="company_name" tick={{ fontSize: 12 }} />
                       <YAxis />
-                      <Tooltip formatter={(value: number) => `NPR ${value.toLocaleString()}`} />
+                      <Tooltip formatter={(value: any) => `NPR ${Number(value ?? 0).toLocaleString()}`} />
                       <Bar dataKey="total_revenue" fill="#d84e55" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>

@@ -6,13 +6,6 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
-interface TripCrew {
-  driver_name?: string;
-  driver_phone?: string;
-  conductor_name?: string;
-  conductor_phone?: string;
-}
-
 interface TripItem {
   id: number;
   trip_date: string;

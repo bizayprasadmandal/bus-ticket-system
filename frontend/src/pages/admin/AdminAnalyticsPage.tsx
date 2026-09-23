@@ -32,8 +32,6 @@ interface HourData {
   count: number;
 }
 
-const COLORS = ['#d84e55', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
-
 export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryData | null>(null);
@@ -124,7 +122,6 @@ export default function AdminAnalyticsPage() {
     : null;
 
   const topRoutes = routeData.slice(0, 10);
-  const maxRouteBookings = topRoutes.length > 0 ? Math.max(...topRoutes.map(r => r.bookings)) : 0;
 
   const searchToBooking = totalSearches > 0 ? ((totalBookingsCompleted / totalSearches) * 100).toFixed(1) : '0';
   const bookingToPayment = totalBookingsCompleted > 0 ? ((totalPaidPayments / totalBookingsCompleted) * 100).toFixed(1) : '0';
@@ -226,7 +223,7 @@ export default function AdminAnalyticsPage() {
                   width={150}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) => [value, name === 'bookings' ? 'Bookings' : name]}
+                  formatter={(value: any, name: any) => [value, name === 'bookings' ? 'Bookings' : name]}
                 />
                 <Bar dataKey="bookings" fill="#d84e55" radius={[0, 4, 4, 0]} name="Bookings" />
               </BarChart>
@@ -287,8 +284,8 @@ export default function AdminAnalyticsPage() {
               />
               <YAxis />
               <Tooltip
-                labelFormatter={(h: number) => `Hour: ${h}:00`}
-                formatter={(value: number) => [value, 'Bookings']}
+                labelFormatter={(h: any) => `Hour: ${h}:00`}
+                formatter={(value: any) => [value, 'Bookings']}
               />
               <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Bookings" />
             </BarChart>

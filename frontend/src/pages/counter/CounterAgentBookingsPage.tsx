@@ -14,6 +14,7 @@ interface BookingItem {
   total_passengers: number;
   total_amount: number;
   booking_status: string;
+  payment_status?: string;
   booking_date: string;
   trip?: {
     trip_date: string;
@@ -46,7 +47,7 @@ const statusColors: Record<string, string> = {
   COMPLETED: 'bg-blue-100 text-blue-700',
 };
 
-const sanitize = (str: string) => String(str || '')
+const sanitize = (str?: string) => String(str || '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 

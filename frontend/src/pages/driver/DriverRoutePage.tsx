@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, ArrowRight, Clock, Bus, Users, Phone, User, ArrowLeft, RefreshCw, Loader2, Route, Navigation } from 'lucide-react';
+import { MapPin, Clock, Bus, Users, Phone, User, ArrowLeft, RefreshCw, Loader2, Route, Navigation } from 'lucide-react';
 import api from '../../api';
 import { driverTripAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';

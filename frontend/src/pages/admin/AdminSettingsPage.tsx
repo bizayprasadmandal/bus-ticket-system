@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Save, X, Edit3, DollarSign, CreditCard, Bell, Truck } from 'lucide-react';
+import { Settings, Save, X, Edit3, CreditCard, Bell, Truck } from 'lucide-react';
 import api from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';

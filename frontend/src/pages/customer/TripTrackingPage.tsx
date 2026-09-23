@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { io } from 'socket.io-client';
-import { Bus, Navigation, Clock, RefreshCw, Loader2 } from 'lucide-react';
+import { Bus, Navigation, Clock, RefreshCw } from 'lucide-react';
 import api from '../../api';
 import 'leaflet/dist/leaflet.css';
 

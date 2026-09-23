@@ -322,7 +322,7 @@ export default function ConductorSeatMapPage() {
                   selectedSeat.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                   'bg-gray-100 text-gray-600'
                 }`}>
-                  {bookingStatusLabel(selectedSeat.booking_status)}
+                  {bookingStatusLabel(selectedSeat.booking_status ?? '')}
                 </span>
               </div>
             </div>

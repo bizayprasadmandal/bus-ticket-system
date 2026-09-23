@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bus, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Users, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Bus, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Users, ClipboardList, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/dispatcher/buses', label: 'Buses', icon: Bus },
   { to: '/dispatcher/crew', label: 'Crew', icon: Users },
   { to: '/dispatcher/passengers', label: 'Passengers', icon: Users },
+  { to: '/dispatcher/profile', label: 'Profile', icon: UserCircle },
 ];
 
 export default function DispatcherLayout() {
@@ -87,10 +88,14 @@ export default function DispatcherLayout() {
         {/* User Info */}
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-600 font-semibold text-sm">
-                {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DS'}
-              </span>
+            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+              {user?.profile_image_url ? (
+                <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-primary-600 font-semibold text-sm">
+                  {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DS'}
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 truncate">{user?.full_name || 'Dispatcher'}</p>
@@ -139,10 +144,14 @@ export default function DispatcherLayout() {
                 <ExternalLink className="h-4 w-4" /> View Site
               </Link>
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                  <span className="text-primary-600 font-semibold text-xs">
-                    {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DS'}
-                  </span>
+                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {user?.profile_image_url ? (
+                    <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-primary-600 font-semibold text-xs">
+                      {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DS'}
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-800">{user?.full_name || 'Dispatcher'}</p>

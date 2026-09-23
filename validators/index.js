@@ -24,21 +24,29 @@ const userValidation = {
   
   update: [
     body('email')
-      .optional()
+      .optional({ values: 'falsy' })
       .isEmail()
       .withMessage('Please provide a valid email address'),
     body('full_name')
-      .optional()
+      .optional({ values: 'falsy' })
       .isLength({ min: 2, max: 100 })
       .withMessage('Full name must be between 2 and 100 characters'),
+    body('full_name_nepali')
+      .optional({ values: 'falsy' })
+      .isLength({ max: 100 })
+      .withMessage('Nepali name must be at most 100 characters'),
     body('date_of_birth')
-      .optional()
+      .optional({ values: 'falsy' })
       .isISO8601()
       .withMessage('Please provide a valid date of birth'),
     body('gender')
-      .optional()
+      .optional({ values: 'falsy' })
       .isIn(['MALE', 'FEMALE', 'OTHER'])
       .withMessage('Gender must be MALE, FEMALE, or OTHER'),
+    body('profile_image_url')
+      .optional({ values: 'falsy' })
+      .isLength({ max: 2000 })
+      .withMessage('Profile image URL is too long'),
   ],
 };
 

@@ -272,6 +272,25 @@ export const operatorProfileAPI = {
   update: (data: any) => api.put('/operators/profile', data),
 };
 
+export const userAPI = {
+  getProfile: () => api.get('/users/profile'),
+  updateProfile: (data: {
+    email?: string | null;
+    full_name?: string;
+    full_name_nepali?: string | null;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    profile_image_url?: string | null;
+  }) => api.put('/users/profile', data),
+  uploadPhoto: (file: File) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    return api.post('/users/profile/photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+};
+
 export const operatorRevenueAPI = {
   get: (params?: any) => api.get('/dashboard/operator/revenue', { params }),
 };

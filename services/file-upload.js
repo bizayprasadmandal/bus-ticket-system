@@ -2,8 +2,33 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const AWS = require('aws-sdk');
-const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
+
+let sharpModule = null;
+let sharpLoadFailed = false;
+
+function getSharp() {
+  if (sharpLoadFailed) return null;
+  if (sharpModule) return sharpModule;
+  try {
+    sharpModule = require('sharp');
+    return sharpModule;
+  } catch (error) {
+    sharpLoadFailed = true;
+    console.warn('sharp unavailable, images will be stored without resize:', error.message);
+    return null;
+  }
+}
+
+function loadImageExt(file) {
+  const map = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  };
+  return map[file.mimetype] || path.extname(file.originalname || '') || '.jpg';
+}
 
 // Local file storage service
 class LocalFileStorage {
@@ -57,7 +82,9 @@ class LocalFileStorage {
 
   // Get file URL
   getFileUrl(filePath) {
-    return `${process.env.BASE_URL}/uploads/${filePath}`;
+    const base = (process.env.BASE_URL || '').replace(/\/$/, '');
+    if (base) return `${base}/uploads/${filePath}`;
+    return `/uploads/${filePath}`;
   }
 }
 
@@ -186,23 +213,32 @@ class FileUploadService {
   // Process and upload image
   async processAndUploadImage(file, options = {}) {
     try {
-      const { 
+      const {
         resize = { width: 800, height: 600 },
         quality = 80,
         format = 'jpeg',
         folder = 'images'
       } = options;
 
-      // Process image with Sharp
-      let processedBuffer = await sharp(file.buffer)
-        .resize(resize.width, resize.height, { 
-          fit: 'inside', 
-          withoutEnlargement: true 
-        })
-        .jpeg({ quality })
-        .toBuffer();
+      const sharp = getSharp();
+      let processedBuffer;
+      let outFormat = format;
+      let outExt = `.${format}`;
 
-      // Create processed file object
+      if (sharp && file.buffer) {
+        processedBuffer = await sharp(file.buffer)
+          .resize(resize.width, resize.height, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .jpeg({ quality })
+          .toBuffer();
+      } else {
+        processedBuffer = file.buffer;
+        outFormat = 'bin';
+        outExt = loadImageExt(file);
+      }
+
       const processedFile = {
         ...file,
         buffer: processedBuffer,
@@ -214,11 +250,14 @@ class FileUploadService {
         return await this.storage.uploadFile(processedFile, folder);
       } else {
         // For local storage, save processed file
-        const fileName = `${uuidv4()}.${format}`;
+        const fileName = `${uuidv4()}${outExt}`;
         const filePath = path.join(this.storage.uploadDir, folder, fileName);
-        
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
         fs.writeFileSync(filePath, processedBuffer);
-        
+
         return {
           success: true,
           url: this.storage.getFileUrl(`${folder}/${fileName}`),
@@ -341,7 +380,11 @@ class FileUploadService {
   async generateThumbnail(file, options = {}) {
     try {
       const { width = 200, height = 200, quality = 70 } = options;
-      
+      const sharp = getSharp();
+      if (!sharp) {
+        return { success: true, buffer: file.buffer };
+      }
+
       const thumbnailBuffer = await sharp(file.buffer)
         .resize(width, height, { fit: 'cover' })
         .jpeg({ quality })

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink, CreditCard, Bus, Map, Star, Wallet, MapPin, RotateCcw, AlertTriangle, Bell, Settings, FileText, Tag, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, BarChart3, LogOut, Menu, X, Code, ChevronRight, ExternalLink, CreditCard, Bus, Map, Star, Wallet, MapPin, RotateCcw, AlertTriangle, Bell, Settings, FileText, Tag, TrendingUp, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -24,6 +24,7 @@ const navItems = [
   { to: '/admin/audit-log', label: 'Audit Log', icon: FileText },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
   { to: '/admin/api-docs', label: 'API Docs', icon: Code },
+  { to: '/admin/profile', label: 'Profile', icon: UserCircle },
 ];
 
 export default function AdminLayout() {
@@ -66,6 +67,7 @@ export default function AdminLayout() {
         'audit-log': 'Audit Log',
         settings: 'System Settings',
         'promo-codes': 'Promo Codes',
+        profile: 'My Profile',
       };
       if (pageLabels[page]) {
         breadcrumbs.push({ label: pageLabels[page], path: path });
@@ -137,8 +139,12 @@ export default function AdminLayout() {
         {/* User Info */}
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 mb-3 px-3 py-2">
-            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-600 font-semibold text-sm">{getUserInitials()}</span>
+            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+              {user?.profile_image_url ? (
+                <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-primary-600 font-semibold text-sm">{getUserInitials()}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 truncate">{user?.full_name || 'Admin'}</p>

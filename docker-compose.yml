@@ -34,6 +34,10 @@ services:
       - CONNECTIPS_TXN_PASSWORD=${CONNECTIPS_TXN_PASSWORD}
       - BASE_URL=${BASE_URL}
       - FRONTEND_URL=${FRONTEND_URL}
+      - UPLOAD_DIR=${UPLOAD_DIR:-/app/uploads}
+      - FILE_STORAGE=${FILE_STORAGE:-local}
+    volumes:
+      - ./uploads:/app/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

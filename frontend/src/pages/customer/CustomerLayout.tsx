@@ -65,9 +65,17 @@ export default function CustomerLayout() {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2"
               >
-                <div className="w-8 h-8 bg-[#d84e55] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {user?.full_name ? getInitials(user.full_name) : 'U'}
-                </div>
+                {user?.profile_image_url ? (
+                  <img
+                    src={user.profile_image_url}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-[#d84e55] rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {user?.full_name ? getInitials(user.full_name) : 'U'}
+                  </div>
+                )}
                 <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
               </button>
 

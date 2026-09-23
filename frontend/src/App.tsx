@@ -140,6 +140,7 @@ function App() {
             <Route path="fare-rules" element={<OperatorFareRulesPage />} />
             <Route path="notifications" element={<OperatorNotificationsPage />} />
             <Route path="profile" element={<OperatorProfilePage />} />
+            <Route path="account" element={<ProfilePage />} />
           </Route>
 
           <Route path="/dispatcher" element={
@@ -153,6 +154,7 @@ function App() {
             <Route path="buses" element={<DispatcherBusesPage />} />
             <Route path="crew" element={<DispatcherCrewPage />} />
             <Route path="passengers" element={<DispatcherPassengersPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
 
           <Route path="/driver" element={
@@ -164,6 +166,7 @@ function App() {
             <Route path="trips" element={<DriverTripsPage />} />
             <Route path="trip/:id" element={<DriverRoutePage />} />
             <Route path="schedule" element={<DriverSchedulePage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
 
           <Route path="/conductor" element={
@@ -177,6 +180,7 @@ function App() {
             <Route path="verify" element={<ConductorVerifyPage />} />
             <Route path="seat-map/:tripId" element={<ConductorSeatMapPage />} />
             <Route path="schedule" element={<ConductorSchedulePage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
 
           <Route path="/counter" element={
@@ -189,6 +193,7 @@ function App() {
             <Route path="bookings" element={<CounterAgentBookingsPage />} />
             <Route path="lookup" element={<CounterAgentPNRPage />} />
             <Route path="reconciliation" element={<CounterAgentReconciliationPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
 
           <Route path="/admin" element={
@@ -217,6 +222,7 @@ function App() {
             <Route path="audit-log" element={<AdminAuditLogPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
             <Route path="api-docs" element={<ApiDocsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

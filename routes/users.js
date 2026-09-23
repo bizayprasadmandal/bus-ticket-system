@@ -1,35 +1,60 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { Op } = require('sequelize');
 const { User, UserAddress, UserRole, UserWallet } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { userValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const { FileUploadService } = require('../services/file-upload');
 
 const router = express.Router();
+const fileUploadService = new FileUploadService();
+
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
+    }
+  },
+});
+
+const buildProfilePayload = (user) => ({
+  id: user.id,
+  phone_number: user.phone_number,
+  email: user.email,
+  full_name: user.full_name,
+  full_name_nepali: user.full_name_nepali,
+  date_of_birth: user.date_of_birth,
+  gender: user.gender,
+  profile_image_url: user.profile_image_url,
+  is_phone_verified: user.is_phone_verified,
+  is_email_verified: user.is_email_verified,
+  status: user.status,
+  created_at: user.created_at,
+  addresses: user.addresses || [],
+  roles: user.roles || [],
+  wallet: user.wallet,
+});
+
+const loadProfileAssociations = (userId) =>
+  User.findByPk(userId, {
+    include: [
+      { model: UserAddress, as: 'addresses' },
+      { model: UserRole, as: 'roles', where: { is_active: true }, required: false },
+      { model: UserWallet, as: 'wallet' },
+    ],
+  });
 
 // Get user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    const user = await User.findByPk(userId, {
-      include: [
-        {
-          model: UserAddress,
-          as: 'addresses',
-        },
-        {
-          model: UserRole,
-          as: 'roles',
-          where: { is_active: true },
-          required: false,
-        },
-        {
-          model: UserWallet,
-          as: 'wallet',
-        },
-      ],
-    });
+    const user = await loadProfileAssociations(req.user.id);
 
     if (!user) {
       return res.status(404).json({
@@ -41,25 +66,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       message: 'Profile retrieved successfully',
-      data: {
-        user: {
-          id: user.id,
-          phone_number: user.phone_number,
-          email: user.email,
-          full_name: user.full_name,
-          full_name_nepali: user.full_name_nepali,
-          date_of_birth: user.date_of_birth,
-          gender: user.gender,
-          profile_image_url: user.profile_image_url,
-          is_phone_verified: user.is_phone_verified,
-          is_email_verified: user.is_email_verified,
-          status: user.status,
-          created_at: user.created_at,
-          addresses: user.addresses || [],
-          roles: user.roles || [],
-          wallet: user.wallet,
-        },
-      },
+      data: { user: buildProfilePayload(user) },
     });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -67,6 +74,70 @@ router.get('/profile', authenticateToken, async (req, res) => {
       success: false,
       message: 'Failed to get profile',
       error: error.message,
+    });
+  }
+});
+
+// Upload profile photo
+router.post('/profile/photo', authenticateToken, photoUpload.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided. Send a field named "photo".',
+      });
+    }
+
+    const userId = req.user.id;
+    const previousUrl = req.user.profile_image_url;
+
+    const result = await fileUploadService.uploadProfileImage(req.file, userId);
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: result.error || 'Failed to upload profile photo',
+      });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    await user.update({ profile_image_url: result.url });
+
+    // Best-effort cleanup of previous local profile image
+    if (
+      previousUrl &&
+      previousUrl.startsWith('/uploads/') &&
+      result.url !== previousUrl
+    ) {
+      try {
+        const relative = previousUrl.slice('/uploads/'.length);
+        if (relative.startsWith('profiles/')) {
+          const uploadRoot = process.env.UPLOAD_DIR || './uploads';
+          const localPath = path.resolve(uploadRoot, relative);
+          const rootResolved = path.resolve(uploadRoot);
+          if (localPath.startsWith(rootResolved) && fs.existsSync(localPath)) {
+            fs.unlinkSync(localPath);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to delete old profile photo:', err.message);
+      }
+    }
+
+    const fresh = await loadProfileAssociations(userId);
+    res.json({
+      success: true,
+      message: 'Profile photo updated successfully',
+      data: { user: buildProfilePayload(fresh || user) },
+    });
+  } catch (error) {
+    console.error('Upload profile photo error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to upload profile photo',
     });
   }
 });
@@ -93,30 +164,21 @@ router.put('/profile', authenticateToken, userValidation.update, handleValidatio
       });
     }
 
-    await user.update({
-      email,
-      full_name,
-      full_name_nepali,
-      date_of_birth,
-      gender,
-      profile_image_url,
-    });
+    const updates = {};
+    if (email !== undefined) updates.email = email || null;
+    if (full_name !== undefined) updates.full_name = full_name;
+    if (full_name_nepali !== undefined) updates.full_name_nepali = full_name_nepali || null;
+    if (date_of_birth !== undefined) updates.date_of_birth = date_of_birth || null;
+    if (gender !== undefined) updates.gender = gender || null;
+    if (profile_image_url !== undefined) updates.profile_image_url = profile_image_url || null;
 
+    await user.update(updates);
+
+    const fresh = await loadProfileAssociations(userId);
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: {
-        user: {
-          id: user.id,
-          phone_number: user.phone_number,
-          email: user.email,
-          full_name: user.full_name,
-          full_name_nepali: user.full_name_nepali,
-          date_of_birth: user.date_of_birth,
-          gender: user.gender,
-          profile_image_url: user.profile_image_url,
-        },
-      },
+      data: { user: buildProfilePayload(fresh || user) },
     });
   } catch (error) {
     console.error('Update profile error:', error);

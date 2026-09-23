@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Clock } from 'lucide-react';
+import { LayoutDashboard, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Clock, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/driver', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/driver/trips', label: 'My Trips', icon: Calendar },
   { to: '/driver/schedule', label: 'Schedule', icon: Clock },
+  { to: '/driver/profile', label: 'Profile', icon: UserCircle },
 ];
 
 export default function DriverLayout() {
@@ -84,10 +85,14 @@ export default function DriverLayout() {
         {/* User Info */}
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-600 font-semibold text-sm">
-                {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DR'}
-              </span>
+            <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+              {user?.profile_image_url ? (
+                <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-primary-600 font-semibold text-sm">
+                  {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DR'}
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 truncate">{user?.full_name || 'Driver'}</p>
@@ -136,10 +141,14 @@ export default function DriverLayout() {
                 <ExternalLink className="h-4 w-4" /> View Site
               </Link>
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                  <span className="text-primary-600 font-semibold text-xs">
-                    {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DR'}
-                  </span>
+                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {user?.profile_image_url ? (
+                    <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-primary-600 font-semibold text-xs">
+                      {user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'DR'}
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-800">{user?.full_name || 'Driver'}</p>

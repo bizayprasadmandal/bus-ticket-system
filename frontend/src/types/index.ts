@@ -5,6 +5,8 @@ export interface User {
   full_name: string;
   full_name_nepali?: string;
   gender?: string;
+  date_of_birth?: string;
+  profile_image_url?: string;
   status: string;
   is_phone_verified: boolean;
   is_email_verified: boolean;

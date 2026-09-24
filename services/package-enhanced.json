@@ -1,6 +1,6 @@
 # Enhanced Node.js Dependencies for Advanced Features
 {
-  "name": "samaya-deluxe-backend",
+  "name": "gadi-ticket-backend",
   "version": "1.0.0",
   "description": "Bus booking system backend API with advanced features",
   "main": "server.js",
@@ -61,7 +61,7 @@
     "eslint": "^8.47.0",
     "prettier": "^3.0.2"
   },
-  "author": "Samaya Deluxe",
+  "author": "Gadi Ticket",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0",

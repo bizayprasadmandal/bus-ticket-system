@@ -4,6 +4,7 @@ import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown, Phone, Mail, MapPin
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 import LanguageToggle from '../../components/LanguageToggle';
+import { PLATFORM_NAME, PLATFORM_EMAIL } from '../../constants/brand';
 
 export default function CustomerLayout() {
   const { logout, user } = useAuthStore();
@@ -38,7 +39,7 @@ export default function CustomerLayout() {
             <Link to="/" className="flex items-center gap-2">
               <Bus className="h-6 w-6 text-[#d84e55]" />
               <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                Samaya Deluxe
+                {PLATFORM_NAME}
               </span>
             </Link>
 
@@ -182,7 +183,7 @@ export default function CustomerLayout() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Bus className="h-5 w-5 text-[#d84e55]" />
-                <span className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>Samaya Deluxe</span>
+                <span className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>{PLATFORM_NAME}</span>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
                 Your trusted partner for comfortable and safe bus travel across Nepal.
@@ -214,14 +215,14 @@ export default function CustomerLayout() {
               <h3 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Contact Us</h3>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-[#d84e55]" /> 01-4XXXXXX</li>
-                <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-[#d84e55]" /> support@samayadeluxe.com</li>
+                <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-[#d84e55]" /> {PLATFORM_EMAIL}</li>
                 <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-[#d84e55]" /> Kathmandu, Nepal</li>
               </ul>
             </div>
           </div>
 
           <div className="border-t border-gray-800 mt-8 pt-6 text-center text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Samaya Deluxe. All rights reserved.
+            &copy; {new Date().getFullYear()} {PLATFORM_NAME}. All rights reserved.
           </div>
         </div>
       </footer>

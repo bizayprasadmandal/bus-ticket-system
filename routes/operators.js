@@ -378,6 +378,39 @@ router.delete('/staff/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /my-company - Company name for any staff role tied to an operator
+router.get('/my-company', authenticateToken, async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const staffRole = userRoles.find(role =>
+      role.is_active && role.operator_id &&
+      ['OPERATOR', 'DISPATCHER', 'DRIVER', 'CONDUCTOR', 'COUNTER_AGENT'].includes(role.role)
+    );
+
+    if (!staffRole || !staffRole.operator_id) {
+      return res.status(404).json({ success: false, message: 'Company not found' });
+    }
+
+    const operator = await Operator.findByPk(staffRole.operator_id, {
+      attributes: ['id', 'company_name', 'company_name_nepali'],
+    });
+    if (!operator) {
+      return res.status(404).json({ success: false, message: 'Company not found' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        company_name: operator.company_name,
+        company_name_nepali: operator.company_name_nepali,
+      },
+    });
+  } catch (error) {
+    console.error('Get my company error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get company' });
+  }
+});
+
 // GET /profile - Get operator profile
 router.get('/profile', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
   try {

@@ -69,7 +69,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Samaya Deluxe API is running',
+    message: 'Gadi Ticket API is running',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
   });
@@ -188,7 +188,7 @@ const startServer = async () => {
     console.log('✅ WebSocket service initialized');
 
     server.listen(PORT, () => {
-      console.log(`🚀 Samaya Deluxe API server running on port ${PORT}`);
+      console.log(`🚀 Gadi Ticket API server running on port ${PORT}`);
       console.log(`📍 Health check: http://localhost:${PORT}/health`);
       console.log(`📡 WebSocket ready for connections`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV}`);

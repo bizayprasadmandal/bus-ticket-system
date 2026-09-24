@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 const axios = require('axios');
+const { PLATFORM_NAME } = require('../config/brand');
 
 class EmailService {
   constructor() {
@@ -21,7 +22,7 @@ class EmailService {
       const emailContent = this.generateBookingConfirmationEmail(booking);
       
       const mailOptions = {
-        from: `"Samaya Deluxe" <${process.env.SMTP_FROM_EMAIL}>`,
+        from: `"${PLATFORM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
         to: user.email,
         subject: `Booking Confirmation - PNR: ${booking.pnr}`,
         html: emailContent,
@@ -42,7 +43,7 @@ class EmailService {
       const emailContent = this.generateBookingCancellationEmail(booking, refundAmount);
       
       const mailOptions = {
-        from: `"Samaya Deluxe" <${process.env.SMTP_FROM_EMAIL}>`,
+        from: `"${PLATFORM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
         to: user.email,
         subject: `Booking Cancelled - PNR: ${booking.pnr}`,
         html: emailContent,
@@ -63,7 +64,7 @@ class EmailService {
       const emailContent = this.generatePaymentConfirmationEmail(payment, booking);
       
       const mailOptions = {
-        from: `"Samaya Deluxe" <${process.env.SMTP_FROM_EMAIL}>`,
+        from: `"${PLATFORM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
         to: user.email,
         subject: `Payment Confirmed - PNR: ${booking.pnr}`,
         html: emailContent,
@@ -104,7 +105,7 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🚌 Samaya Deluxe</h1>
+            <h1>🚌 ${PLATFORM_NAME}</h1>
             <h2>Booking Confirmation</h2>
           </div>
           
@@ -149,7 +150,7 @@ class EmailService {
           </div>
 
           <div class="footer">
-            <p>Thank you for choosing Samaya Deluxe!</p>
+            <p>Thank you for choosing ${PLATFORM_NAME}!</p>
             <p>This is an automated email. Please do not reply.</p>
           </div>
         </div>
@@ -177,7 +178,7 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🚌 Samaya Deluxe</h1>
+            <h1>🚌 ${PLATFORM_NAME}</h1>
             <h2>Booking Cancelled</h2>
           </div>
           
@@ -198,7 +199,7 @@ class EmailService {
           </div>
 
           <div class="footer">
-            <p>We're sorry to see you go. Thank you for considering Samaya Deluxe!</p>
+            <p>We're sorry to see you go. Thank you for considering ${PLATFORM_NAME}!</p>
           </div>
         </div>
       </body>
@@ -225,7 +226,7 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🚌 Samaya Deluxe</h1>
+            <h1>🚌 ${PLATFORM_NAME}</h1>
             <h2>Payment Confirmed</h2>
           </div>
           
@@ -263,7 +264,7 @@ class SMSService {
 
     // Sparrow SMS configuration (Popular in Nepal)
     this.sparrowToken = process.env.SPARROW_SMS_TOKEN;
-    this.sparrowFrom = process.env.SPARROW_SMS_FROM || 'SamayaDlx';
+    this.sparrowFrom = process.env.SPARROW_SMS_FROM || 'GadiTkt';
   }
 
   // Send SMS via Twilio
@@ -313,7 +314,7 @@ class SMSService {
 
   // Send booking confirmation SMS
   async sendBookingConfirmation(booking, user) {
-    const message = `Samaya Deluxe: Booking confirmed! PNR: ${booking.pnr}, ${booking.trip.route.origin_city} to ${booking.trip.route.destination_city}, Date: ${booking.trip.trip_date}, Time: ${booking.trip.departure_time}. Amount: NPR ${booking.total_amount}`;
+    const message = `${PLATFORM_NAME}: Booking confirmed! PNR: ${booking.pnr}, ${booking.trip.route.origin_city} to ${booking.trip.route.destination_city}, Date: ${booking.trip.trip_date}, Time: ${booking.trip.departure_time}. Amount: NPR ${booking.total_amount}`;
 
     // Try Sparrow first (for Nepal), fallback to Twilio
     let result = await this.sendViaSparrow(user.phone_number, message);
@@ -327,7 +328,7 @@ class SMSService {
 
   // Send booking cancellation SMS
   async sendBookingCancellation(booking, user, refundAmount) {
-    const message = `Samaya Deluxe: Booking ${booking.pnr} cancelled. Refund amount NPR ${refundAmount} will be processed in 3-5 days. Contact: ${process.env.SUPPORT_PHONE}`;
+    const message = `${PLATFORM_NAME}: Booking ${booking.pnr} cancelled. Refund amount NPR ${refundAmount} will be processed in 3-5 days. Contact: ${process.env.SUPPORT_PHONE}`;
 
     let result = await this.sendViaSparrow(user.phone_number, message);
     
@@ -340,7 +341,7 @@ class SMSService {
 
   // Send payment confirmation SMS
   async sendPaymentConfirmation(payment, booking, user) {
-    const message = `Samaya Deluxe: Payment confirmed! PNR: ${booking.pnr}, Amount: NPR ${payment.amount}, Transaction ID: ${payment.gateway_transaction_id}. Your seats are reserved!`;
+    const message = `${PLATFORM_NAME}: Payment confirmed! PNR: ${booking.pnr}, Amount: NPR ${payment.amount}, Transaction ID: ${payment.gateway_transaction_id}. Your seats are reserved!`;
 
     let result = await this.sendViaSparrow(user.phone_number, message);
     
@@ -353,7 +354,7 @@ class SMSService {
 
   // Send OTP SMS
   async sendOTP(phoneNumber, otp) {
-    const message = `Your Samaya Deluxe verification code is: ${otp}. Valid for 5 minutes. Do not share this code.`;
+    const message = `Your ${PLATFORM_NAME} verification code is: ${otp}. Valid for 5 minutes. Do not share this code.`;
 
     let result = await this.sendViaSparrow(phoneNumber, message);
     
@@ -367,7 +368,7 @@ class SMSService {
   // Send trip reminder SMS
   async sendTripReminder(booking, user, hoursBeforeDeparture) {
     const trip = booking.trip;
-    const message = `Samaya Deluxe Reminder: Your trip PNR ${booking.pnr} departs in ${hoursBeforeDeparture} hours. ${trip.route.origin_city} to ${trip.route.destination_city} at ${trip.departure_time}. Arrive 30 mins early!`;
+    const message = `${PLATFORM_NAME} Reminder: Your trip PNR ${booking.pnr} departs in ${hoursBeforeDeparture} hours. ${trip.route.origin_city} to ${trip.route.destination_city} at ${trip.departure_time}. Arrive 30 mins early!`;
 
     let result = await this.sendViaSparrow(user.phone_number, message);
     

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Users, ScanSearch, Clock, LogOut, Menu, X, ChevronRight, ExternalLink, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useCompanyBrand } from '../../hooks/useCompanyBrand';
 import toast from 'react-hot-toast';
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
 
 export default function ConductorLayout() {
   const { user, logout } = useAuthStore();
+  const companyName = useCompanyBrand();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,7 +61,7 @@ export default function ConductorLayout() {
               <Calendar className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-800">Samaya Deluxe</h1>
+              <h1 className="text-sm font-bold text-gray-800">{companyName}</h1>
               <p className="text-xs text-gray-500">Conductor Panel</p>
             </div>
           </div>
@@ -98,7 +100,7 @@ export default function ConductorLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 truncate">{user?.full_name || 'Conductor'}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email || 'conductor@samaya.com'}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email || 'Conductor'}</p>
             </div>
           </div>
           <button

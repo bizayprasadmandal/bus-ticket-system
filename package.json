@@ -1,5 +1,5 @@
 {
-  "name": "samaya-deluxe-backend",
+  "name": "gadi-ticket-backend",
   "version": "1.0.0",
   "description": "Bus booking system backend API with advanced features",
   "main": "server.js",
@@ -57,7 +57,7 @@
     "prettier": "^3.0.2",
     "supertest": "^6.3.3"
   },
-  "author": "Samaya Deluxe",
+  "author": "Gadi Ticket",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0",

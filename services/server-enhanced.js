@@ -79,7 +79,7 @@ app.get('/health', async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Samaya Deluxe API is running',
+      message: 'Gadi Ticket API is running',
       timestamp: new Date().toISOString(),
       version: '2.0.0',
       services: {
@@ -186,7 +186,7 @@ const startServer = async () => {
     app.locals.cachingService = cachingService;
     
     server.listen(PORT, () => {
-      console.log(`🚀 Samaya Deluxe API server running on port ${PORT}`);
+      console.log(`🚀 Gadi Ticket API server running on port ${PORT}`);
       console.log(`📍 Health check: http://localhost:${PORT}/health`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
       console.log(`💾 Cache: ${cachingService.redisClient ? 'Redis' : 'Memory'}`);

@@ -1,5 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Download } from 'lucide-react';
+import { PLATFORM_NAME } from '../constants/brand';
 
 interface Passenger {
   full_name: string;
@@ -21,6 +22,11 @@ interface Booking {
     bus: {
       bus_number: string;
       bus_type: string;
+    };
+    route?: {
+      operator?: {
+        company_name?: string;
+      };
     };
   };
   passengers: Passenger[];
@@ -49,11 +55,12 @@ export default function TicketCard({ booking }: { booking: Booking }) {
         <div className="bg-[#d84e55] text-white px-6 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
-              Samaya Deluxe
+              {PLATFORM_NAME}
             </h1>
             <p className="text-xs opacity-80 mt-0.5">E-TICKET</p>
           </div>
           <div className="text-right">
+            <p className="text-xs opacity-90 mb-1">{booking.trip.route?.operator?.company_name || PLATFORM_NAME}</p>
             <QRCodeSVG
               value={booking.pnr}
               size={80}

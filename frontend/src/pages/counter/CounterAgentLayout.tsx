@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Ticket, Search, LogOut, Menu, X, ChevronRight, ExternalLink, Phone, Banknote, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useCompanyBrand } from '../../hooks/useCompanyBrand';
 import toast from 'react-hot-toast';
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
 
 export default function CounterAgentLayout() {
   const { user, logout } = useAuthStore();
+  const companyName = useCompanyBrand();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,8 +61,8 @@ export default function CounterAgentLayout() {
               <Ticket className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-800">Counter Agent</h1>
-              <p className="text-xs text-gray-500">Panel</p>
+              <h1 className="text-sm font-bold text-gray-800">{companyName}</h1>
+              <p className="text-xs text-gray-500">Counter Panel</p>
             </div>
           </div>
           <button className="lg:hidden p-1 text-gray-500 hover:text-gray-700" onClick={() => setSidebarOpen(false)}>

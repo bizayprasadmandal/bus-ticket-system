@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Bus, Route, Calendar, Ticket, LogOut, Menu, X, ChevronRight, ExternalLink, Users, DollarSign, TrendingUp, Clock, Bell, BarChart3, Star, User, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useCompanyBrand } from '../../hooks/useCompanyBrand';
 import toast from 'react-hot-toast';
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
 
 export default function OperatorLayout() {
   const { user, logout } = useAuthStore();
+  const companyName = useCompanyBrand();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function OperatorLayout() {
               <Bus className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-800">Samaya Deluxe</h1>
+              <h1 className="text-sm font-bold text-gray-800">{companyName}</h1>
               <p className="text-xs text-gray-500">Operator Panel</p>
             </div>
           </div>
@@ -106,7 +108,7 @@ export default function OperatorLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 truncate">{user?.full_name || 'Operator'}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email || 'operator@samaya.com'}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email || 'Operator'}</p>
             </div>
           </div>
           <button

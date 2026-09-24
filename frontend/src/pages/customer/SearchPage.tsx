@@ -196,7 +196,7 @@ export default function SearchPage() {
   ];
 
   const travelPartners = [
-    'Gadi Yatra',
+    'Gadi Ticket',
     'Nepal Bus Co.',
     'Himalayan Express',
     'Mountain Travels',

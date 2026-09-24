@@ -5,12 +5,12 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Samaya Deluxe Bus Booking API',
+      title: 'Gadi Ticket Bus Booking API',
       version: '1.0.0',
       description: 'A comprehensive bus ticket booking system API for Nepal. Supports trip search, seat booking, payments (eSewa, Khalti), wallet, and real-time bus tracking.',
       contact: {
-        name: 'Samaya Deluxe',
-        email: 'support@samayadeluxe.com',
+        name: 'Gadi Ticket',
+        email: 'support@gaditicket.com',
       },
     },
     servers: [
@@ -138,7 +138,7 @@ const swaggerSpec = swaggerJsdoc(options);
 const setupSwagger = (app) => {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Samaya Deluxe API Docs',
+      customSiteTitle: 'Gadi Ticket API Docs',
   }));
   app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
 };

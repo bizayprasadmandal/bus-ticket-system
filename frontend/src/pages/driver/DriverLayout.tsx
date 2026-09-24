@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Clock, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useCompanyBrand } from '../../hooks/useCompanyBrand';
 import toast from 'react-hot-toast';
 
 const navItems = [
@@ -13,6 +14,7 @@ const navItems = [
 
 export default function DriverLayout() {
   const { user, logout } = useAuthStore();
+  const companyName = useCompanyBrand();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -57,7 +59,7 @@ export default function DriverLayout() {
               <LayoutDashboard className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-800">Samaya Deluxe</h1>
+              <h1 className="text-sm font-bold text-gray-800">{companyName}</h1>
               <p className="text-xs text-gray-500">Driver Panel</p>
             </div>
           </div>

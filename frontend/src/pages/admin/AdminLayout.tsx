@@ -108,7 +108,7 @@ export default function AdminLayout() {
             </div>
             <div>
               <h1 className="text-sm font-bold text-gray-800">Admin Panel</h1>
-              <p className="text-xs text-gray-400">Samaya Deluxe</p>
+              <p className="text-xs text-gray-400">Gadi Ticket</p>
             </div>
           </div>
           <button

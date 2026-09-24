@@ -16,7 +16,7 @@ import { paymentAPI } from '../api';
 const PAYMENT_METHODS = [
   { id: 'ESEWA', name: 'eSewa', icon: 'wallet' as const, color: '#10B981' },
   { id: 'KHALTI', name: 'Khalti', icon: 'wallet' as const, color: '#8B5CF6' },
-  { id: 'WALLET', name: 'Samaya Wallet', icon: 'card' as const, color: colors.primary },
+  { id: 'WALLET', name: 'Gadi Wallet', icon: 'card' as const, color: colors.primary },
 ];
 
 export default function PaymentScreen() {

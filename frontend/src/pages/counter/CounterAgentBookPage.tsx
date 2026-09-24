@@ -353,7 +353,7 @@ export default function CounterAgentBookPage() {
       </style></head><body>
       <div class="ticket">
         <div class="header">
-          <h1>Gadi Yatra</h1>
+          <h1>Gadi Ticket</h1>
           <p>Bus Ticket</p>
         </div>
         <div class="info-row"><span>PNR</span><strong>${pnr}</strong></div>

@@ -9,7 +9,7 @@ const router = express.Router();
 
 // Hardcoded seat layouts based on provided images
 const vipSofaSeatLayout = {
-  layout_name: "Samaya A/C VIP Sofa",
+  layout_name: "A/C VIP Sofa",
   sides: {
     A: ["A","B","C","D","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"],
     B: ["J1","J2","क","ख","ग","घ","१","२","३","४","५","६","७","८","९","१०","११","१२"]
@@ -17,7 +17,7 @@ const vipSofaSeatLayout = {
 };
 
 const sleeperSofaLayout = {
-  layout_name: "Samaya A/C Sleeper + Sofa",
+  layout_name: "A/C Sleeper + Sofa",
   sides: {
     A: ["A","B","C","D","1","2","3","4","5","6","7","8","9","10",
         "Sleeper Bed 1", "Sleeper Bed 2", "Sleeper Bed 3", "Sleeper Bed 8", "Sleeper Bed 11"],

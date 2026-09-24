@@ -1,4 +1,4 @@
-# Samaya Deluxe Bus Booking System - Backend API
+# Gadi Ticket Bus Booking System - Backend API
 
 A comprehensive Node.js backend for a bus booking system with features for users, operators, bookings, payments, and real-time tracking.
 
@@ -27,7 +27,7 @@ A comprehensive Node.js backend for a bus booking system with features for users
 ## Project Structure
 
 ```
-samaya-deluxe-backend/
+gadi-ticket-backend/
 ├── config/
 │   └── database.js              # Database connection
 ├── middleware/
@@ -157,7 +157,7 @@ GET    /api/dashboard/analytics/bookings # Booking analytics
 ### 1. Clone and Install Dependencies
 ```bash
 git clone <repository-url>
-cd samaya-deluxe-backend
+cd gadi-ticket-backend
 npm install
 ```
 
@@ -165,10 +165,10 @@ npm install
 ```bash
 # Create MySQL database
 mysql -u root -p
-CREATE DATABASE samayadeluxe_db;
+CREATE DATABASE gadi_ticket_db;
 
 # Import the provided SQL schema
-mysql -u root -p samayadeluxe_db < samayadeluxe_db.sql
+mysql -u root -p gadi_ticket_db < gadi_ticket_db.sql
 ```
 
 ### 3. Environment Configuration
@@ -183,7 +183,7 @@ PORT=3000
 
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=samayadeluxe_db
+DB_NAME=gadi_ticket_db
 DB_USERNAME=root
 DB_PASSWORD=your_password
 

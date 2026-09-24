@@ -9,6 +9,7 @@ const {
   Trip,
   Bus,
   Route,
+  Operator,
   User,
   SeatLock,
   Payment,
@@ -615,6 +616,9 @@ router.get('/:id', authenticateToken, commonValidation.idParam, handleValidation
             {
               model: Route,
               as: 'route',
+              include: [
+                { model: Operator, as: 'operator', attributes: ['id', 'company_name', 'company_name_nepali'] },
+              ],
             },
             {
               model: Bus,

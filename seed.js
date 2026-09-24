@@ -308,14 +308,14 @@ const seed = async () => {
     // --- Admin & Operator users ---
     const [admin] = await User.findOrCreate({
       where: { phone_number: '9800000001' },
-      defaults: { full_name: 'Admin User', email: 'admin@samayadeluxe.com', password: passwordHash, status: 'ACTIVE' },
+      defaults: { full_name: 'Admin User', email: 'admin@gaditicket.com', password: passwordHash, status: 'ACTIVE' },
     });
     await UserRole.findOrCreate({ where: { user_id: admin.id, role: 'SUPER_ADMIN' }, defaults: { user_id: admin.id, role: 'SUPER_ADMIN', is_active: true } });
     await UserWallet.findOrCreate({ where: { user_id: admin.id }, defaults: { user_id: admin.id, balance: 0 } });
 
     const [operatorUser] = await User.findOrCreate({
       where: { phone_number: '9800000002' },
-      defaults: { full_name: 'Operator User', email: 'operator@samayadeluxe.com', password: passwordHash, status: 'ACTIVE' },
+      defaults: { full_name: 'Operator User', email: 'operator@gaditicket.com', password: passwordHash, status: 'ACTIVE' },
     });
     const firstOp = await Operator.findOne();
     await UserRole.findOrCreate({ where: { user_id: operatorUser.id, role: 'OPERATOR' }, defaults: { user_id: operatorUser.id, role: 'OPERATOR', operator_id: firstOp?.id, is_active: true } });
@@ -323,10 +323,10 @@ const seed = async () => {
 
     // --- Staff Users (Dispatcher, Driver, Conductor, Counter Agent) ---
     const staffData = [
-      { phone_number: '9800000003', full_name: 'Rajesh Dispatcher', email: 'dispatcher@samayadeluxe.com', role: 'DISPATCHER' },
-      { phone_number: '9800000004', full_name: 'Suresh Driver', email: 'driver@samayadeluxe.com', role: 'DRIVER' },
-      { phone_number: '9800000005', full_name: 'Ram Bahadur Conductor', email: 'conductor@samayadeluxe.com', role: 'CONDUCTOR' },
-      { phone_number: '9800000006', full_name: 'Hari Counter Agent', email: 'counter@samayadeluxe.com', role: 'COUNTER_AGENT' },
+      { phone_number: '9800000003', full_name: 'Rajesh Dispatcher', email: 'dispatcher@gaditicket.com', role: 'DISPATCHER' },
+      { phone_number: '9800000004', full_name: 'Suresh Driver', email: 'driver@gaditicket.com', role: 'DRIVER' },
+      { phone_number: '9800000005', full_name: 'Ram Bahadur Conductor', email: 'conductor@gaditicket.com', role: 'CONDUCTOR' },
+      { phone_number: '9800000006', full_name: 'Hari Counter Agent', email: 'counter@gaditicket.com', role: 'COUNTER_AGENT' },
     ];
     for (const s of staffData) {
       const [user] = await User.findOrCreate({

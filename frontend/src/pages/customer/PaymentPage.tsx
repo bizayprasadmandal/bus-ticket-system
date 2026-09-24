@@ -17,7 +17,7 @@ const PAYMENT_TABS = [
 const WALLET_OPTIONS = [
   { id: 'ESEWA', name: 'eSewa', icon: 'eS', desc: 'Pay instantly with eSewa', color: '#10b981' },
   { id: 'KHALTI', name: 'Khalti', icon: 'Kh', desc: 'Pay instantly with Khalti', color: '#6d28d9' },
-  { id: 'WALLET', name: 'Samaya Wallet', icon: 'SW', desc: 'Pay from your Samaya balance', color: '#d84e55' },
+  { id: 'WALLET', name: 'Gadi Wallet', icon: 'GW', desc: 'Pay from your Gadi Ticket balance', color: '#d84e55' },
 ] as const;
 
 export default function PaymentPage() {

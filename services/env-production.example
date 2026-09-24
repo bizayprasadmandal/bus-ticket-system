@@ -3,12 +3,12 @@
 # Basic Configuration
 NODE_ENV=production
 PORT=3000
-BASE_URL=https://api.samayadeluxe.com
+BASE_URL=https://api.gaditicket.com
 
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=samayadeluxe_db
+DB_NAME=gadi_ticket_db
 DB_USERNAME=root
 DB_PASSWORD=your_secure_password
 
@@ -32,16 +32,16 @@ KHALTI_PUBLIC_KEY=your_khalti_public_key
 # ConnectIPS
 CONNECTIPS_MERCHANT_ID=your_connectips_merchant_id
 CONNECTIPS_APP_ID=your_connectips_app_id
-CONNECTIPS_APP_NAME=SamayaDeluxe
+CONNECTIPS_APP_NAME=GadiTicket
 CONNECTIPS_TXN_PASSWORD=your_connectips_txn_password
 
 # Email Configuration (SMTP)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=noreply@samayadeluxe.com
+SMTP_USERNAME=noreply@gaditicket.com
 SMTP_PASSWORD=your_smtp_password
-SMTP_FROM_EMAIL=noreply@samayadeluxe.com
-SMTP_FROM_NAME=Samaya Deluxe
+SMTP_FROM_EMAIL=noreply@gaditicket.com
+SMTP_FROM_NAME=Gadi Ticket
 
 # SMS Configuration
 # Twilio
@@ -51,7 +51,7 @@ TWILIO_PHONE_NUMBER=+1234567890
 
 # Sparrow SMS (Nepal)
 SPARROW_SMS_TOKEN=your_sparrow_sms_token
-SPARROW_SMS_FROM=SamayaDlx
+SPARROW_SMS_FROM=GadiTkt
 
 # File Upload Configuration
 FILE_STORAGE=local
@@ -61,18 +61,18 @@ UPLOAD_DIR=./uploads
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
 AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 AWS_REGION=us-east-1
-AWS_S3_BUCKET=samaya-deluxe-uploads
+AWS_S3_BUCKET=gadi-ticket-uploads
 
 # Security Configuration
 BCRYPT_ROUNDS=12
 SEAT_LOCK_DURATION_MINUTES=15
 
 # CORS Configuration
-ALLOWED_ORIGINS=https://samayadeluxe.com,https://www.samayadeluxe.com,https://admin.samayadeluxe.com
+ALLOWED_ORIGINS=https://gaditicket.com,https://www.gaditicket.com,https://admin.gaditicket.com
 
 # Support Configuration
 SUPPORT_PHONE=+977-1-4567890
-SUPPORT_EMAIL=support@samayadeluxe.com
+SUPPORT_EMAIL=support@gaditicket.com
 
 # Notification Configuration
 ENABLE_EMAIL_NOTIFICATIONS=true
@@ -93,7 +93,7 @@ LOG_MAX_SIZE=20m
 LOG_MAX_FILES=14d
 
 # WebSocket Configuration
-WEBSOCKET_CORS_ORIGINS=https://samayadeluxe.com,https://www.samayadeluxe.com
+WEBSOCKET_CORS_ORIGINS=https://gaditicket.com,https://www.gaditicket.com
 
 # Background Jobs Configuration
 QUEUE_REDIS_URL=redis://localhost:6379

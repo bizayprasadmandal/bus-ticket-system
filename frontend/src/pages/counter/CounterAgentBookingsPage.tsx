@@ -129,7 +129,7 @@ export default function CounterAgentBookingsPage() {
         .stamp span { display: inline-block; border: 3px solid ${booking.payment_status === 'PAID' ? '#16a34a' : '#f59e0b'}; color: ${booking.payment_status === 'PAID' ? '#16a34a' : '#f59e0b'}; font-size: 16px; font-weight: bold; padding: 4px 16px; border-radius: 4px; transform: rotate(-5deg); }
       </style></head><body>
       <div class="ticket">
-        <div class="header"><h1>Gadi Yatra</h1></div>
+        <div class="header"><h1>Gadi Ticket</h1></div>
         <div class="info-row"><span>PNR</span><strong>${sanitize(booking.pnr)}</strong></div>
         <div class="info-row"><span>Route</span><strong>${sanitize(booking.trip?.route?.origin_city)} → ${sanitize(booking.trip?.route?.destination_city)}</strong></div>
         <div class="info-row"><span>Date</span><strong>${sanitize(booking.trip?.trip_date)}</strong></div>

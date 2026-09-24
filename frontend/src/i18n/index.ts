@@ -25,7 +25,7 @@ const translations = {
     'common.total': 'Total',
     'common.status': 'Status',
     'common.noResults': 'No results found',
-    'home.title': 'Samaya Deluxe',
+    'home.title': 'Gadi Ticket',
     'home.subtitle': 'Your trusted bus booking partner',
     'home.searchPlaceholder': 'Where are you going?',
     'search.title': 'Search Results',

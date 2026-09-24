@@ -159,7 +159,7 @@ export default function CounterAgentPNRPage() {
         .stamp span { display: inline-block; border: 3px solid ${target.payment_status === 'COMPLETED' ? '#16a34a' : '#f59e0b'}; color: ${target.payment_status === 'COMPLETED' ? '#16a34a' : '#f59e0b'}; font-size: 16px; font-weight: bold; padding: 4px 16px; border-radius: 4px; transform: rotate(-5deg); }
       </style></head><body>
       <div class="ticket">
-        <div class="header"><h1>Gadi Yatra</h1></div>
+        <div class="header"><h1>Gadi Ticket</h1></div>
         <div class="info-row"><span>PNR</span><strong>${sanitize(pnr)}</strong></div>
         <div class="info-row"><span>Route</span><strong>${sanitize(route)}</strong></div>
         <div class="info-row"><span>Date</span><strong>${sanitize(target.trip?.trip_date || '')}</strong></div>

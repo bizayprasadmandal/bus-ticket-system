@@ -4,12 +4,13 @@ const { sequelize, User, UserRole, Operator, Bus, Route, Trip, Booking, Payment,
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const { PLATFORM_NAME } = require('../config/brand');
 
 const DEFAULT_SETTINGS = {
   service_fee: 5,
   tax_rate: 13,
   currency: 'NPR',
-  platform_name: 'Samaya Deluxe',
+  platform_name: PLATFORM_NAME,
   seat_lock_timeout: 10,
   max_passengers: 10,
   auto_cancel_timeout: 30,
@@ -633,6 +634,7 @@ router.get('/trips', async (req, res) => {
         { '$route.origin_city$': { [Op.like]: `%${search}%` } },
         { '$route.destination_city$': { [Op.like]: `%${search}%` } },
         { '$bus.bus_number$': { [Op.like]: `%${search}%` } },
+        { '$bus.operator.company_name$': { [Op.like]: `%${search}%` } },
       ];
     }
 
@@ -646,6 +648,9 @@ router.get('/trips', async (req, res) => {
         model: Bus,
         as: 'bus',
         attributes: ['id', 'bus_number', 'bus_type'],
+        include: [
+          { model: Operator, as: 'operator', attributes: ['id', 'company_name'] },
+        ],
       },
     ];
 

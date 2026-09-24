@@ -26,7 +26,7 @@ class RateLimitingService {
 
       this.rateLimiterRedis = new RateLimiterRedis({
         storeClient: this.redisClient,
-        keyPrefix: 'rl_samaya',
+        keyPrefix: 'rl_gadi',
         points: 100, // Number of requests
         duration: 900, // Per 15 minutes (900 seconds)
       });

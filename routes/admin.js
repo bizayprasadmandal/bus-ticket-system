@@ -577,10 +577,14 @@ router.get('/buses', async (req, res) => {
     const offset = (page - 1) * limit;
 
     let whereClause = {};
-    if (status) whereClause.status = status.toUpperCase();
+    if (status && String(status).toUpperCase() !== 'ALL') whereClause.status = status.toUpperCase();
     if (bus_type) whereClause.bus_type = bus_type;
     if (search) {
-      whereClause.bus_number = { [Op.like]: `%${search}%` };
+      whereClause[Op.or] = [
+        { bus_number: { [Op.like]: `%${search}%` } },
+        { bus_model: { [Op.like]: `%${search}%` } },
+        { '$operator.company_name$': { [Op.like]: `%${search}%` } },
+      ];
     }
 
     const { count, rows: buses } = await Bus.findAndCountAll({
@@ -597,10 +601,44 @@ router.get('/buses', async (req, res) => {
       offset: parseInt(offset),
     });
 
+    let activeCount = 0;
+    try {
+      const activeWhere = { ...whereClause };
+      delete activeWhere[Op.or];
+      if (search) {
+        activeWhere[Op.or] = [
+          { bus_number: { [Op.like]: `%${search}%` } },
+          { bus_model: { [Op.like]: `%${search}%` } },
+          { '$operator.company_name$': { [Op.like]: `%${search}%` } },
+        ];
+      }
+      activeWhere.status = 'ACTIVE';
+      if (bus_type) activeWhere.bus_type = bus_type;
+      activeCount = await Bus.count({
+        where: activeWhere,
+        include: [{ model: Operator, as: 'operator', required: !!search }],
+      });
+    } catch (err) {
+      console.error('Bus active count error:', err.message);
+      activeCount = 0;
+    }
+
+    let capacity = 0;
+    try {
+      capacity = (await Bus.sum('total_seats', { where: whereClause })) || 0;
+    } catch {
+      capacity = 0;
+    }
+
     res.json({
       success: true,
       data: {
         items: buses,
+        stats: {
+          total: count,
+          active: activeCount,
+          capacity,
+        },
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(count / limit),

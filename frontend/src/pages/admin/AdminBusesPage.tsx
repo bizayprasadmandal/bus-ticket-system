@@ -13,7 +13,13 @@ interface BusItem {
   operator_name: string;
   total_seats: number;
   status: string;
-  created_at: string;
+  created_at: string | null;
+}
+
+interface BusStats {
+  total: number;
+  active: number;
+  capacity: number;
 }
 
 export default function AdminBusesPage() {
@@ -24,6 +30,8 @@ export default function AdminBusesPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [stats, setStats] = useState<BusStats>({ total: 0, active: 0, capacity: 0 });
 
   const itemsPerPage = 10;
 
@@ -36,7 +44,14 @@ export default function AdminBusesPage() {
       const res = await api.get('/admin/buses', { params });
       const items = res.data.data.items || [];
       const pagination = res.data.data.pagination || {};
+      const apiStats = res.data.data.stats || {};
       setTotalPages(pagination.total_pages || 1);
+      setTotalItems(pagination.total_items || 0);
+      setStats({
+        total: apiStats.total ?? pagination.total_items ?? 0,
+        active: apiStats.active ?? 0,
+        capacity: apiStats.capacity ?? 0,
+      });
       setBuses(items.map((b: any) => ({
         id: b.id,
         bus_number: b.bus_number,
@@ -45,7 +60,7 @@ export default function AdminBusesPage() {
         operator_name: b.operator?.company_name || '-',
         total_seats: b.total_seats || 0,
         status: b.status,
-        created_at: b.registration_date || b.created_at || new Date().toISOString(),
+        created_at: b.registration_date || null,
       })));
     } catch {
       toast.error('Failed to load buses');
@@ -107,15 +122,15 @@ export default function AdminBusesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Total Buses</p>
-          <p className="text-2xl font-bold text-gray-800">{buses.length}</p>
+          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Active</p>
-          <p className="text-2xl font-bold text-green-600">{buses.filter(b => b.status === 'ACTIVE').length}</p>
+          <p className="text-2xl font-bold text-green-600">{stats.active}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Total Capacity</p>
-          <p className="text-2xl font-bold text-[#d84e55]">{buses.reduce((sum, b) => sum + b.total_seats, 0)}</p>
+          <p className="text-2xl font-bold text-[#d84e55]">{stats.capacity}</p>
         </div>
       </div>
 
@@ -202,7 +217,7 @@ export default function AdminBusesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">
-                    {new Date(bus.created_at).toLocaleDateString()}
+                    {bus.created_at ? new Date(bus.created_at).toLocaleDateString() : '—'}
                   </td>
                 </tr>
               ))}
@@ -221,7 +236,7 @@ export default function AdminBusesPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + buses.length)} of {(totalPages * itemsPerPage)}
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + buses.length)} of {totalItems}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -232,7 +247,9 @@ export default function AdminBusesPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
+                const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+                const page = start + i;
+                if (page > totalPages) return null;
                 return (
                   <button
                     key={page}

@@ -90,7 +90,7 @@ export default function AdminOperatorDetailPage() {
   const loadBuses = useCallback(async () => {
     setBusesLoading(true);
     try {
-      const res = await api.get('/buses', { params: { operator_id: id } });
+      const res = await api.get('/buses', { params: { operator_id: id, status: 'ALL' } });
       const list = res.data.data.buses || res.data.data.items || res.data.data || [];
       setBuses(Array.isArray(list) ? list.map((b: any) => ({
         id: b.id,

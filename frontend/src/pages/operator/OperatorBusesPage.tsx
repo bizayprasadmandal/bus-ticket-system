@@ -9,11 +9,10 @@ import toast from 'react-hot-toast';
 interface BusItem {
   id: number;
   bus_number: string;
-  bus_model: string;
+  bus_model: string | null;
   bus_type: string;
   total_seats: number;
   status: string;
-  created_at: string;
 }
 
 export default function OperatorBusesPage() {
@@ -40,9 +39,10 @@ export default function OperatorBusesPage() {
 
   const filteredBuses = useMemo(() => {
     return buses.filter((bus) => {
+      const model = (bus.bus_model || '').toLowerCase();
       const matchesSearch =
         bus.bus_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bus.bus_model.toLowerCase().includes(searchQuery.toLowerCase());
+        model.includes(searchQuery.toLowerCase());
       const matchesType = typeFilter === 'ALL' || bus.bus_type === typeFilter;
       const matchesStatus = statusFilter === 'ALL' || bus.status === statusFilter;
       return matchesSearch && matchesType && matchesStatus;
@@ -56,12 +56,18 @@ export default function OperatorBusesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const seats = Number(form.total_seats);
+    if (!seats || seats < 1 || seats > 100) {
+      toast.error('Total seats must be between 1 and 100');
+      return;
+    }
     try {
+      const payload = { ...form, total_seats: seats };
       if (editingBus) {
-        await operatorBusAPI.update(editingBus.id, form);
+        await operatorBusAPI.update(editingBus.id, payload);
         toast.success('Bus updated');
       } else {
-        await operatorBusAPI.create(form);
+        await operatorBusAPI.create(payload);
         toast.success('Bus created');
       }
       setShowModal(false);
@@ -86,7 +92,7 @@ export default function OperatorBusesPage() {
 
   const openEdit = (bus: BusItem) => {
     setEditingBus(bus);
-    setForm({ bus_number: bus.bus_number, bus_model: bus.bus_model, bus_type: bus.bus_type, total_seats: bus.total_seats });
+    setForm({ bus_number: bus.bus_number, bus_model: bus.bus_model || '', bus_type: bus.bus_type, total_seats: bus.total_seats });
     setShowModal(true);
   };
 
@@ -94,8 +100,11 @@ export default function OperatorBusesPage() {
     switch (type) {
       case 'AC': return 'bg-blue-100 text-blue-700';
       case 'DELUXE': return 'bg-purple-100 text-purple-700';
+      case 'SUPER_DELUXE': return 'bg-violet-100 text-violet-700';
       case 'SLEEPER': return 'bg-indigo-100 text-indigo-700';
-      case 'VIP': return 'bg-amber-100 text-amber-700';
+      case 'SEMI_SLEEPER': return 'bg-cyan-100 text-cyan-700';
+      case 'NON_AC': return 'bg-gray-100 text-gray-600';
+      case 'TOURIST': return 'bg-amber-100 text-amber-700';
       default: return 'bg-gray-100 text-gray-600';
     }
   };
@@ -142,7 +151,7 @@ export default function OperatorBusesPage() {
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Total Capacity</p>
-          <p className="text-2xl font-bold text-blue-600">{buses.reduce((sum, b) => sum + b.total_seats, 0)}</p>
+          <p className="text-2xl font-bold text-blue-600">{buses.reduce((sum, b) => sum + (b.total_seats || 0), 0)}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Inactive</p>
@@ -171,8 +180,11 @@ export default function OperatorBusesPage() {
             <option value="ALL">All Types</option>
             <option value="AC">AC</option>
             <option value="DELUXE">Deluxe</option>
+            <option value="SUPER_DELUXE">Super Deluxe</option>
+            <option value="NON_AC">Non AC</option>
             <option value="SLEEPER">Sleeper</option>
-            <option value="VIP">VIP</option>
+            <option value="SEMI_SLEEPER">Semi Sleeper</option>
+            <option value="TOURIST">Tourist</option>
           </select>
           <select
             value={statusFilter}
@@ -181,7 +193,8 @@ export default function OperatorBusesPage() {
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="MAINTENANCE">Maintenance</option>
+            <option value="RETIRED">Retired</option>
           </select>
         </div>
       </div>
@@ -211,7 +224,7 @@ export default function OperatorBusesPage() {
                       <span className="font-medium text-gray-800">{bus.bus_number}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{bus.bus_model}</td>
+                  <td className="px-4 py-3 text-gray-600">{bus.bus_model || '-'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getBusTypeColor(bus.bus_type)}`}>
                       {bus.bus_type}
@@ -225,7 +238,9 @@ export default function OperatorBusesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      bus.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      bus.status === 'ACTIVE' ? 'bg-green-100 text-green-700'
+                        : bus.status === 'MAINTENANCE' ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-600'
                     }`}>
                       {bus.status}
                     </span>
@@ -266,7 +281,9 @@ export default function OperatorBusesPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
+                const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+                const page = start + i;
+                if (page > totalPages) return null;
                 return (
                   <button key={page} onClick={() => setCurrentPage(page)}
                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
@@ -312,8 +329,11 @@ export default function OperatorBusesPage() {
                   options={[
                     { value: 'AC', label: 'AC' },
                     { value: 'DELUXE', label: 'Deluxe' },
+                    { value: 'SUPER_DELUXE', label: 'Super Deluxe' },
+                    { value: 'NON_AC', label: 'Non AC' },
                     { value: 'SLEEPER', label: 'Sleeper' },
-                    { value: 'VIP', label: 'VIP' },
+                    { value: 'SEMI_SLEEPER', label: 'Semi Sleeper' },
+                    { value: 'TOURIST', label: 'Tourist' },
                   ]}
                   placeholder="Select bus type"
                 />
@@ -321,7 +341,7 @@ export default function OperatorBusesPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Total Seats *</label>
                 <input type="number" placeholder="Number of seats" value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: Number(e.target.value) })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} required />
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} max={100} required />
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                 {editingBus ? 'Update Bus' : 'Create Bus'}

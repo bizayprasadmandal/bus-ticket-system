@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { authAPI, userAPI, walletAPI } from '../../api';
 import { useAuthStore } from '../../store/authStore';
+import Avatar from '../../components/Avatar';
 import toast from 'react-hot-toast';
 import type { User as UserProfile } from '../../types';
 
@@ -217,7 +218,12 @@ export default function ProfilePage() {
                 aria-label="Change profile photo"
               >
                 {photoUrl ? (
-                  <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                  <Avatar
+                    src={photoUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    fallback={<span className="text-xl font-bold text-white">{initials}</span>}
+                  />
                 ) : (
                   <span className="text-xl font-bold text-white">{initials}</span>
                 )}

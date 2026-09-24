@@ -106,24 +106,24 @@ router.post('/profile/photo', authenticateToken, photoUpload.single('photo'), as
 
     await user.update({ profile_image_url: result.url });
 
-    // Best-effort cleanup of previous local profile image
-    if (
-      previousUrl &&
-      previousUrl.startsWith('/uploads/') &&
-      result.url !== previousUrl
-    ) {
-      try {
-        const relative = previousUrl.slice('/uploads/'.length);
-        if (relative.startsWith('profiles/')) {
-          const uploadRoot = process.env.UPLOAD_DIR || './uploads';
-          const localPath = path.resolve(uploadRoot, relative);
-          const rootResolved = path.resolve(uploadRoot);
-          if (localPath.startsWith(rootResolved) && fs.existsSync(localPath)) {
-            fs.unlinkSync(localPath);
+    // Best-effort cleanup of previous local profile image (relative or absolute URL)
+    if (previousUrl && result.url !== previousUrl) {
+      const marker = '/uploads/';
+      const markerIndex = previousUrl.indexOf(marker);
+      if (markerIndex !== -1) {
+        try {
+          const relative = previousUrl.slice(markerIndex + marker.length);
+          if (relative.startsWith('profiles/')) {
+            const uploadRoot = process.env.UPLOAD_DIR || './uploads';
+            const localPath = path.resolve(uploadRoot, relative);
+            const rootResolved = path.resolve(uploadRoot);
+            if (localPath.startsWith(rootResolved) && fs.existsSync(localPath)) {
+              fs.unlinkSync(localPath);
+            }
           }
+        } catch (err) {
+          console.warn('Failed to delete old profile photo:', err.message);
         }
-      } catch (err) {
-        console.warn('Failed to delete old profile photo:', err.message);
       }
     }
 

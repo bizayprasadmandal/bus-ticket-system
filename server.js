@@ -40,7 +40,11 @@ const fareRuleRoutes = require('./routes/fare-rules');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  // Allow uploaded images (profile photos) to render when the page origin
+  // differs from the API origin (dev Vite proxy, separate frontend host).
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
   credentials: true,

@@ -1,5 +1,5 @@
 const { sequelize } = require('./models');
-const { Operator, City, Bus, Route, Trip, User, UserRole, UserWallet, Booking, BookingPassenger, Payment, WalletTransaction } = require('./models');
+const { Operator, City, Bus, Route, Trip, User, UserRole, UserWallet, Booking, BookingPassenger, Payment, WalletTransaction, PromoCode } = require('./models');
 const bcrypt = require('bcryptjs');
 
 const seatLayout = (rows, seatsPerSide) => {
@@ -341,6 +341,29 @@ const seed = async () => {
     }
     console.log(`Seeded ${staffData.length} staff users (dispatcher, driver, conductor, counter agent)`);
 
+    // --- Promo Codes ---
+    const promoData = [
+      { code: 'WELCOME10', description: '10% off for new customers', discount_type: 'percentage', discount_value: 10, min_amount: 500, max_uses: 100, used_count: 23, valid_from: pastDates[6], valid_until: futureDates[13], status: 'ACTIVE' },
+      { code: 'DASHAIN25', description: 'Dashain festival 25% off', discount_type: 'percentage', discount_value: 25, min_amount: 1000, max_uses: 50, used_count: 12, valid_from: pastDates[3], valid_until: futureDates[13], status: 'ACTIVE' },
+      { code: 'POKHARA200', description: 'Flat NPR 200 off Pokhara routes', discount_type: 'fixed', discount_value: 200, min_amount: 800, max_uses: 40, used_count: 8, valid_from: pastDates[6], valid_until: futureDates[7], status: 'ACTIVE' },
+      { code: 'NIGHT15', description: '15% off night buses', discount_type: 'percentage', discount_value: 15, min_amount: 600, max_uses: 30, used_count: 5, valid_from: pastDates[1], valid_until: futureDates[13], status: 'ACTIVE' },
+      { code: 'STUDENT50', description: 'Flat NPR 50 off for students', discount_type: 'fixed', discount_value: 50, min_amount: 300, max_uses: 200, used_count: 67, valid_from: pastDates[6], valid_until: futureDates[13], status: 'ACTIVE' },
+      { code: 'SUMMER30', description: 'Summer promo 30% off', discount_type: 'percentage', discount_value: 30, min_amount: 1200, max_uses: 25, used_count: 25, valid_from: pastDates[6], valid_until: pastDates[1], status: 'ACTIVE' },
+      { code: 'EXPIRED5', description: 'Old 5% promo (expired)', discount_type: 'percentage', discount_value: 5, min_amount: 0, max_uses: 100, used_count: 41, valid_from: pastDates[6], valid_until: pastDates[2], status: 'ACTIVE' },
+      { code: 'FREETRIAL', description: 'Disabled test code', discount_type: 'fixed', discount_value: 100, min_amount: 500, max_uses: 10, used_count: 0, valid_from: pastDates[6], valid_until: futureDates[13], status: 'DISABLED' },
+      { code: 'USEDUP20', description: 'Fully redeemed promo', discount_type: 'percentage', discount_value: 20, min_amount: 700, max_uses: 15, used_count: 15, valid_from: pastDates[6], valid_until: futureDates[13], status: 'ACTIVE' },
+      { code: 'TIHAR100', description: 'Flat NPR 100 off for Tihar', discount_type: 'fixed', discount_value: 100, min_amount: 500, max_uses: 60, used_count: 3, valid_from: pastDates[6], valid_until: futureDates[13], status: 'ACTIVE' },
+    ];
+    let promoCount = 0;
+    for (const p of promoData) {
+      const [, created] = await PromoCode.findOrCreate({
+        where: { code: p.code },
+        defaults: p,
+      });
+      if (created) promoCount++;
+    }
+    console.log(`Seeded ${promoCount} new promo codes (${promoData.length} total defined)`);
+
     // --- Sample Bookings ---
     const allTrips = await Trip.findAll({ include: [{ model: Route, as: 'route' }, { model: Bus, as: 'bus' }], order: [['id', 'ASC']] });
     const futureTrips = allTrips.filter(t => t.status === 'SCHEDULED');
@@ -521,6 +544,7 @@ const seed = async () => {
       bookings: await Booking.count(),
       passengers: await BookingPassenger.count(),
       payments: await Payment.count(),
+      promo_codes: await PromoCode.count(),
     };
     console.log('\nSeed complete!');
     console.log('---');
@@ -533,6 +557,7 @@ const seed = async () => {
     console.log(`Bookings: ${counts.bookings}`);
     console.log(`Passengers: ${counts.passengers}`);
     console.log(`Payments: ${counts.payments}`);
+    console.log(`Promo codes: ${counts.promo_codes}`);
     console.log('---');
     console.log('\nCustomer login: 9841123456 / password123');
     console.log('Admin login: 9800000001 / password123');

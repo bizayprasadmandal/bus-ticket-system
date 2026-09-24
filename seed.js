@@ -50,6 +50,12 @@ const seed = async () => {
     console.log('Operators upserted');
 
     // --- Cities ---
+    try {
+      await sequelize.query('ALTER TABLE cities ADD UNIQUE INDEX cities_name_unique (name)');
+      console.log('cities_name_unique index ensured');
+    } catch (e) {
+      if (!/Duplicate key name/i.test(e.message)) console.warn('cities unique index:', e.message);
+    }
     const cityData = [
       { name: 'Kathmandu', name_nepali: '\u0915\u093E\u0920\u092E\u093E\u0921\u094C\u0902', district: 'Kathmandu', province: 'Bagmati', latitude: 27.7172, longitude: 85.3240, is_major_city: true },
       { name: 'Pokhara', name_nepali: '\u092A\u094B\u0916\u0930\u093E', district: 'Kaski', province: 'Gandaki', latitude: 28.2096, longitude: 83.9856, is_major_city: true },

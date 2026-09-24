@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { MapPin, Search, ChevronLeft, ChevronRight, RefreshCw, Plus, Edit, X } from 'lucide-react';
+import { MapPin, Search, ChevronLeft, ChevronRight, RefreshCw, Plus, Edit, Trash2, X } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -114,6 +114,17 @@ export default function AdminCitiesPage() {
     }
   };
 
+  const handleDelete = async (city: CityItem) => {
+    if (!window.confirm(`Delete city "${city.name}"?`)) return;
+    try {
+      await api.delete(`/cities/${city.id}`);
+      toast.success('City deleted');
+      loadCities();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete city');
+    }
+  };
+
   if (loading) return <TableSkeleton rows={5} cols={4} />;
 
   return (
@@ -205,6 +216,13 @@ export default function AdminCitiesPage() {
                         title="Edit"
                       >
                         <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(city)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>

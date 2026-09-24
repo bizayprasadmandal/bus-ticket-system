@@ -10,6 +10,7 @@ const City = sequelize.define('City', {
   name: {
     type: DataTypes.STRING(50),
     allowNull: false,
+    unique: true,
   },
   name_nepali: {
     type: DataTypes.STRING(50),

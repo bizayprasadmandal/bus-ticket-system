@@ -1,4 +1,5 @@
 const express = require('express');
+const { fn, col, where } = require('sequelize');
 const { City } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { commonValidation } = require('../validators');
@@ -98,6 +99,17 @@ router.post('/', authenticateToken, requireRole(['SUPER_ADMIN']), async (req, re
       });
     }
 
+    const normalized = name.trim().toLowerCase();
+    const dupe = await City.findOne({
+      where: where(fn('LOWER', fn('TRIM', col('name'))), normalized),
+    });
+    if (dupe) {
+      return res.status(409).json({
+        success: false,
+        message: 'City already exists',
+      });
+    }
+
     const city = await City.create({
       name,
       name_nepali,
@@ -169,6 +181,35 @@ router.put('/:id', authenticateToken, requireRole(['SUPER_ADMIN']), commonValida
     res.status(500).json({
       success: false,
       message: 'Failed to update city',
+      error: error.message,
+    });
+  }
+});
+
+// Delete city (Admin only)
+router.delete('/:id', authenticateToken, requireRole(['SUPER_ADMIN']), commonValidation.idParam, handleValidationErrors, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const city = await City.findByPk(id);
+    if (!city) {
+      return res.status(404).json({
+        success: false,
+        message: 'City not found',
+      });
+    }
+
+    await city.destroy();
+    await invalidateCitiesCache();
+
+    res.json({
+      success: true,
+      message: 'City deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete city error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete city',
       error: error.message,
     });
   }

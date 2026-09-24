@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Search, ChevronLeft, ChevronRight, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -7,15 +7,18 @@ import toast from 'react-hot-toast';
 
 interface TripItem {
   id: number;
-  origin_city: string;
-  destination_city: string;
-  bus_number: string;
-  operator_name: string;
   trip_date: string;
   departure_time: string;
   available_seats: number;
   status: string;
-  fare: number;
+  current_fare: number | string;
+  route?: { id?: number; origin_city?: string; destination_city?: string };
+  bus?: {
+    id?: number;
+    bus_number?: string;
+    bus_type?: string;
+    operator?: { id?: number; company_name?: string };
+  };
 }
 
 export default function AdminTripsPage() {
@@ -26,36 +29,37 @@ export default function AdminTripsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   const itemsPerPage = 10;
 
   const loadTrips = useCallback(async () => {
     try {
-      const params: any = {};
+      const params: any = { page: currentPage, limit: itemsPerPage };
       if (searchQuery) params.search = searchQuery;
       if (statusFilter !== 'ALL') params.status = statusFilter;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
+      if (dateFrom) params.start_date = dateFrom;
+      if (dateTo) params.end_date = dateTo;
       const res = await api.get('/admin/trips', { params });
       setTrips(res.data.data.items || []);
+      setTotalItems(res.data.data.pagination?.total_items || 0);
     } catch {
       toast.error('Failed to load trips');
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, statusFilter, dateFrom, dateTo]);
+  }, [currentPage, searchQuery, statusFilter, dateFrom, dateTo]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadTrips, 30000);
 
   useEffect(() => { loadTrips(); }, [loadTrips]);
 
-  const filteredTrips = useMemo(() => trips, [trips]);
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
 
-  const totalPages = Math.ceil(filteredTrips.length / itemsPerPage);
-  const paginatedTrips = filteredTrips.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, dateFrom, dateTo]);
 
@@ -112,8 +116,9 @@ export default function AdminTripsPage() {
           >
             <option value="ALL">All Status</option>
             <option value="SCHEDULED">Scheduled</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="COMPLETED">Completed</option>
+            <option value="BOARDING">Boarding</option>
+            <option value="DEPARTED">Departed</option>
+            <option value="ARRIVED">Arrived</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
           <div className="flex items-center gap-2">
@@ -151,19 +156,19 @@ export default function AdminTripsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedTrips.map((trip) => (
+              {trips.map((trip) => (
                 <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-mono text-gray-600">#{trip.id}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-gray-800">
                       <MapPin className="h-3.5 w-3.5 text-[#d84e55]" />
-                      <span className="font-medium">{trip.origin_city}</span>
+                      <span className="font-medium">{trip.route?.origin_city || '—'}</span>
                       <ArrowRight className="h-3 w-3 text-gray-400 mx-1" />
-                      <span className="font-medium">{trip.destination_city}</span>
+                      <span className="font-medium">{trip.route?.destination_city || '—'}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{trip.bus_number}</td>
-                  <td className="px-4 py-3 text-gray-600">{trip.operator_name}</td>
+                  <td className="px-4 py-3 text-gray-600">{trip.bus?.bus_number || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{trip.bus?.operator?.company_name || '—'}</td>
                   <td className="px-4 py-3">
                     <div>
                       <p className="text-gray-800">{trip.trip_date}</p>
@@ -175,7 +180,9 @@ export default function AdminTripsPage() {
                       {trip.available_seats}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-800">NPR {trip.fare?.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-800">
+                    NPR {Number(trip.current_fare || 0).toLocaleString()}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
                       {trip.status?.replace('_', ' ')}
@@ -183,7 +190,7 @@ export default function AdminTripsPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedTrips.length === 0 && (
+              {trips.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center">
                     <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -198,35 +205,47 @@ export default function AdminTripsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTrips.length)} of {filteredTrips.length}
+              Showing {((safePage - 1) * itemsPerPage) + 1} to {Math.min(safePage * itemsPerPage, totalItems)} of {totalItems}
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                disabled={safePage === 1}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  if (totalPages <= 7) return true;
+                  if (page === 1 || page === totalPages) return true;
+                  return Math.abs(page - safePage) <= 1;
+                })
+                .reduce<(number | '...')[]>((acc, page, i, arr) => {
+                  if (i > 0 && page - (arr[i - 1] as number) > 1) acc.push('...');
+                  acc.push(page);
+                  return acc;
+                }, [])
+                .map((page, i) =>
+                  page === '...' ? (
+                    <span key={`gap-${i}`} className="px-1 text-gray-400">…</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                        safePage === page
+                          ? 'bg-[#d84e55] text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                disabled={safePage === totalPages}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />

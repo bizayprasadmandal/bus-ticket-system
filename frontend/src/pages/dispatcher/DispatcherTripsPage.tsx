@@ -72,7 +72,6 @@ export default function DispatcherTripsPage() {
     BOARDING: 'bg-amber-100 text-amber-700',
     DEPARTED: 'bg-purple-100 text-purple-700',
     ARRIVED: 'bg-teal-100 text-teal-700',
-    COMPLETED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
   };
 

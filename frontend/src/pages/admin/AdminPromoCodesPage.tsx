@@ -51,7 +51,7 @@ export default function AdminPromoCodesPage() {
 
   const loadPromos = useCallback(async () => {
     try {
-      const res = await api.get('/admin/promo-codes', { params: { page: currentPage, limit: 50 } });
+      const res = await api.get('/admin/promo-codes', { params: { page: 1, limit: 1000 } });
       const items = (res.data.data.items || []).map((p: any) => ({
         ...p,
         discount_value: Number(p.discount_value) || 0,
@@ -66,7 +66,7 @@ export default function AdminPromoCodesPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage]);
+  }, []);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadPromos, 30000);
   useEffect(() => { loadPromos(); }, [loadPromos]);
@@ -86,8 +86,13 @@ export default function AdminPromoCodesPage() {
     return result;
   }, [promos, statusFilter, searchQuery]);
 
-  const totalPages = Math.ceil(filteredPromos.length / itemsPerPage);
-  const paginatedPromos = filteredPromos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredPromos.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedPromos = filteredPromos.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const generateCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -325,35 +330,47 @@ export default function AdminPromoCodesPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredPromos.length)} of {filteredPromos.length}
+              Showing {((safePage - 1) * itemsPerPage) + 1} to {Math.min(safePage * itemsPerPage, filteredPromos.length)} of {filteredPromos.length}
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                disabled={safePage === 1}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  if (totalPages <= 7) return true;
+                  if (page === 1 || page === totalPages) return true;
+                  return Math.abs(page - safePage) <= 1;
+                })
+                .reduce<(number | '...')[]>((acc, page, i, arr) => {
+                  if (i > 0 && page - (arr[i - 1] as number) > 1) acc.push('...');
+                  acc.push(page);
+                  return acc;
+                }, [])
+                .map((page, i) =>
+                  page === '...' ? (
+                    <span key={`gap-${i}`} className="px-1 text-gray-400">…</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                        safePage === page
+                          ? 'bg-[#d84e55] text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                disabled={safePage === totalPages}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />

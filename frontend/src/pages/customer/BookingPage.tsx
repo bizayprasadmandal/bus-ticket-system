@@ -227,46 +227,16 @@ export default function BookingPage() {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          minHeight: '60vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '16px',
-        }}
-      >
-        <div
-          style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #e5e7eb',
-            borderTopColor: '#d84e55',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <p style={{ color: '#6b7280', fontWeight: 500, fontFamily: 'Inter' }}>
-          Loading trip details...
-        </p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#d84e55]" />
+        <p className="font-medium text-gray-500">Loading trip details...</p>
       </div>
     );
   }
 
   if (!trip) {
     return (
-      <div
-        style={{
-          textAlign: 'center',
-          padding: '64px 16px',
-          color: '#6b7280',
-          fontFamily: 'Inter',
-        }}
-      >
-        Trip not found
-      </div>
+      <div className="px-4 py-16 text-center text-gray-500">Trip not found</div>
     );
   }
 
@@ -292,174 +262,55 @@ export default function BookingPage() {
     : [];
 
   return (
-    <div style={{ background: '#f0f0f0', minHeight: '100vh', fontFamily: 'Inter' }}>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .seat-btn { transition: all 0.15s ease; }
-        .seat-btn:hover:not(:disabled) { transform: scale(1.08); }
-        .seat-btn:active:not(:disabled) { transform: scale(0.95); }
-      `}</style>
-
-      <div
-        style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '24px 16px',
-          display: 'grid',
-          gridTemplateColumns: '1fr 380px',
-          gap: '24px',
-          alignItems: 'start',
-        }}
-      >
+    <div>
+      <div className="mx-auto grid max-w-[1200px] grid-cols-1 items-start gap-6 py-2 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ==================== LEFT SIDE ==================== */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="flex flex-col gap-5">
           {trip.status !== 'SCHEDULED' && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '14px 16px',
-                background: '#fef3c7',
-                border: '1px solid #fcd34d',
-                borderRadius: '10px',
-                fontSize: '14px',
-                color: '#92400e',
-                fontWeight: 600,
-              }}
-            >
-              <AlertTriangle size={18} />
+            <div className="flex items-center gap-2.5 rounded-[10px] border border-amber-300 bg-amber-100 px-4 py-3.5 text-sm font-semibold text-amber-800">
+              <AlertTriangle size={18} className="shrink-0" />
               This trip is not available for booking (status: {trip.status}).
             </div>
           )}
 
           {/* ---- SEAT SELECTION ---- */}
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              padding: '24px',
-            }}
-          >
-            <h2
-              style={{
-                fontSize: '18px',
-                fontWeight: 700,
-                color: '#1a1a2e',
-                marginBottom: '16px',
-                fontFamily: 'Poppins',
-              }}
-            >
+          <div className="card p-6">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
               Select your seats
             </h2>
 
             {/* Legend */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '24px',
-                marginBottom: '20px',
-                fontSize: '13px',
-                color: '#555',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
-                  style={{
-                    width: '24px',
-                    height: '28px',
-                    border: '2px solid #49c489',
-                    borderRadius: '6px',
-                    background: '#fff',
-                  }}
-                />
+            <div className="mb-5 flex flex-wrap gap-6 text-[13px] text-gray-600">
+              <span className="flex items-center gap-2">
+                <span className="h-7 w-6 rounded-md border-2 border-[#49c489] bg-white" />
                 Available
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
-                  style={{
-                    width: '24px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    background: '#49c489',
-                  }}
-                />
+              <span className="flex items-center gap-2">
+                <span className="h-7 w-6 rounded-md bg-[#49c489]" />
                 Selected
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
-                  style={{
-                    width: '24px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    background: '#d1d5db',
-                    backgroundImage:
-                      'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 5px)',
-                  }}
-                />
+              <span className="flex items-center gap-2">
+                <span className="h-7 w-6 rounded-md bg-gray-300 bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,rgba(0,0,0,0.08)_3px,rgba(0,0,0,0.08)_5px)]" />
                 Occupied
               </span>
             </div>
 
             {/* Bus visual */}
-            <div
-              style={{
-                background: '#fafafa',
-                borderRadius: '12px',
-                border: '1px solid #e5e7eb',
-                padding: '20px',
-                maxWidth: '360px',
-              }}
-            >
+            <div className="max-w-[360px] rounded-xl border border-gray-200 bg-gray-50 p-5">
               {/* Driver area */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  marginBottom: '16px',
-                  paddingBottom: '12px',
-                  borderBottom: '2px dashed #e5e7eb',
-                }}
-              >
-                <span style={{ fontSize: '20px' }}>🪑</span>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#9ca3af',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase',
-                  }}
-                >
+              <div className="mb-4 flex items-center justify-center gap-2 border-b-2 border-dashed border-gray-200 pb-3">
+                <span className="text-xl">🪑</span>
+                <span className="text-[11px] font-bold uppercase tracking-[2px] text-gray-400">
                   Driver
                 </span>
               </div>
 
               {/* Seat grid */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div className="flex flex-col gap-1.5">
                 {layoutRows.map((row, rowIdx) => (
-                  <div
-                    key={rowIdx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0',
-                    }}
-                  >
+                  <div key={rowIdx} className="flex items-center">
                     {/* Row number */}
-                    <span
-                      style={{
-                        width: '24px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: '#9ca3af',
-                        textAlign: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
+                    <span className="w-6 shrink-0 text-center text-[11px] font-bold text-gray-400">
                       {rowIdx + 1}
                     </span>
 
@@ -469,56 +320,27 @@ export default function BookingPage() {
                       const isSelected = selectedSeats.includes(seatId);
                       const isAisle = seatIdx === 1;
 
-                      let bg = '#fff';
-                      let color = '#374151';
-                      let border = '2px solid #49c489';
-                      let cursor = 'pointer';
-                      let pattern = 'none';
+                      let seatClass =
+                        'cursor-pointer border-2 border-[#49c489] bg-white text-gray-700';
 
                       if (isOccupied) {
-                        bg = '#d1d5db';
-                        color = '#9ca3af';
-                        border = '2px solid #d1d5db';
-                        cursor = 'not-allowed';
-                        pattern =
-                          'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 5px)';
+                        seatClass =
+                          'cursor-not-allowed border-2 border-gray-300 bg-gray-300 bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,rgba(0,0,0,0.08)_3px,rgba(0,0,0,0.08)_5px)] text-gray-400';
                       } else if (isSelected) {
-                        bg = '#49c489';
-                        color = '#fff';
-                        border = '2px solid #49c489';
+                        seatClass =
+                          'cursor-pointer border-2 border-[#49c489] bg-[#49c489] text-white shadow-[0_2px_8px_rgba(73,196,137,0.4)]';
                       }
 
                       return (
                         <div
                           key={seatId}
-                          style={{
-                            marginRight: isAisle ? '28px' : '4px',
-                            marginLeft: seatIdx === 0 ? '0' : undefined,
-                          }}
+                          className={isAisle ? 'mr-7' : 'mr-1'}
                         >
                           <button
                             type="button"
                             disabled={isOccupied}
                             onClick={() => toggleSeat(seatId)}
-                            className="seat-btn"
-                            style={{
-                              width: '40px',
-                              height: '45px',
-                              borderRadius: '6px',
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              background: bg,
-                              color: color,
-                              border: border,
-                              cursor: cursor,
-                              backgroundImage: pattern,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              boxShadow: isSelected
-                                ? '0 2px 8px rgba(73,196,137,0.4)'
-                                : 'none',
-                            }}
+                            className={`flex h-[45px] w-10 items-center justify-center rounded-md text-[10px] font-bold transition-all duration-150 enabled:hover:scale-[1.08] enabled:active:scale-95 ${seatClass}`}
                           >
                             {seatId}
                           </button>
@@ -532,18 +354,7 @@ export default function BookingPage() {
 
             {/* Selected seats badge */}
             {selectedSeats.length > 0 && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  padding: '10px 16px',
-                  background: '#f0fdf4',
-                  borderRadius: '8px',
-                  border: '1px solid #bbf7d0',
-                  fontSize: '13px',
-                  color: '#15803d',
-                  fontWeight: 500,
-                }}
-              >
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-[13px] font-medium text-green-700">
                 {selectedSeats.length} seat
                 {selectedSeats.length !== 1 ? 's' : ''} selected:{' '}
                 {selectedSeats.join(', ')}
@@ -552,23 +363,15 @@ export default function BookingPage() {
 
             {/* Boarding & Dropping info */}
             {trip.route?.stops && trip.route.stops.length > 0 && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  display: 'flex',
-                  gap: '32px',
-                  fontSize: '13px',
-                  color: '#6b7280',
-                }}
-              >
+              <div className="mt-4 flex flex-wrap gap-8 text-[13px] text-gray-500">
                 <div>
-                  <span style={{ fontWeight: 600, color: '#374151' }}>
+                  <span className="font-semibold text-gray-700">
                     Boarding:{' '}
                   </span>
                   {trip.route.origin_city}
                 </div>
                 <div>
-                  <span style={{ fontWeight: 600, color: '#374151' }}>
+                  <span className="font-semibold text-gray-700">
                     Dropping:{' '}
                   </span>
                   {trip.route.destination_city}
@@ -579,137 +382,58 @@ export default function BookingPage() {
 
           {/* ---- PASSENGER DETAILS ---- */}
           {selectedSeats.length > 0 && (
-            <div
-              style={{
-                background: '#fff',
-                borderRadius: '12px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                padding: '24px',
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 700,
-                  color: '#1a1a2e',
-                  marginBottom: '20px',
-                  fontFamily: 'Poppins',
-                }}
-              >
+            <div className="card p-6">
+              <h2 className="mb-5 text-lg font-bold text-gray-900">
                 Passenger Details
               </h2>
 
               {/* Contact details */}
-              <div style={{ marginBottom: '24px' }}>
-                <h3
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#6b7280',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '12px',
-                  }}
-                >
+              <div className="mb-6">
+                <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                   Contact Details
                 </h3>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: '1 1 100%' }}>
-                    <Phone
-                      size={16}
-                      style={{
-                        position: 'absolute',
-                        left: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#9ca3af',
-                      }}
-                    />
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-1 basis-full items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                      <Phone size={16} />
+                    </span>
                     <input
                       type="tel"
                       placeholder="Contact phone number"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px 10px 36px',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                        fontFamily: 'Inter',
-                      }}
+                      className="field"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Passenger forms */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="flex flex-col gap-4">
                 {selectedSeats.map((seat, i) => (
                   <div
                     key={seat}
-                    style={{
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '12px',
-                      padding: '20px',
-                      background: '#fafafa',
-                    }}
+                    className="rounded-2xl border border-gray-100 bg-gray-50 p-5"
                   >
                     {/* Passenger header */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        marginBottom: '14px',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          background: '#d84e55',
-                          color: '#fff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                        }}
-                      >
+                    <div className="mb-3.5 flex items-center gap-2.5">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#d84e55] text-xs font-bold text-white">
                         {i + 1}
-                      </div>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>
+                      </span>
+                      <span className="text-sm font-semibold text-gray-700">
                         Passenger {i + 1} &middot; Seat{' '}
-                        <span style={{ color: '#d84e55' }}>{seat}</span>
+                        <span className="text-[#d84e55]">{seat}</span>
                       </span>
                     </div>
 
                     {/* Fields row */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 80px 1fr 1fr',
-                        gap: '10px',
-                        alignItems: 'start',
-                      }}
-                    >
+                    <div className="grid grid-cols-2 items-start gap-2.5 md:grid-cols-[1fr_80px_1fr_1fr]">
                       {/* Name */}
                       <input
                         placeholder="Full name"
                         value={passengers[i]?.name || ''}
                         onChange={(e) => updatePassenger(i, 'name', e.target.value)}
-                        style={{
-                          padding: '10px 12px',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          outline: 'none',
-                          fontFamily: 'Inter',
-                        }}
+                        className="field"
                       />
 
                       {/* Age */}
@@ -722,23 +446,11 @@ export default function BookingPage() {
                         onChange={(e) =>
                           updatePassenger(i, 'age', Number(e.target.value))
                         }
-                        style={{
-                          padding: '10px 12px',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          outline: 'none',
-                          fontFamily: 'Inter',
-                        }}
+                        className="field"
                       />
 
                       {/* Gender pills */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '6px',
-                        }}
-                      >
+                      <div className="flex gap-1.5">
                         {(['MALE', 'FEMALE', 'OTHER'] as const).map((g) => {
                           const active = passengers[i]?.gender === g;
                           return (
@@ -746,20 +458,11 @@ export default function BookingPage() {
                               key={g}
                               type="button"
                               onClick={() => updatePassenger(i, 'gender', g)}
-                              style={{
-                                padding: '8px 10px',
-                                borderRadius: '20px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                border: active
-                                  ? '2px solid #d84e55'
-                                  : '1px solid #e5e7eb',
-                                background: active ? '#fef2f2' : '#fff',
-                                color: active ? '#d84e55' : '#6b7280',
-                                cursor: 'pointer',
-                                fontFamily: 'Inter',
-                                transition: 'all 0.15s ease',
-                              }}
+                              className={`rounded-full px-2.5 py-2 text-[11px] font-semibold transition-all duration-150 ${
+                                active
+                                  ? 'border-2 border-[#d84e55] bg-[#fef2f2] text-[#d84e55]'
+                                  : 'border border-gray-200 bg-white text-gray-500 hover:border-[#f5c6c9] hover:text-[#b53d43]'
+                              }`}
                             >
                               {g === 'MALE' ? 'M' : g === 'FEMALE' ? 'F' : 'O'}
                             </button>
@@ -768,7 +471,7 @@ export default function BookingPage() {
                       </div>
 
                       {/* ID Type + Number */}
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                      <div className="flex gap-1.5">
                         <Dropdown
                           value={passengers[i]?.id_type || 'citizenship'}
                           onChange={(val) => updatePassenger(i, 'id_type', val)}
@@ -786,16 +489,7 @@ export default function BookingPage() {
                           onChange={(e) =>
                             updatePassenger(i, 'id_number', e.target.value)
                           }
-                          style={{
-                            flex: 1,
-                            padding: '10px 12px',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            outline: 'none',
-                            fontFamily: 'Inter',
-                            minWidth: 0,
-                          }}
+                          className="field min-w-0 flex-1"
                         />
                       </div>
                     </div>
@@ -807,141 +501,52 @@ export default function BookingPage() {
         </div>
 
         {/* ==================== RIGHT SIDE (STICKY SIDEBAR) ==================== */}
-        <div style={{ position: 'sticky', top: '24px' }}>
+        <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
           {/* Trip Info Card */}
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Maroon header */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #8b1a2b, #a52433)',
-                padding: '16px 20px',
-                color: '#fff',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px',
-                }}
-              >
+          <div className="card overflow-hidden">
+            {/* Brand gradient header */}
+            <div className="bg-gradient-to-br from-[#7f2a2f] via-[#d84e55] to-[#e7565d] px-5 py-4 text-white">
+              <div className="mb-1 flex items-center gap-2">
                 <Bus size={18} />
-                <span style={{ fontWeight: 700, fontSize: '15px', fontFamily: 'Poppins' }}>
+                <span className="text-[15px] font-bold">
                   {trip.bus?.bus_type || 'Standard'}
                 </span>
               </div>
-              <span style={{ fontSize: '12px', opacity: 0.85 }}>
+              <span className="text-xs text-white/85">
                 {trip.bus?.bus_number}
               </span>
               {trip.operator?.company_name && (
-                <div
-                  style={{
-                    fontSize: '12px',
-                    opacity: 0.85,
-                    marginTop: '2px',
-                  }}
-                >
+                <div className="mt-0.5 text-xs text-white/85">
                   {trip.operator.company_name}
                 </div>
               )}
             </div>
 
             {/* Route visual */}
-            <div style={{ padding: '20px' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                }}
-              >
+            <div className="p-5">
+              <div className="flex items-start gap-3">
                 {/* Timeline dots */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    paddingTop: '4px',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      border: '3px solid #d84e55',
-                      background: '#fff',
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: '2px',
-                      height: '40px',
-                      background:
-                        'repeating-linear-gradient(to bottom, #d1d5db 0px, #d1d5db 4px, transparent 4px, transparent 8px)',
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      background: '#49c489',
-                    }}
-                  />
+                <div className="flex flex-col items-center pt-1">
+                  <div className="h-3 w-3 rounded-full border-[3px] border-[#d84e55] bg-white" />
+                  <div className="h-10 border-l-2 border-dashed border-gray-300" />
+                  <div className="h-3 w-3 rounded-full bg-[#49c489]" />
                 </div>
 
                 {/* Cities + times */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ marginBottom: '28px' }}>
-                    <p
-                      style={{
-                        fontSize: '20px',
-                        fontWeight: 700,
-                        color: '#1a1a2e',
-                        fontFamily: 'Poppins',
-                        margin: 0,
-                      }}
-                    >
+                <div className="flex-1">
+                  <div className="mb-7">
+                    <p className="text-xl font-bold text-gray-900">
                       {trip.departure_time?.substring(0, 5)}
                     </p>
-                    <p
-                      style={{
-                        fontSize: '13px',
-                        color: '#6b7280',
-                        margin: '2px 0 0',
-                      }}
-                    >
+                    <p className="mt-0.5 text-[13px] text-gray-500">
                       {trip.route?.origin_city}
                     </p>
                   </div>
                   <div>
-                    <p
-                      style={{
-                        fontSize: '20px',
-                        fontWeight: 700,
-                        color: '#1a1a2e',
-                        fontFamily: 'Poppins',
-                        margin: 0,
-                      }}
-                    >
+                    <p className="text-xl font-bold text-gray-900">
                       {trip.arrival_time?.substring(0, 5)}
                     </p>
-                    <p
-                      style={{
-                        fontSize: '13px',
-                        color: '#6b7280',
-                        margin: '2px 0 0',
-                      }}
-                    >
+                    <p className="mt-0.5 text-[13px] text-gray-500">
                       {trip.route?.destination_city}
                     </p>
                   </div>
@@ -949,28 +554,18 @@ export default function BookingPage() {
               </div>
 
               {/* Date + duration */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '16px',
-                  marginTop: '16px',
-                  paddingTop: '16px',
-                  borderTop: '1px solid #f3f4f6',
-                  fontSize: '13px',
-                  color: '#6b7280',
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div className="mt-4 flex flex-wrap gap-4 border-t border-gray-100 pt-4 text-[13px] text-gray-500">
+                <span className="flex items-center gap-1">
                   <Clock size={14} /> {trip.trip_date}
                 </span>
                 {trip.route?.estimated_duration_minutes ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="flex items-center gap-1">
                     <MapPin size={14} />{' '}
                     {Math.floor(trip.route.estimated_duration_minutes / 60)}h{' '}
                     {trip.route.estimated_duration_minutes % 60}m
                   </span>
                 ) : trip.route?.estimated_duration ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="flex items-center gap-1">
                     <MapPin size={14} /> {trip.route.estimated_duration}
                   </span>
                 ) : null}
@@ -978,31 +573,14 @@ export default function BookingPage() {
 
               {/* Amenities */}
               {amenities.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '8px',
-                    marginTop: '14px',
-                    flexWrap: 'wrap',
-                  }}
-                >
+                <div className="mt-3.5 flex flex-wrap gap-2">
                   {amenities.map((a) => {
                     const Icon = AMENITY_ICONS[a.toLowerCase()] || Star;
                     return (
                       <div
                         key={a}
                         title={a}
-                        style={{
-                          padding: '4px 10px',
-                          background: '#f3f4f6',
-                          borderRadius: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '11px',
-                          color: '#6b7280',
-                          fontWeight: 500,
-                        }}
+                        className="flex items-center gap-1 rounded-md bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-500"
                       >
                         <Icon size={12} />
                         {a}
@@ -1015,51 +593,22 @@ export default function BookingPage() {
           </div>
 
           {/* Promo Code Card */}
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              padding: '20px',
-              marginTop: '16px',
-            }}
-          >
-            <h3
-              style={{
-                fontSize: '15px',
-                fontWeight: 700,
-                color: '#1a1a2e',
-                marginBottom: '12px',
-                fontFamily: 'Poppins',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Tag size={15} style={{ color: '#d84e55' }} />
+          <div className="card p-5">
+            <h3 className="mb-3 flex items-center gap-1.5 text-lg font-bold text-gray-900">
+              <Tag size={15} className="text-[#d84e55]" />
               Offers
             </h3>
 
             {appliedPromo ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  borderRadius: '10px',
-                  padding: '10px 12px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={16} style={{ color: '#16a34a' }} />
+              <div className="flex items-center justify-between gap-2 rounded-[10px] border border-green-200 bg-green-50 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="shrink-0 text-green-600" />
                   <div>
-                    <p style={{ fontSize: '13px', fontWeight: 700, color: '#166534', margin: 0 }}>
+                    <p className="text-[13px] font-bold text-green-800">
                       {appliedPromo.code} applied
                     </p>
                     {discountAmount > 0 && (
-                      <p style={{ fontSize: '11px', color: '#4d7c0f', margin: 0 }}>
+                      <p className="text-[11px] text-lime-700">
                         You save NPR {discountAmount.toLocaleString()}
                       </p>
                     )}
@@ -1068,51 +617,24 @@ export default function BookingPage() {
                 <button
                   type="button"
                   onClick={removePromo}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#dc2626',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
+                  className="shrink-0 text-xs font-bold text-red-600 transition-colors hover:text-red-700"
                 >
                   Remove
                 </button>
               </div>
             ) : (
               <div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="flex gap-2">
                   <input
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                     placeholder="Enter promo code"
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '10px',
-                      padding: '10px 12px',
-                      fontSize: '13px',
-                      outline: 'none',
-                      fontFamily: 'monospace',
-                      letterSpacing: '0.5px',
-                    }}
+                    className="field min-w-0 flex-1 font-mono tracking-[0.5px]"
                   />
                   <button
                     type="button"
                     onClick={() => applyPromo(promoInput)}
-                    style={{
-                      background: '#d84e55',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '10px 16px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontFamily: 'Poppins',
-                    }}
+                    className="btn-primary"
                   >
                     APPLY
                   </button>
@@ -1120,80 +642,37 @@ export default function BookingPage() {
                 <button
                   type="button"
                   onClick={() => setShowOffers((v) => !v)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#d84e55',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: '8px 0 0',
-                  }}
+                  className="mt-2 text-xs font-semibold text-[#d84e55] transition-colors hover:text-[#b53d43]"
                 >
                   {showOffers ? 'Hide offers' : `View all offers (${promos.length})`}
                 </button>
                 {showOffers && (
-                  <div
-                    style={{
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      marginTop: '8px',
-                    }}
-                  >
+                  <div className="mt-2 flex max-h-[200px] flex-col gap-2 overflow-y-auto">
                     {promos.length === 0 && (
-                      <p style={{ fontSize: '12px', color: '#9ca3af' }}>
+                      <p className="text-xs text-gray-400">
                         No offers available right now
                       </p>
                     )}
                     {promos.map((p) => (
                       <div
                         key={p.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '8px',
-                          border: '1px solid #f3f4f6',
-                          borderRadius: '10px',
-                          padding: '8px 10px',
-                        }}
+                        className="flex items-center justify-between gap-2 rounded-[10px] border border-gray-100 px-2.5 py-2"
                       >
-                        <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: '13px', fontWeight: 700, color: '#d84e55', margin: 0 }}>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-[#d84e55]">
                             {p.discount_type === 'percentage'
                               ? `${Number(p.discount_value)}% OFF`
                               : `NPR ${Number(p.discount_value).toLocaleString()} OFF`}
                           </p>
-                          <p
-                            style={{
-                              fontSize: '11px',
-                              color: '#6b7280',
-                              margin: 0,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {p.description || p.code} · min NPR {Number(p.min_amount).toLocaleString()}
+                          <p className="truncate text-[11px] text-gray-500">
+                            {p.description || p.code} · min NPR{' '}
+                            {Number(p.min_amount).toLocaleString()}
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => applyPromo(p.code)}
-                          style={{
-                            flexShrink: 0,
-                            background: '#fff',
-                            color: '#d84e55',
-                            border: '1px solid #f2c4c6',
-                            borderRadius: '8px',
-                            padding: '5px 10px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
+                          className="shrink-0 rounded-lg border border-[#f2c4c6] bg-white px-2.5 py-1 text-xs font-bold text-[#d84e55] transition-colors hover:bg-[#fef2f2]"
                         >
                           APPLY
                         </button>
@@ -1206,126 +685,55 @@ export default function BookingPage() {
           </div>
 
           {/* Fare Summary Card */}
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: '12px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              padding: '20px',
-              marginTop: '16px',
-            }}
-          >
-            <h3
-              style={{
-                fontSize: '15px',
-                fontWeight: 700,
-                color: '#1a1a2e',
-                marginBottom: '16px',
-                fontFamily: 'Poppins',
-              }}
-            >
+          <div className="card p-5">
+            <h3 className="mb-4 text-lg font-bold text-gray-900">
               Fare Summary
             </h3>
 
             {selectedSeats.length > 0 ? (
               <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '13px',
-                    color: '#6b7280',
-                    marginBottom: '8px',
-                  }}
-                >
+                <div className="mb-2 flex justify-between gap-3 text-sm text-gray-500">
                   <span>
-                    Base fare ({selectedSeats.length} × NPR {fare})
+                    Base fare ({selectedSeats.length} × NPR{' '}
+                    {Number(fare).toLocaleString()})
                   </span>
-                  <span style={{ fontWeight: 600, color: '#374151' }}>
-                    NPR {baseTotal}
+                  <span className="font-semibold text-gray-700">
+                    NPR {Number(baseTotal).toLocaleString()}
                   </span>
                 </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '13px',
-                    color: '#6b7280',
-                    marginBottom: '8px',
-                  }}
-                >
+                <div className="mb-2 flex justify-between gap-3 text-sm text-gray-500">
                   <span>GST (est. 13%)</span>
-                  <span style={{ fontWeight: 600, color: '#374151' }}>
-                    NPR {gst}
+                  <span className="font-semibold text-gray-700">
+                    NPR {Number(gst).toLocaleString()}
                   </span>
                 </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '13px',
-                    color: '#6b7280',
-                    marginBottom: '12px',
-                  }}
-                >
+                <div className="mb-3 flex justify-between gap-3 text-sm text-gray-500">
                   <span>Service fee ({selectedSeats.length} × NPR 50)</span>
-                  <span style={{ fontWeight: 600, color: '#374151' }}>
-                    NPR {serviceFee}
+                  <span className="font-semibold text-gray-700">
+                    NPR {Number(serviceFee).toLocaleString()}
                   </span>
                 </div>
                 {appliedPromo && discountAmount > 0 && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: '13px',
-                      color: '#16a34a',
-                      marginBottom: '12px',
-                    }}
-                  >
+                  <div className="mb-3 flex justify-between gap-3 text-sm text-green-600">
                     <span>Promo ({appliedPromo.code})</span>
-                    <span style={{ fontWeight: 600 }}>- NPR {discountAmount}</span>
+                    <span className="font-semibold">
+                      - NPR {Number(discountAmount).toLocaleString()}
+                    </span>
                   </div>
                 )}
-                <div
-                  style={{
-                    borderTop: '2px solid #f3f4f6',
-                    paddingTop: '12px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: '#1a1a2e',
-                    }}
-                  >
-                    Total
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '22px',
-                      fontWeight: 800,
-                      color: '#d84e55',
-                      fontFamily: 'Poppins',
-                    }}
-                  >
-                    NPR {totalAmount}
-                  </span>
+                <div className="border-t border-dashed border-gray-200 pt-3">
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-[#fef2f2] p-3">
+                    <span className="text-sm font-bold text-gray-900">
+                      Total
+                    </span>
+                    <span className="text-2xl font-extrabold text-[#d84e55]">
+                      NPR {Number(totalAmount).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (
-              <p
-                style={{
-                  fontSize: '13px',
-                  color: '#9ca3af',
-                  textAlign: 'center',
-                  padding: '20px 0',
-                }}
-              >
+              <p className="py-5 text-center text-[13px] text-gray-400">
                 Select seats to see fare details
               </p>
             )}
@@ -1335,28 +743,11 @@ export default function BookingPage() {
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit() || isSubmitting}
-              style={{
-                width: '100%',
-                marginTop: '16px',
-                padding: '14px',
-                background: canSubmit() && !isSubmitting ? '#d84e55' : '#e5e7eb',
-                color: canSubmit() && !isSubmitting ? '#fff' : '#9ca3af',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '15px',
-                fontWeight: 700,
-                cursor: canSubmit() && !isSubmitting ? 'pointer' : 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontFamily: 'Poppins',
-                transition: 'all 0.15s ease',
-                boxShadow:
-                  canSubmit() && !isSubmitting
-                    ? '0 4px 12px rgba(216,78,85,0.3)'
-                    : 'none',
-              }}
+              className={`mt-4 w-full sm:w-auto ${
+                canSubmit() && !isSubmitting
+                  ? 'btn-primary'
+                  : 'inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-[0.875rem] bg-gray-200 px-6 py-3 text-sm font-semibold text-gray-500'
+              }`}
             >
               {isSubmitting ? (
                 'Processing...'
@@ -1364,7 +755,7 @@ export default function BookingPage() {
                 <>
                   <CreditCard size={18} />
                   {selectedSeats.length > 0
-                    ? `Proceed to Pay · NPR ${totalAmount}`
+                    ? `Proceed to Pay · NPR ${Number(totalAmount).toLocaleString()}`
                     : 'Proceed to Pay'}
                   {selectedSeats.length > 0 && (
                     <ChevronRight size={18} />

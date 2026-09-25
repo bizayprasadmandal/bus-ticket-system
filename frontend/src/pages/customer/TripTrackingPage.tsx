@@ -16,7 +16,7 @@ L.Icon.Default.mergeOptions({
 
 const busIcon = L.divIcon({
   className: '',
-  html: `<div style="background:#3B82F6;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M16 6v6"/><path d="M2 12h20"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H6c-1.1 0-2.1.8-2.4 1.8L2 13c-.1.4-.2.8-.2 1.2 0 .4.1.8.2 1.2C2.3 15.3 3 18 3 18h3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div>`,
+  html: `<div style="background:#d84e55;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M16 6v6"/><path d="M2 12h20"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H6c-1.1 0-2.1.8-2.4 1.8L2 13c-.1.4-.2.8-.2 1.2 0 .4.1.8.2 1.2C2.3 15.3 3 18 3 18h3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div>`,
   iconSize: [36, 36],
   iconAnchor: [18, 18],
 });
@@ -218,16 +218,16 @@ export default function TripTrackingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
+      <div className="p-4">
+        <div className="max-w-6xl mx-auto">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-1/3"></div>
             <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            <div className="bg-gray-200 rounded-lg h-96"></div>
+            <div className="bg-gray-200 rounded-2xl h-96"></div>
             <div className="grid grid-cols-3 gap-4">
-              <div className="h-20 bg-gray-200 rounded"></div>
-              <div className="h-20 bg-gray-200 rounded"></div>
-              <div className="h-20 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded-2xl"></div>
+              <div className="h-24 bg-gray-200 rounded-2xl"></div>
+              <div className="h-24 bg-gray-200 rounded-2xl"></div>
             </div>
           </div>
         </div>
@@ -237,17 +237,14 @@ export default function TripTrackingPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-lg shadow p-8 max-w-md w-full text-center">
+      <div className="flex items-center justify-center py-16 px-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 max-w-md w-full text-center">
           <div className="text-red-500 mb-4">
             <RefreshCw className="w-12 h-12 mx-auto" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Trip</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => setRetryCount((c) => c + 1)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-          >
+          <button onClick={() => setRetryCount((c) => c + 1)} className="btn-primary">
             Try Again
           </button>
         </div>
@@ -264,17 +261,18 @@ export default function TripTrackingPage() {
     .map((s) => [s.lat as number, s.lng as number]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       <div className="max-w-6xl mx-auto p-4 space-y-4">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <Bus className="w-6 h-6 text-blue-600" />
+              <div className="bg-[#fef2f2] text-[#d84e55] rounded-xl p-2.5 shrink-0">
+                <Bus className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Trip Tracker</h1>
+                <span className="eyebrow">Live tracking</span>
+                <h1 className="text-2xl font-bold text-gray-900">Trip Tracker</h1>
                 {tripInfo && (
                   <p className="text-sm text-gray-500">
                     {tripInfo.origin} → {tripInfo.destination}
@@ -284,10 +282,11 @@ export default function TripTrackingPage() {
             </div>
             {tripInfo && (
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${
                   STATUS_STYLES[tripInfo.status] || 'bg-gray-100 text-gray-700'
                 }`}
               >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 {STATUS_LABELS[tripInfo.status] || tripInfo.status}
               </span>
             )}
@@ -295,7 +294,7 @@ export default function TripTrackingPage() {
         </div>
 
         {/* Map */}
-        <div className="bg-white rounded-lg shadow overflow-hidden" style={{ height: '500px' }}>
+        <div className="h-[500px] rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
           <MapContainer
             center={center}
             zoom={location ? 13 : 7}
@@ -313,37 +312,43 @@ export default function TripTrackingPage() {
               </>
             )}
             {routePoints.length > 1 && (
-              <Polyline positions={routePoints} pathOptions={{ color: '#3B82F6', weight: 4, opacity: 0.8 }} />
+              <Polyline positions={routePoints} pathOptions={{ color: '#d84e55', weight: 4, opacity: 0.8 }} />
             )}
           </MapContainer>
         </div>
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <Navigation className="w-4 h-4" />
-              Speed
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2.5">
+              <span className="bg-[#fef2f2] text-[#d84e55] rounded-xl p-2">
+                <Navigation className="w-4 h-4" />
+              </span>
+              <span className="text-sm font-medium text-gray-500">Speed</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-gray-900 mt-3">
               {speed !== null ? `${speed.toFixed(1)} km/h` : '--'}
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <Clock className="w-4 h-4" />
-              Last Updated
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2.5">
+              <span className="bg-[#fef2f2] text-[#d84e55] rounded-xl p-2">
+                <Clock className="w-4 h-4" />
+              </span>
+              <span className="text-sm font-medium text-gray-500">Last Updated</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{formatTime(lastUpdated)}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-3">{formatTime(lastUpdated)}</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
-              <RefreshCw className="w-4 h-4" />
-              Departure
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2.5">
+              <span className="bg-[#fef2f2] text-[#d84e55] rounded-xl p-2">
+                <RefreshCw className="w-4 h-4" />
+              </span>
+              <span className="text-sm font-medium text-gray-500">Departure</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-gray-900 mt-3">
               {tripInfo?.departure_time
                 ? /^\d{2}:\d{2}/.test(tripInfo.departure_time)
                   ? tripInfo.departure_time.slice(0, 5)
@@ -355,15 +360,21 @@ export default function TripTrackingPage() {
 
         {/* Route Stops */}
         {(tripInfo?.stops || []).some((s) => s.name) && (
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Route Stops</h3>
-            <div className="space-y-2">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="font-semibold text-gray-900 mb-4">Route Stops</h3>
+            <div>
               {tripInfo!.stops
                 .filter((stop) => stop.name)
-                .map((stop, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{stop.name}</span>
+                .map((stop, idx, arr) => (
+                  <div key={idx} className="relative flex gap-3 pb-5 last:pb-0">
+                    {idx < arr.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-[5px] top-6 bottom-0 border-l-2 border-dashed border-gray-200"
+                      />
+                    )}
+                    <span className="h-3 w-3 rounded-full bg-[#d84e55] ring-4 ring-[#fef2f2] shrink-0 mt-1.5" />
+                    <span className="text-sm text-gray-700 leading-6">{stop.name}</span>
                   </div>
                 ))}
             </div>

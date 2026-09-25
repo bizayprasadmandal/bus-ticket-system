@@ -303,13 +303,54 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
-      {/* Search Widget */}
-      <div className="max-w-5xl mx-auto px-4 -mt-4 relative z-20">
+    <div>
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(135deg,#7f2a2f_0%,#d84e55_58%,#f27278_100%)] px-6 pt-10 pb-24 sm:px-10 sm:pt-12 sm:pb-28 text-white shadow-[0_28px_60px_-32px_rgba(216,78,85,0.75)]">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-12 bottom-0 h-52 w-52 rounded-full bg-white/5 blur-2xl" />
         <div
-          className="bg-white rounded-2xl overflow-hidden"
-          style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.12)', borderRadius: '16px' }}
-        >
+          className="pointer-events-none absolute inset-0 opacity-[0.10]"
+          style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+        />
+        <div className="relative max-w-2xl">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ring-1 ring-white/25 backdrop-blur-sm"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Nepal's trusted bus booking
+          </span>
+          <h1
+            className="mt-4 text-3xl sm:text-4xl lg:text-[2.7rem] font-extrabold leading-[1.15] tracking-tight"
+          >
+            Find, book &amp; ride{' '}
+            <span className="text-[#ffe1e3]">across Nepal</span>
+          </h1>
+          <p className="mt-3 max-w-xl text-sm sm:text-base text-white/85 leading-relaxed">
+            Compare seats, fares and operators in a single search — instant confirmation,
+            secure payments and your e-ticket on the phone.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-x-9 gap-y-4">
+            {[
+              { value: '150+', label: 'Buses' },
+              { value: '40+', label: 'Cities' },
+              { value: '50k+', label: 'Happy travellers' },
+              { value: '4.8/5', label: 'Traveller rating' },
+            ].map((stat) => (
+              <div key={stat.label}>
+                <p className="text-xl sm:text-2xl font-extrabold" style={{ fontFamily: 'var(--font-heading)' }}>
+                  {stat.value}
+                </p>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-white/70">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Search Widget */}
+      <div className="max-w-5xl mx-auto -mt-14 relative z-20">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-[0_28px_60px_-30px_rgba(16,24,40,0.45)] ring-1 ring-gray-100/80">
           <form onSubmit={handleSearch}>
             <div className="flex flex-col lg:flex-row">
               {/* FROM */}
@@ -321,7 +362,7 @@ export default function SearchPage() {
                   From
                 </label>
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-red-500 shrink-0" />
+                  <MapPin className="h-4 w-4 text-[#d84e55] shrink-0" />
                   {renderCityDropdown(
                     originOpen,
                     originFilter,
@@ -341,7 +382,7 @@ export default function SearchPage() {
                 <button
                   type="button"
                   onClick={swapCities}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-gray-200 text-gray-400 hover:border-red-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-gray-200 text-gray-400 hover:border-[#d84e55] hover:text-[#d84e55] hover:bg-[#fef2f2] transition-all shadow-sm"
                 >
                   <ArrowLeftRight className="h-4 w-4" />
                 </button>
@@ -356,7 +397,7 @@ export default function SearchPage() {
                   To
                 </label>
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-green-500 shrink-0" />
+                  <MapPin className="h-4 w-4 text-emerald-500 shrink-0" />
                   {renderCityDropdown(
                     destOpen,
                     destFilter,
@@ -394,7 +435,7 @@ export default function SearchPage() {
                         new Date(Date.now() + item.days * 86400000)
                           .toISOString()
                           .split('T')[0]
-                          ? 'bg-red-100 text-red-600 border border-red-200'
+                          ? 'bg-[#fef2f2] text-[#b53d43] border border-[#f5c6c9]'
                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-transparent'
                       }`}
                     >
@@ -409,8 +450,8 @@ export default function SearchPage() {
                 <button
                   type="submit"
                   disabled={isSearching}
-                  className="w-full lg:w-auto text-white px-8 py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-                  style={{ backgroundColor: '#d84e55', minWidth: '160px' }}
+                  className="btn-primary w-full lg:w-auto"
+                  style={{ minWidth: 170 }}
                 >
                   <Search className="h-4 w-4" />
                   {isSearching ? 'Searching...' : 'SEARCH BUSES'}
@@ -437,7 +478,7 @@ export default function SearchPage() {
                       setOriginFilter(s.from);
                       setDestFilter(s.to);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-full text-xs text-gray-600 hover:text-red-600 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-[#fef2f2] border border-gray-100 hover:border-[#f5c6c9] rounded-full text-xs text-gray-600 hover:text-[#b53d43] transition-all"
                   >
                     <Clock className="h-3 w-3" />
                     {s.from} → {s.to}
@@ -457,7 +498,7 @@ export default function SearchPage() {
             {isSearching ? (
               <div className="flex flex-col items-center py-20">
                 <div
-                  className="w-14 h-14 border-4 border-red-100 border-t-red-500 rounded-full animate-spin mb-4"
+                  className="w-14 h-14 border-4 border-[#fee2e2] border-t-[#d84e55] rounded-full animate-spin mb-4"
                 />
                 <p className="text-gray-500 font-medium text-sm">
                   Searching for available buses...
@@ -467,10 +508,13 @@ export default function SearchPage() {
               <>
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-800">
-                      {origin} → {destination}
-                    </h2>
-                    <p className="text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <span className="h-6 w-1.5 rounded-full bg-gradient-to-b from-[#d84e55] to-[#f27278]" />
+                      <h2 className="text-lg font-bold text-gray-800">
+                        {origin} → {destination}
+                      </h2>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
                       {filteredResults.length} buses found ·{' '}
                       {formatDisplayDate(tripDate)}
                     </p>
@@ -482,7 +526,7 @@ export default function SearchPage() {
                       setResults([]);
                       setSelectedAmenities([]);
                     }}
-                    className="text-sm text-red-500 hover:text-red-600 font-medium"
+                    className="text-sm text-[#d84e55] hover:text-[#b53d43] font-semibold"
                   >
                     Clear search
                   </button>
@@ -490,7 +534,7 @@ export default function SearchPage() {
 
                 {/* Amenities Filter */}
                 {allAmenities.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 shadow-sm">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Filter by Amenities</p>
                     <div className="flex flex-wrap gap-2">
                       {allAmenities.map((amenity) => (
@@ -512,18 +556,14 @@ export default function SearchPage() {
                     return (
                       <div
                         key={trip.id}
-                        className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition-all overflow-hidden group"
-                        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+                        className="bg-white rounded-xl border border-gray-100 hover:border-[#f5c6c9] transition-all overflow-hidden group card-hover"
                       >
                         <div className="p-5">
                           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                             {/* Left: Bus Info */}
                             <div className="flex items-center gap-3 lg:w-[200px]">
-                              <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
-                                <Bus
-                                  className="h-5 w-5"
-                                  style={{ color: '#d84e55' }}
-                                />
+                              <div className="w-11 h-11 bg-[#fef2f2] rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                <Bus className="h-5 w-5 text-[#d84e55]" />
                               </div>
                               <div className="min-w-0">
                                 <p className="font-bold text-gray-800 text-sm truncate">
@@ -563,12 +603,11 @@ export default function SearchPage() {
                                     ? `${Math.floor(trip.route.estimated_duration_minutes / 60)}h ${trip.route.estimated_duration_minutes % 60}m`
                                     : '—'}
                                 </p>
-                                <div className="w-full h-[1.5px] bg-gray-200 relative rounded-full">
+                                <div className="w-full h-[2px] bg-gradient-to-r from-[#d84e55] to-emerald-400 relative rounded-full">
                                   <div
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
-                                    style={{ backgroundColor: '#d84e55' }}
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#d84e55] ring-2 ring-white"
                                   />
-                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
                                 </div>
                                 <p className="text-[10px] text-gray-400 font-medium">
                                   Non-Stop
@@ -587,8 +626,8 @@ export default function SearchPage() {
                             {/* Right: Price & Book */}
                             <div className="flex items-center gap-4 lg:w-[220px] justify-end">
                               <div className="text-right">
-                                <p className="text-2xl font-extrabold text-gray-900">
-                                  NPR {trip.current_fare}
+                                <p className="text-2xl font-extrabold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                                  NPR {Number(trip.current_fare).toLocaleString()}
                                 </p>
                                 <p
                                   className="text-[11px] font-semibold mt-0.5"
@@ -604,12 +643,11 @@ export default function SearchPage() {
                               </div>
                               <Link
                                 to={`/book/${trip.id}`}
-                                className={`text-white px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-1 whitespace-nowrap shadow-md ${
+                                className={`${
                                   trip.status === 'SCHEDULED'
-                                    ? 'hover:opacity-90'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none pointer-events-none'
+                                    ? 'btn-primary'
+                                    : 'inline-flex items-center gap-1 rounded-[0.875rem] bg-gray-200 text-gray-500 font-semibold text-sm px-6 py-2.5 cursor-not-allowed pointer-events-none'
                                 }`}
-                                style={trip.status === 'SCHEDULED' ? { backgroundColor: '#d84e55' } : undefined}
                               >
                                 BOOK
                                 <ChevronRight className="h-4 w-4" />
@@ -624,8 +662,8 @@ export default function SearchPage() {
               </>
             ) : (
               <div className="flex flex-col items-center py-20 text-center">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <Bus className="h-10 w-10 text-gray-300" />
+                <div className="w-20 h-20 bg-[#fef2f2] rounded-full flex items-center justify-center mb-4 ring-8 ring-[#fef2f2]/60">
+                  <Bus className="h-10 w-10 text-[#f5a3a8]" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-700 mb-1">
                   No buses found
@@ -643,24 +681,24 @@ export default function SearchPage() {
           <>
             {/* Best Offers For You */}
             {promos.length > 0 && (
-              <div className="mb-10">
-                <div className="flex items-baseline justify-between mb-4">
-                  <h2
-                    className="text-xl font-bold text-gray-800"
-                    style={{ fontFamily: 'Poppins, sans-serif' }}
-                  >
-                    Best Offers For You
-                  </h2>
-                  <span className="text-xs text-gray-400">
-                    Apply these at checkout
+              <div className="mb-12">
+                <div className="section-head">
+                  <div>
+                    <span className="eyebrow">Save more</span>
+                    <h2>Best Offers For You</h2>
+                    <p>Apply these codes at checkout for an instant discount.</p>
+                  </div>
+                  <span className="hidden sm:inline text-xs text-gray-400 pb-1">
+                    {promos.length} live offers
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {promos.map((p) => (
                     <div
                       key={p.id}
-                      className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-lg hover:border-red-100 transition-all flex flex-col"
+                      className="relative bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-lg hover:border-[#f5c6c9] transition-all flex flex-col card-hover overflow-hidden"
                     >
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#d84e55] via-[#f27278] to-[#ffb3b7]" />
                       <div className="flex items-start justify-between gap-2">
                         <span
                           className="inline-block px-2.5 py-1 rounded-lg text-xs font-extrabold text-white shadow-sm"
@@ -681,21 +719,20 @@ export default function SearchPage() {
                         Min. spend NPR {Number(p.min_amount).toLocaleString()}
                       </p>
                       <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
-                        <span className="font-mono font-bold text-sm tracking-wider" style={{ color: '#d84e55' }}>
+                        <span className="font-mono font-bold text-sm tracking-wider text-[#d84e55]">
                           {p.code}
                         </span>
                         <button
                           type="button"
                           onClick={() => copyCode(p.code)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                          style={{
-                            border: '1px solid #f2c4c6',
-                            color: copiedCode === p.code ? '#16a34a' : '#d84e55',
-                            background: '#fff',
-                          }}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                            copiedCode === p.code
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                              : 'border-[#f2c4c6] bg-white text-[#d84e55] hover:bg-[#fef2f2]'
+                          }`}
                         >
                           {copiedCode === p.code ? (
-                            <Check className="h-3.5 w-3.5 text-green-600" />
+                            <Check className="h-3.5 w-3.5" />
                           ) : (
                             <Copy className="h-3.5 w-3.5" />
                           )}
@@ -709,14 +746,15 @@ export default function SearchPage() {
             )}
 
             {/* Top Routes Section */}
-            <div className="mb-10">
-              <h2
-                className="text-xl font-bold text-gray-800 mb-4"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                Top Bus Routes
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="mb-12">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">Popular right now</span>
+                  <h2>Top Bus Routes</h2>
+                  <p>Tap a route to see available buses instantly.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {popularRoutes.map((route, i) => (
                   <button
                     key={i}
@@ -728,11 +766,11 @@ export default function SearchPage() {
                       setDestFilter(route.to);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="bg-white rounded-xl border border-gray-100 p-4 hover:border-red-200 hover:shadow-md transition-all text-left group"
+                    className="bg-white rounded-2xl border border-gray-100 p-4 hover:border-[#f5c6c9] transition-all text-left group card-hover"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 text-gray-800 group-hover:text-red-600 transition-colors">
+                        <div className="flex items-center gap-2 text-gray-800 group-hover:text-[#b53d43] transition-colors">
                           <span className="font-semibold text-sm">
                             {route.from}
                           </span>
@@ -742,10 +780,7 @@ export default function SearchPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-2">
-                          <p
-                            className="text-sm font-bold"
-                            style={{ color: '#d84e55' }}
-                          >
+                          <p className="text-sm font-bold text-[#d84e55]">
                             From NPR {route.price.toLocaleString()}
                           </p>
                           <span className="text-xs text-gray-400">
@@ -753,7 +788,9 @@ export default function SearchPage() {
                           </span>
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-red-500 transition-colors shrink-0" />
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 text-gray-400 group-hover:bg-[#fef2f2] group-hover:text-[#d84e55] transition-colors shrink-0">
+                        <ChevronRight className="h-4 w-4" />
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -761,27 +798,22 @@ export default function SearchPage() {
             </div>
 
             {/* Why Book With Us */}
-            <div className="mb-10">
-              <h2
-                className="text-xl font-bold text-gray-800 mb-4"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                Why Book With Us
-              </h2>
+            <div className="mb-12">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">Why Gadi Ticket</span>
+                  <h2>Why Book With Us</h2>
+                  <p>Everything you need for a stress-free journey.</p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {whyBookWithUs.map((item, i) => (
                   <div
                     key={i}
-                    className="bg-white rounded-xl border border-gray-100 p-6 text-center hover:shadow-md transition-all"
+                    className="bg-white rounded-2xl border border-gray-100 p-6 text-center hover:shadow-md transition-all card-hover"
                   >
-                    <div
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                      style={{ backgroundColor: '#fef2f2' }}
-                    >
-                      <item.icon
-                        className="h-7 w-7"
-                        style={{ color: '#d84e55' }}
-                      />
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-[#fef2f2] to-[#fde7e8] ring-1 ring-[#fde7e8]">
+                      <item.icon className="h-7 w-7 text-[#d84e55]" />
                     </div>
                     <h3 className="font-bold text-gray-800 mb-1">
                       {item.title}
@@ -795,25 +827,22 @@ export default function SearchPage() {
             </div>
 
             {/* Travel Partners */}
-            <div className="mb-10">
-              <h2
-                className="text-xl font-bold text-gray-800 mb-4"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                Our Travel Partners
-              </h2>
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <div className="flex flex-wrap items-center justify-center gap-6">
+            <div className="mb-6">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">Trusted network</span>
+                  <h2>Our Travel Partners</h2>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                <div className="flex flex-wrap items-center justify-center gap-4">
                   {travelPartners.map((partner, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 px-5 py-3 bg-gray-50 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+                      className="flex items-center gap-2 px-5 py-3 bg-gray-50 rounded-xl hover:bg-[#fef2f2] transition-colors cursor-pointer group"
                     >
-                      <Bus
-                        className="h-5 w-5"
-                        style={{ color: '#d84e55' }}
-                      />
-                      <span className="text-sm font-semibold text-gray-700">
+                      <Bus className="h-5 w-5 text-[#d84e55] group-hover:scale-110 transition-transform" />
+                      <span className="text-sm font-semibold text-gray-700 group-hover:text-[#b53d43] transition-colors">
                         {partner}
                       </span>
                     </div>
@@ -824,11 +853,6 @@ export default function SearchPage() {
           </>
         )}
       </div>
-
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 }

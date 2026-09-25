@@ -130,35 +130,26 @@ export default function MyBookingsPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
+    <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-5">
-          <h1
-            className="text-2xl font-bold text-gray-900"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
-            My Bookings
-          </h1>
+          <span className="eyebrow">Your trips</span>
+          <h1 className="text-2xl font-bold text-gray-900">My Bookings</h1>
           <p className="text-sm text-gray-400 mt-1">View and manage your trips</p>
         </div>
 
         {/* Filter Tabs - redBus pill style */}
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
               className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 ${
                 filter === tab
-                  ? 'text-white shadow-md'
+                  ? 'bg-[#d84e55] text-white shadow-[0_4px_12px_rgba(216,78,85,0.3)]'
                   : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'
               }`}
-              style={
-                filter === tab
-                  ? { backgroundColor: '#d84e55', boxShadow: '0 4px 12px rgba(216,78,85,0.3)' }
-                  : {}
-              }
             >
               {TAB_LABELS[tab] || tab}
               <span className="ml-1.5 text-[10px] opacity-80">({counts[tab] ?? 0})</span>
@@ -184,20 +175,13 @@ export default function MyBookingsPage() {
                 <Ticket className="h-10 w-10 text-[#d84e55]/40" />
               </div>
             </div>
-            <h3
-              className="text-lg font-bold text-gray-700 mb-1"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
+            <h3 className="text-lg font-bold text-gray-700 mb-1">
               No bookings found
             </h3>
             <p className="text-sm text-gray-400 text-center max-w-xs">
               You haven't made any bookings yet. Search for a route to get started!
             </p>
-            <button
-              className="mt-5 px-6 py-2.5 text-white text-sm font-bold rounded-full transition-all"
-              style={{ backgroundColor: '#d84e55' }}
-              onClick={() => navigate('/')}
-            >
+            <button className="btn-primary mt-5" onClick={() => navigate('/')}>
               <span className="flex items-center gap-2">
                 <Search className="h-4 w-4" />
                 Search Buses
@@ -216,8 +200,7 @@ export default function MyBookingsPage() {
               return (
                 <div
                   key={booking.id}
-                  className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-shadow duration-200 hover:shadow-md"
-                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md"
                 >
                   <div className="flex">
                     {/* Left colored strip */}
@@ -287,7 +270,7 @@ export default function MyBookingsPage() {
                         {/* Right: Amount & Expand */}
                         <div className="flex flex-col items-end gap-2 flex-shrink-0">
                           <p className="text-lg font-extrabold text-gray-900">
-                            NPR {booking.total_amount?.toLocaleString()}
+                            NPR {Number(booking.total_amount ?? 0).toLocaleString()}
                           </p>
                           <div className="w-7 h-7 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
                             {isExpanded ? (
@@ -397,14 +380,9 @@ export default function MyBookingsPage() {
                       onClick={() => setCurrentPage(pageNum)}
                       className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${
                         currentPage === pageNum
-                          ? 'text-white shadow-md'
+                          ? 'bg-[#d84e55] text-white shadow-[0_4px_12px_rgba(216,78,85,0.3)]'
                           : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'
                       }`}
-                      style={
-                        currentPage === pageNum
-                          ? { backgroundColor: '#d84e55', boxShadow: '0 4px 12px rgba(216,78,85,0.3)' }
-                          : {}
-                      }
                     >
                       {pageNum}
                     </button>

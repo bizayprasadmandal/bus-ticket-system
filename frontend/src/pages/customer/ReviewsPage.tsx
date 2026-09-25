@@ -31,14 +31,14 @@ function StarRating({ rating, onRate, interactive = false }: { rating: number; o
   const [hover, setHover] = useState(0);
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type={interactive ? 'button' : undefined}
-          className={`text-2xl ${interactive ? 'cursor-pointer' : 'cursor-default'} ${
-            star <= (hover || rating) ? 'text-yellow-400' : 'text-gray-300'
-          }`}
+          className={`h-8 w-8 flex items-center justify-center text-2xl leading-none transition-colors ${
+            interactive ? 'cursor-pointer' : 'cursor-default'
+          } ${star <= (hover || rating) ? 'text-amber-400 fill-current' : 'text-gray-300'}`}
           onClick={() => interactive && onRate?.(star)}
           onMouseEnter={() => interactive && setHover(star)}
           onMouseLeave={() => interactive && setHover(0)}
@@ -68,7 +68,7 @@ export default function ReviewsPage() {
       if (initial) setLoading(true);
       const res = await reviewAPI.getMyReviews({ page: 1, limit: 100 });
       setReviews(res.data.data || []);
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to load reviews');
     } finally {
       setLoading(false);
@@ -149,10 +149,14 @@ export default function ReviewsPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Reviews & Ratings</h1>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <span className="eyebrow">Share your experience</span>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1">Reviews &amp; Ratings</h1>
+          <p className="text-sm text-gray-500 mt-1">Rate your journeys and help other travellers choose better.</p>
+        </div>
         {lastUpdated && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 pt-1.5">
             <RefreshCw className={`h-3 w-3 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="text-[10px] text-gray-400">
               Updated {lastUpdated.toLocaleTimeString()}
@@ -162,15 +166,19 @@ export default function ReviewsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b">
+      <div className="inline-flex bg-gray-100 rounded-full p-1 mb-6">
         <button
-          className={`pb-2 px-4 font-medium ${activeTab === 'write' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+          className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+            activeTab === 'write' ? 'bg-white text-[#b53d43] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
           onClick={() => setActiveTab('write')}
         >
           Write a Review
         </button>
         <button
-          className={`pb-2 px-4 font-medium ${activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+          className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+            activeTab === 'my' ? 'bg-white text-[#b53d43] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
           onClick={() => setActiveTab('my')}
         >
           My Reviews
@@ -178,14 +186,14 @@ export default function ReviewsPage() {
       </div>
 
       {activeTab === 'write' && (
-        <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trip</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trip</label>
             {eligibleTrips.length > 0 ? (
               <select
                 value={tripId}
                 onChange={(e) => setTripId(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
+                className="field"
                 required
               >
                 <option value="">Select a completed trip</option>
@@ -196,35 +204,35 @@ export default function ReviewsPage() {
                 ))}
               </select>
             ) : (
-              <p className="text-sm text-gray-500 bg-gray-50 border rounded-lg px-3 py-2">
+              <p className="text-sm text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
                 Complete a trip (with a confirmed booking) to review it here.
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rating *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Rating *</label>
             <StarRating rating={rating} onRate={setRating} interactive />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
+              className="field"
               placeholder="Summarize your experience"
               maxLength={200}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Comment</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
+              className="field"
               rows={4}
               placeholder="Tell others about your experience..."
             />
@@ -236,7 +244,7 @@ export default function ReviewsPage() {
               id="anonymous"
               checked={isAnonymous}
               onChange={(e) => setIsAnonymous(e.target.checked)}
-              className="rounded"
+              className="h-4 w-4 rounded accent-[#d84e55]"
             />
             <label htmlFor="anonymous" className="text-sm text-gray-600">Post anonymously</label>
           </div>
@@ -244,7 +252,7 @@ export default function ReviewsPage() {
           <button
             type="submit"
             disabled={submitting || rating === 0}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="btn-primary"
           >
             {submitting ? 'Submitting...' : 'Submit Review'}
           </button>
@@ -254,17 +262,21 @@ export default function ReviewsPage() {
       {activeTab === 'my' && (
         <div>
           {loading ? (
-            <p className="text-gray-500">Loading reviews...</p>
+            <p className="text-sm text-gray-500 bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-5">
+              Loading reviews...
+            </p>
           ) : reviews.length === 0 ? (
-            <p className="text-gray-500">You haven't written any reviews yet.</p>
+            <p className="text-sm text-gray-500 bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-5">
+              You haven't written any reviews yet.
+            </p>
           ) : (
             <div className="space-y-4">
               {reviews.map((review) => (
-                <div key={review.id} className="bg-white shadow rounded-lg p-4">
-                  <div className="flex justify-between items-start">
+                <div key={review.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex justify-between items-start gap-4">
                     <div>
                       <StarRating rating={review.rating} />
-                      {review.title && <h3 className="font-medium mt-1">{review.title}</h3>}
+                      {review.title && <h3 className="font-semibold text-gray-900 mt-1.5">{review.title}</h3>}
                       {review.trip && (
                         <p className="text-sm text-gray-500">
                           {review.trip.route?.origin_city || review.trip.route?.origin?.name} →{' '}
@@ -275,13 +287,13 @@ export default function ReviewsPage() {
                     </div>
                     <button
                       onClick={() => handleDelete(review.id)}
-                      className="text-red-500 hover:text-red-700 text-sm"
+                      className="shrink-0 inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
                     >
                       Delete
                     </button>
                   </div>
-                  {review.comment && <p className="text-gray-700 mt-2">{review.comment}</p>}
-                  <p className="text-xs text-gray-400 mt-2">{new Date(review.created_at).toLocaleDateString()}</p>
+                  {review.comment && <p className="text-gray-700 mt-3 leading-relaxed">{review.comment}</p>}
+                  <p className="text-xs text-gray-400 mt-3">{new Date(review.created_at).toLocaleDateString()}</p>
                 </div>
               ))}
             </div>

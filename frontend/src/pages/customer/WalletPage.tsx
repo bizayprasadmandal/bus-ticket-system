@@ -112,9 +112,8 @@ export default function WalletPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
-            My Wallet
-          </h1>
+          <span className="eyebrow">Your balance</span>
+          <h1 className="text-2xl font-bold text-gray-900">My Wallet</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your wallet balance and transactions</p>
         </div>
         {lastUpdated && (
@@ -129,37 +128,37 @@ export default function WalletPage() {
 
       {/* Balance Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
               <Wallet className="h-5 w-5 text-[#d84e55]" />
             </div>
             <span className="text-sm text-gray-500">Current Balance</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">NPR {balance?.balance?.toLocaleString() ?? '0'}</p>
+          <p className="text-2xl font-bold text-gray-900">NPR {Number(balance?.balance ?? 0).toLocaleString()}</p>
         </div>
-        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
               <ArrowDownLeft className="h-5 w-5 text-green-600" />
             </div>
             <span className="text-sm text-gray-500">Total Earned</span>
           </div>
-          <p className="text-2xl font-bold text-green-600">NPR {balance?.total_earned?.toLocaleString() ?? '0'}</p>
+          <p className="text-2xl font-bold text-green-600">NPR {Number(balance?.total_earned ?? 0).toLocaleString()}</p>
         </div>
-        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
               <ArrowUpRight className="h-5 w-5 text-red-500" />
             </div>
             <span className="text-sm text-gray-500">Total Spent</span>
           </div>
-          <p className="text-2xl font-bold text-red-500">NPR {balance?.total_spent?.toLocaleString() ?? '0'}</p>
+          <p className="text-2xl font-bold text-red-500">NPR {Number(balance?.total_spent ?? 0).toLocaleString()}</p>
         </div>
       </div>
 
       {/* Top-up Section */}
-      <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Up Wallet</h2>
 
         <div className="mb-4">
@@ -217,14 +216,14 @@ export default function WalletPage() {
         <button
           onClick={handleTopUp}
           disabled={toppingUp || (!topUpAmount && !customAmount)}
-          className="w-full bg-[#d84e55] text-white py-2.5 rounded-lg font-semibold hover:bg-[#c44349] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary w-full"
         >
           {toppingUp ? 'Processing...' : 'Top Up Wallet'}
         </button>
       </div>
 
       {/* Recent Transactions */}
-      <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h2>
         {transactions.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">No transactions yet</p>
@@ -248,7 +247,7 @@ export default function WalletPage() {
                   </div>
                 </div>
                 <span className={`font-semibold text-sm ${tx.transaction_type === 'CREDIT' ? 'text-green-600' : 'text-red-500'}`}>
-                  {tx.transaction_type === 'CREDIT' ? '+' : '-'}NPR {tx.amount.toLocaleString()}
+                  {tx.transaction_type === 'CREDIT' ? '+' : '-'}NPR {Number(tx.amount).toLocaleString()}
                 </span>
               </div>
             ))}
@@ -257,7 +256,7 @@ export default function WalletPage() {
         {transactions.length >= txLimit && (
           <button
             onClick={handleLoadMore}
-            className="mt-4 w-full py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="btn-outline w-full mt-4"
           >
             Load more
           </button>

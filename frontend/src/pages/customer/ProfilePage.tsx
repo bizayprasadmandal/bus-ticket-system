@@ -194,32 +194,23 @@ export default function ProfilePage() {
     : 'U';
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
+    <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-lg mx-auto px-4 py-6">
         <div className="mb-5">
-          <h1
-            className="text-2xl font-bold text-gray-900"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
-            My Profile
-          </h1>
+          <span className="eyebrow">Account settings</span>
+          <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
         </div>
 
-        <div
-          className="bg-white rounded-xl border border-gray-100 p-5 mb-4"
-          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
-        >
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
           <div className="flex items-center gap-4">
             <div className="relative">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 shadow-md disabled:opacity-70"
-                style={{
-                  background: photoUrl ? '#eee' : 'linear-gradient(135deg, #d84e55, #e8687a)',
-                  boxShadow: '0 4px 14px rgba(216,78,85,0.35)',
-                }}
+                className={`w-16 h-16 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 shadow-[0_4px_14px_rgba(216,78,85,0.35)] disabled:opacity-70 ${
+                  photoUrl ? 'bg-[#eeeeee]' : 'bg-gradient-to-br from-[#d84e55] to-[#e8687a]'
+                }`}
                 aria-label="Change profile photo"
               >
                 {photoUrl ? (
@@ -259,7 +250,7 @@ export default function ProfilePage() {
                 {displayUser?.phone_number}
               </p>
               {uploadingPhoto && (
-                <p className="text-xs mt-1" style={{ color: '#d84e55' }}>
+                <p className="text-xs mt-1 text-[#d84e55]">
                   Uploading photo…
                 </p>
               )}
@@ -267,22 +258,15 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div
-          className="bg-white rounded-xl border border-gray-100 mb-4"
-          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
-        >
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-4">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-50">
-            <h3
-              className="text-sm font-bold text-gray-800"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
+            <h3 className="text-sm font-bold text-gray-800">
               My Profile
             </h3>
             {!isEditingProfile && (
               <button
                 onClick={() => setIsEditingProfile(true)}
-                className="flex items-center gap-1 text-xs font-semibold transition-colors"
-                style={{ color: '#d84e55' }}
+                className="flex items-center gap-1 text-xs font-semibold text-[#d84e55] transition-colors"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 Edit
@@ -371,7 +355,7 @@ export default function ProfilePage() {
                   <select
                     value={form.gender}
                     onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-[#d84e55]/30 focus:border-[#d84e55] transition-all bg-white"
+                    className="field"
                   >
                     <option value="">Not set</option>
                     <option value="MALE">Male</option>
@@ -387,7 +371,7 @@ export default function ProfilePage() {
                     type="date"
                     value={form.date_of_birth}
                     onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-[#d84e55]/30 focus:border-[#d84e55] transition-all"
+                    className="field"
                   />
                 </div>
               </div>
@@ -395,8 +379,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white transition-all disabled:opacity-50"
-                  style={{ backgroundColor: '#d84e55' }}
+                  className="btn-primary flex-1"
                 >
                   <Save className="h-4 w-4" />
                   {savingProfile ? 'Saving...' : 'Save Changes'}
@@ -415,7 +398,7 @@ export default function ProfilePage() {
                         : '',
                     });
                   }}
-                  className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all"
+                  className="btn-outline"
                 >
                   Cancel
                 </button>
@@ -425,8 +408,8 @@ export default function ProfilePage() {
             <div className="divide-y divide-gray-50">
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(216,78,85,0.08)' }}>
-                    <User className="h-4 w-4" style={{ color: '#d84e55' }} />
+                  <div className="w-8 h-8 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
+                    <User className="h-4 w-4 text-[#d84e55]" />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Name</p>
@@ -436,8 +419,8 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(216,78,85,0.08)' }}>
-                    <Languages className="h-4 w-4" style={{ color: '#d84e55' }} />
+                  <div className="w-8 h-8 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
+                    <Languages className="h-4 w-4 text-[#d84e55]" />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Name (Nepali)</p>
@@ -447,8 +430,8 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(216,78,85,0.08)' }}>
-                    <Phone className="h-4 w-4" style={{ color: '#d84e55' }} />
+                  <div className="w-8 h-8 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
+                    <Phone className="h-4 w-4 text-[#d84e55]" />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Phone</p>
@@ -458,8 +441,8 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(216,78,85,0.08)' }}>
-                    <Mail className="h-4 w-4" style={{ color: '#d84e55' }} />
+                  <div className="w-8 h-8 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-[#d84e55]" />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Email</p>
@@ -469,8 +452,8 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(216,78,85,0.08)' }}>
-                    <Calendar className="h-4 w-4" style={{ color: '#d84e55' }} />
+                  <div className="w-8 h-8 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
+                    <Calendar className="h-4 w-4 text-[#d84e55]" />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Date of Birth</p>
@@ -482,8 +465,8 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(216,78,85,0.08)' }}>
-                    <User className="h-4 w-4" style={{ color: '#d84e55' }} />
+                  <div className="w-8 h-8 rounded-lg bg-[#d84e55]/10 flex items-center justify-center">
+                    <User className="h-4 w-4 text-[#d84e55]" />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Gender</p>
@@ -496,13 +479,7 @@ export default function ProfilePage() {
         </div>
 
         {canUseWallet && (
-        <div
-          className="rounded-xl overflow-hidden mb-4"
-          style={{
-            background: 'linear-gradient(135deg, #d84e55, #f4845f)',
-            boxShadow: '0 4px 14px rgba(216,78,85,0.3)',
-          }}
-        >
+        <div className="mb-4 rounded-2xl overflow-hidden bg-gradient-to-br from-[#d84e55] to-[#f4845f] shadow-[0_4px_14px_rgba(216,78,85,0.3)]">
           <div className="p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -527,25 +504,18 @@ export default function ProfilePage() {
         </div>
         )}
 
-        <div
-          className="bg-white rounded-xl border border-gray-100"
-          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
-        >
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-50">
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4" style={{ color: '#d84e55' }} />
-              <h3
-                className="text-sm font-bold text-gray-800"
-                style={{ fontFamily: 'var(--font-heading)' }}
-              >
+              <Shield className="h-4 w-4 text-[#d84e55]" />
+              <h3 className="text-sm font-bold text-gray-800">
                 Change Password
               </h3>
             </div>
             {!isChangingPassword && (
               <button
                 onClick={() => setIsChangingPassword(true)}
-                className="flex items-center gap-1 text-xs font-semibold transition-colors"
-                style={{ color: '#d84e55' }}
+                className="flex items-center gap-1 text-xs font-semibold text-[#d84e55] transition-colors"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 Change
@@ -624,8 +594,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={changingPassword}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white transition-all disabled:opacity-50"
-                  style={{ backgroundColor: '#d84e55' }}
+                  className="btn-primary flex-1"
                 >
                   <Save className="h-4 w-4" />
                   {changingPassword ? 'Saving...' : 'Update Password'}
@@ -636,7 +605,7 @@ export default function ProfilePage() {
                     setIsChangingPassword(false);
                     setPasswords({ current_password: '', new_password: '', confirm_password: '' });
                   }}
-                  className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all"
+                  className="btn-outline"
                 >
                   Cancel
                 </button>
@@ -648,8 +617,7 @@ export default function ProfilePage() {
                 Your password is secured. Click{' '}
                 <button
                   onClick={() => setIsChangingPassword(true)}
-                  className="font-semibold hover:underline"
-                  style={{ color: '#d84e55' }}
+                  className="font-semibold text-[#d84e55] hover:underline"
                 >
                   Change
                 </button>{' '}

@@ -137,7 +137,7 @@ export default function PaymentCallbackPage() {
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-12 h-12 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
             {isTopup ? 'Top-up Successful!' : 'Payment Successful!'}
           </h1>
           <p className="text-gray-500 mb-6">
@@ -146,7 +146,7 @@ export default function PaymentCallbackPage() {
               : 'Your booking has been confirmed.'}
           </p>
           {!isTopup && paymentDetails?.booking && (
-            <div className="bg-primary-50 border-2 border-primary-200 rounded-xl p-5 mb-6">
+            <div className="bg-primary-50 border-2 border-primary-200 rounded-2xl p-5 mb-6">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Your PNR</p>
               <p className="text-3xl font-mono font-bold text-primary-600 tracking-wider">{paymentDetails.booking.pnr}</p>
             </div>
@@ -155,10 +155,10 @@ export default function PaymentCallbackPage() {
             <p className="text-sm text-gray-400 mb-6">Save this PNR for future reference. You will also receive SMS & email confirmation.</p>
           )}
           <div className="flex gap-3">
-            <Link to={isTopup ? '/wallet' : myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
+            <Link to={isTopup ? '/wallet' : myBookingsPath} className="btn-primary flex-1">
               {isTopup ? 'View Wallet' : 'View Bookings'}
             </Link>
-            <Link to={isTopup ? '/' : bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
+            <Link to={isTopup ? '/' : bookAnotherPath} className="btn-outline flex-1">
               {isTopup ? 'Home' : 'Book Another'}
             </Link>
           </div>
@@ -175,7 +175,7 @@ export default function PaymentCallbackPage() {
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <XCircle className="w-12 h-12 text-red-500" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">
           {isTopupFail ? 'Top-up Failed' : 'Payment Failed'}
         </h1>
         <p className="text-gray-500 mb-6">
@@ -187,10 +187,10 @@ export default function PaymentCallbackPage() {
             : 'No money has been deducted. Please try again.'}
         </p>
         <div className="flex gap-3">
-          <Link to={isTopupFail ? '/wallet' : myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
+          <Link to={isTopupFail ? '/wallet' : myBookingsPath} className="btn-primary flex-1">
             {isTopupFail ? 'Back to Wallet' : 'View Bookings'}
           </Link>
-          <Link to={isTopupFail ? '/wallet' : bookAnotherPath} className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all text-center">
+          <Link to={isTopupFail ? '/wallet' : bookAnotherPath} className="btn-outline flex-1">
             Try Again
           </Link>
         </div>

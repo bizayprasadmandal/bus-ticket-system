@@ -73,10 +73,10 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f5f5f5]">
         <div className="relative">
           <div className="w-14 h-14 border-4 border-gray-200 rounded-full" />
-          <div className="w-14 h-14 border-4 border-transparent rounded-full animate-spin absolute top-0 left-0" style={{ borderTopColor: '#d84e55', borderRightColor: '#d84e55' }} />
+          <div className="w-14 h-14 border-4 border-transparent border-t-[#d84e55] border-r-[#d84e55] rounded-full animate-spin absolute top-0 left-0" />
         </div>
         <p className="mt-5 text-gray-500 font-medium text-sm">Loading booking details...</p>
       </div>
@@ -85,12 +85,12 @@ export default function PaymentPage() {
 
   if (!booking) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f5f5f5]">
         <div className="bg-white rounded-2xl shadow-lg p-10 max-w-sm w-full text-center">
           <XCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-800 mb-2">Booking Not Found</h2>
           <p className="text-gray-500 text-sm mb-6">The booking you are looking for does not exist or has been removed.</p>
-          <Link to={myBookingsPath} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-colors" style={{ backgroundColor: '#d84e55' }}>
+          <Link to={myBookingsPath} className="btn-primary">
             <ArrowLeft className="w-4 h-4" />
             Go to My Bookings
           </Link>
@@ -101,29 +101,29 @@ export default function PaymentPage() {
 
   if (paymentComplete || booking.payment_status === 'COMPLETED') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ backgroundColor: '#f5f5f5' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[#f5f5f5]">
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center">
           <div className="relative mx-auto mb-6">
-            <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto animate-bounce" style={{ backgroundColor: '#e8f5e9' }}>
-              <CheckCircle className="w-14 h-14" style={{ color: '#4caf50' }} />
+            <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto animate-bounce bg-[#e8f5e9]">
+              <CheckCircle className="w-14 h-14 text-[#4caf50]" />
             </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-lg text-white" style={{ backgroundColor: '#d84e55' }}>&#10003;</div>
-            <div className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-sm text-white" style={{ backgroundColor: '#ff9800' }}>&#10003;</div>
+            <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-lg text-white bg-[#d84e55]">&#10003;</div>
+            <div className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-sm text-white bg-[#ff9800]">&#10003;</div>
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
           <p className="text-gray-500 text-sm mb-6">Your booking has been confirmed. Get ready for your journey!</p>
-          <div className="rounded-xl p-5 mb-6" style={{ backgroundColor: '#fef3f3', border: '2px solid #d84e55' }}>
+          <div className="rounded-2xl border-2 border-[#d84e55] bg-[#fef3f3] p-5 mb-6">
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Your PNR Number</p>
-            <p className="text-3xl font-mono font-bold tracking-widest" style={{ color: '#d84e55' }}>{booking.pnr}</p>
+            <p className="text-3xl font-mono font-bold tracking-widest text-[#d84e55]">{booking.pnr}</p>
           </div>
           <p className="text-xs text-gray-400 mb-8 leading-relaxed">
             Save this PNR for future reference. You will also receive SMS and email confirmation.
           </p>
           <div className="flex gap-3">
-            <Link to={myBookingsPath} className="flex-1 py-3 rounded-xl font-semibold text-white text-center transition-colors" style={{ backgroundColor: '#d84e55' }}>
+            <Link to={myBookingsPath} className="btn-primary flex-1 text-center">
               View My Bookings
             </Link>
-            <Link to={bookAnotherPath} className="flex-1 py-3 rounded-xl font-semibold text-center transition-colors border-2 border-gray-200 text-gray-700 hover:bg-gray-50">
+            <Link to={bookAnotherPath} className="btn-outline flex-1 text-center">
               Book Another
             </Link>
           </div>
@@ -133,21 +133,22 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f5' }}>
+    <div className="min-h-screen bg-[#f5f5f5]">
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
           <Link to={myBookingsPath} className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm hover:shadow-md transition-shadow">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Complete Payment</h1>
+            <span className="eyebrow">Secure checkout</span>
+            <h1 className="text-2xl font-bold text-gray-800">Complete Payment</h1>
             <p className="text-sm text-gray-500">Choose your preferred payment method</p>
           </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 order-2 lg:order-1">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
               <div className="p-6">
                 <p className="text-sm font-medium text-gray-600 mb-4">Select a payment method</p>
                 <div className="space-y-3">
@@ -155,11 +156,11 @@ export default function PaymentPage() {
                     <button
                       key={wallet.id}
                       onClick={() => setPaymentMethod(wallet.id)}
-                      className="w-full rounded-xl border-2 p-4 transition-all text-left"
-                      style={{
-                        borderColor: paymentMethod === wallet.id ? '#d84e55' : '#e5e7eb',
-                        backgroundColor: paymentMethod === wallet.id ? '#fef3f3' : 'white',
-                      }}
+                      className={`w-full rounded-2xl border-2 p-4 text-left transition-all ${
+                        paymentMethod === wallet.id
+                          ? 'border-[#d84e55] ring-2 ring-[#d84e55]/20 bg-[#fef2f2]'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: wallet.color }}>
@@ -169,9 +170,13 @@ export default function PaymentPage() {
                           <p className="font-bold text-gray-800">{wallet.name}</p>
                           <p className="text-sm text-gray-500">{wallet.desc}</p>
                         </div>
-                        <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: paymentMethod === wallet.id ? '#d84e55' : '#d1d5db' }}>
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            paymentMethod === wallet.id ? 'border-[#d84e55]' : 'border-gray-300'
+                          }`}
+                        >
                           {paymentMethod === wallet.id && (
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#d84e55' }} />
+                            <div className="w-3 h-3 rounded-full bg-[#d84e55]" />
                           )}
                         </div>
                       </div>
@@ -192,8 +197,8 @@ export default function PaymentPage() {
 
           <div className="w-full lg:w-[380px] order-1 lg:order-2">
             <div className="lg:sticky lg:top-6">
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-6 py-4" style={{ backgroundColor: '#d84e55' }}>
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-br from-[#7f2a2f] to-[#d84e55] text-white rounded-t-2xl p-4">
                   <div className="flex items-center gap-2">
                     <Ticket className="w-5 h-5 text-white" />
                     <h2 className="text-white font-bold text-base">Booking Summary</h2>
@@ -209,12 +214,12 @@ export default function PaymentPage() {
                   {booking.trip && (
                     <div className="mb-5 pb-5 border-b border-gray-100">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#fef3f3' }}>
-                          <Bus className="w-4 h-4" style={{ color: '#d84e55' }} />
+                        <div className="w-8 h-8 rounded-lg bg-[#fef3f3] flex items-center justify-center">
+                          <Bus className="w-4 h-4 text-[#d84e55]" />
                         </div>
                         <p className="font-bold text-gray-800 text-sm">
                           {booking.trip.route.origin_city}
-                          <span className="mx-2" style={{ color: '#d84e55' }}>&rarr;</span>
+                          <span className="mx-2 text-[#d84e55]">&rarr;</span>
                           {booking.trip.route.destination_city}
                         </p>
                       </div>
@@ -237,7 +242,7 @@ export default function PaymentPage() {
                         {booking.passengers.map((p, i) => (
                           <div key={p.id} className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: '#d84e55' }}>
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[#d84e55]">
                                 {i + 1}
                               </div>
                               <span className="font-medium text-gray-700">{p.passenger_name}</span>
@@ -256,25 +261,25 @@ export default function PaymentPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Base fare x {booking.total_passengers}</span>
                       <span className="font-medium text-gray-700">
-                        NPR {booking.base_amount * booking.total_passengers}
+                        NPR {Number(booking.base_amount * booking.total_passengers).toLocaleString()}
                       </span>
                     </div>
                     {booking.tax_amount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">GST (13%)</span>
-                        <span className="font-medium text-gray-700">NPR {booking.tax_amount}</span>
+                        <span className="font-medium text-gray-700">NPR {Number(booking.tax_amount).toLocaleString()}</span>
                       </div>
                     )}
                     {booking.service_fee > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Service fee</span>
-                        <span className="font-medium text-gray-700">NPR {booking.service_fee}</span>
+                        <span className="font-medium text-gray-700">NPR {Number(booking.service_fee).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="border-t border-gray-100 pt-3 mt-3">
                       <div className="flex justify-between items-center">
                         <span className="text-base font-bold text-gray-800">Total</span>
-                        <span className="text-xl font-bold" style={{ color: '#d84e55' }}>NPR {booking.total_amount}</span>
+                        <span className="text-xl font-bold text-[#d84e55]">NPR {Number(booking.total_amount).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -284,11 +289,11 @@ export default function PaymentPage() {
               <button
                 onClick={handlePayment}
                 disabled={paying}
-                className="w-full mt-4 py-4 rounded-xl font-bold text-white text-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{
-                  backgroundColor: '#d84e55',
-                  boxShadow: '0 4px 14px rgba(216, 78, 85, 0.4)',
-                }}
+                className={
+                  paying
+                    ? 'w-full mt-4 inline-flex items-center justify-center gap-2 rounded-[0.875rem] bg-gray-200 py-4 text-lg font-bold text-gray-500'
+                    : 'btn-primary w-full mt-4'
+                }
               >
                 {paying ? (
                   <>
@@ -296,7 +301,7 @@ export default function PaymentPage() {
                     Processing...
                   </>
                 ) : (
-                  `Pay NPR ${booking.total_amount}`
+                  `Pay NPR ${Number(booking.total_amount).toLocaleString()}`
                 )}
               </button>
 

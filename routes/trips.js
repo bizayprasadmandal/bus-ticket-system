@@ -181,7 +181,7 @@ router.get('/search', tripValidation.search, handleValidationErrors, async (req,
 });
 
 // Get trip details
-router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+router.get('/:id', authenticateToken, commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -217,6 +217,21 @@ router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req,
       });
     }
 
+    // Staff must own the trip (operator/dispatcher/counter by operator,
+    // driver/conductor by assignment); customers may view any trip but
+    // never see crew phone numbers.
+    const viewerRoles = req.user.roles || [];
+    const isStaff = viewerRoles.some(r =>
+      ['SUPER_ADMIN', 'OPERATOR', 'DISPATCHER', 'CONDUCTOR', 'DRIVER', 'COUNTER_AGENT'].includes(r.role) && r.is_active
+    );
+
+    if (isStaff) {
+      const access = await checkTripAccess(req, trip);
+      if (!access.ok) {
+        return res.status(access.status).json({ success: false, message: access.message });
+      }
+    }
+
     // Get booked seats
     const bookedSeats = [];
     if (trip.bookings) {
@@ -230,27 +245,34 @@ router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req,
       }
     }
 
+    const tripPayload = {
+      id: trip.id,
+      trip_date: trip.trip_date,
+      departure_time: trip.departure_time,
+      arrival_time: trip.arrival_time,
+      current_fare: trip.current_fare,
+      available_seats: trip.available_seats,
+      status: trip.status,
+      driver_name: trip.driver_name,
+      driver_phone: trip.driver_phone,
+      conductor_name: trip.conductor_name,
+      conductor_phone: trip.conductor_phone,
+      route: trip.route,
+      bus: normalizeBus(trip.bus),
+      operator: trip.route.operator,
+      booked_seats: bookedSeats,
+    };
+
+    if (!isStaff) {
+      delete tripPayload.driver_phone;
+      delete tripPayload.conductor_phone;
+    }
+
     res.json({
       success: true,
       message: 'Trip details retrieved successfully',
       data: {
-        trip: {
-          id: trip.id,
-          trip_date: trip.trip_date,
-          departure_time: trip.departure_time,
-          arrival_time: trip.arrival_time,
-          current_fare: trip.current_fare,
-          available_seats: trip.available_seats,
-          status: trip.status,
-          driver_name: trip.driver_name,
-          driver_phone: trip.driver_phone,
-          conductor_name: trip.conductor_name,
-          conductor_phone: trip.conductor_phone,
-          route: trip.route,
-          bus: normalizeBus(trip.bus),
-          operator: trip.route.operator,
-          booked_seats: bookedSeats,
-        },
+        trip: tripPayload,
       },
     });
   } catch (error) {
@@ -779,29 +801,32 @@ router.get('/dispatcher/my-trips', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /trips/driver/my-trips - Get trips for logged-in driver
+// GET /trips/driver/my-trips - Get trips for logged-in driver (operators see their fleet)
 router.get('/driver/my-trips', authenticateToken, async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
     const driverRole = userRoles.find(role => role.role === 'DRIVER' && role.is_active);
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+    const scopedRole = driverRole || operatorRole;
 
-    if (!driverRole || !driverRole.operator_id) {
-      return res.status(403).json({ success: false, message: 'Driver operator information not found' });
+    if (!scopedRole || !scopedRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Driver or operator information not found' });
     }
 
-    // Get the driver's full name from their user record
-    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
-    const driverName = user?.full_name;
-
     const whereClause = {};
-    if (driverName) {
-      whereClause.driver_name = driverName;
+    if (driverRole) {
+      // With an active driver role, scope to this driver's assigned trips
+      const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+      if (!user?.full_name) {
+        return res.status(403).json({ success: false, message: 'Driver name not found' });
+      }
+      whereClause.driver_name = user.full_name;
     }
 
     const trips = await Trip.findAll({
       where: whereClause,
       include: [
-        { model: Bus, as: 'bus', where: { operator_id: driverRole.operator_id }, required: true },
+        { model: Bus, as: 'bus', where: { operator_id: scopedRole.operator_id }, required: true },
         { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
       ],
       order: [['trip_date', 'DESC']],
@@ -945,28 +970,48 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Get driver's weekly schedule
-router.get('/driver/schedule', authenticateToken, requireRole(['DRIVER']), async (req, res) => {
+router.get('/driver/schedule', authenticateToken, requireRole(['DRIVER', 'OPERATOR']), async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
-    const driverName = user?.full_name;
+    const userRoles = req.user.roles || [];
+    const driverRole = userRoles.find(r => r.role === 'DRIVER' && r.is_active && r.operator_id);
+    const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active && r.operator_id);
+    const scopedRole = driverRole || operatorRole;
 
-    if (!driverName) {
-      return res.status(400).json({ success: false, message: 'Driver name not found' });
+    if (!scopedRole) {
+      return res.status(403).json({ success: false, message: 'Driver or operator information not found' });
     }
 
+    const where = {};
+
+    if (driverRole) {
+      const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+      if (!user?.full_name) {
+        return res.status(400).json({ success: false, message: 'Driver name not found' });
+      }
+      where.driver_name = user.full_name;
+    }
+
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const { start_date, end_date } = req.query;
     const today = new Date();
-    const weekStart = start_date || new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
-    const weekEnd = end_date || new Date(today.setDate(today.getDate() - today.getDay() + 6)).toISOString().split('T')[0];
+    const sunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+    const weekStart = start_date || fmt(sunday);
+    const weekEnd = end_date || fmt(new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 6));
+
+    where.trip_date = { [Op.between]: [weekStart, weekEnd] };
 
     const trips = await Trip.findAll({
-      where: {
-        driver_name: driverName,
-        trip_date: { [Op.between]: [weekStart, weekEnd] },
-      },
+      where,
       include: [
         { model: Route, as: 'route', attributes: ['id', 'route_name', 'origin_city', 'destination_city'] },
-        { model: Bus, as: 'bus', attributes: ['id', 'bus_number', 'bus_type'] },
+        {
+          model: Bus,
+          as: 'bus',
+          attributes: ['id', 'bus_number', 'bus_type', 'operator_id'],
+          where: { operator_id: scopedRole.operator_id },
+          required: true,
+        },
       ],
       order: [['trip_date', 'ASC'], ['departure_time', 'ASC']],
     });
@@ -1020,7 +1065,7 @@ router.get('/conductor/schedule', authenticateToken, requireRole(['CONDUCTOR', '
         {
           model: Bus,
           as: 'bus',
-          attributes: ['id', 'bus_number', 'bus_type'],
+          attributes: ['id', 'bus_number', 'bus_type', 'operator_id'],
           where: { operator_id: scopedRole.operator_id },
           required: true,
         },
@@ -1042,45 +1087,78 @@ router.get('/conductor/schedule', authenticateToken, requireRole(['CONDUCTOR', '
 router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'CONDUCTOR', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const { id } = req.params;
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, speed, heading } = req.body;
 
     if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
       return res.status(400).json({ success: false, message: 'Latitude and longitude required' });
     }
 
-    const trip = await Trip.findByPk(id);
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return res.status(400).json({ success: false, message: 'Latitude/longitude must be valid coordinates' });
+    }
+
+    const trip = await Trip.findByPk(id, {
+      include: [
+        { model: Route, as: 'route', attributes: ['id', 'operator_id'] },
+        { model: Bus, as: 'bus', attributes: ['id', 'operator_id'] },
+      ],
+    });
     if (!trip) {
       return res.status(404).json({ success: false, message: 'Trip not found' });
     }
 
+    const access = await checkTripAccess(req, trip);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
+    }
+
     const now = new Date();
+    const parsedSpeed = Number.isFinite(Number(speed)) ? Number(speed) : 0;
+    const parsedHeading = Number.isFinite(Number(heading)) ? Number(heading) : 0;
 
     // Upsert location
     const [location, created] = await BusLocation.findOrCreate({
       where: { trip_id: id },
       defaults: {
         bus_id: trip.bus_id,
-        latitude,
-        longitude,
-        speed: req.body.speed || 0,
-        heading: req.body.heading || 0,
+        latitude: lat,
+        longitude: lng,
+        speed: parsedSpeed,
+        heading: parsedHeading,
         timestamp: now,
       },
     });
 
     if (!created) {
-      location.latitude = latitude;
-      location.longitude = longitude;
-      location.speed = req.body.speed || location.speed;
-      location.heading = req.body.heading || location.heading;
+      location.latitude = lat;
+      location.longitude = lng;
+      location.speed = parsedSpeed || location.speed;
+      location.heading = parsedHeading || location.heading;
       location.timestamp = now;
       await location.save();
+    }
+
+    // Push to trip subscribers (customer tracking page listens on this event)
+    const websocketService = req.app.get('websocket');
+    if (websocketService && websocketService.io) {
+      websocketService.io.to(`trip_${trip.id}`).emit('bus_location_updated', {
+        trip_id: trip.id,
+        location: {
+          latitude: lat,
+          longitude: lng,
+          speed: parsedSpeed,
+          heading: parsedHeading,
+          timestamp: now,
+        },
+      });
     }
 
     res.json({
       success: true,
       message: 'Location updated',
-      data: { latitude, longitude, timestamp: now, recorded_at: now },
+      data: { latitude: lat, longitude: lng, timestamp: now, recorded_at: now },
     });
   } catch (error) {
     console.error('Report location error:', error);

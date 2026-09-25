@@ -157,7 +157,7 @@ router.get('/operator', authenticateToken, requireRole(['OPERATOR']), async (req
       // Today's trips
       Trip.findAll({
         where: {
-          trip_date: currentDate.toISOString().split('T')[0],
+          trip_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date()),
         },
         include: [
           {
@@ -514,7 +514,7 @@ router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER', 'OPERATO
 
     const operatorId = scopedRole.operator_id;
     const currentDate = new Date();
-    const todayStr = currentDate.toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
 
     const [
       todayTrips,
@@ -625,30 +625,38 @@ router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER', 'OPERATO
 });
 
 // Dashboard overview for drivers
-router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, res) => {
+router.get('/driver', authenticateToken, requireRole(['DRIVER', 'OPERATOR']), async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
     const driverRole = userRoles.find(role => role.role === 'DRIVER' && role.is_active);
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+    const scopedRole = driverRole || operatorRole;
 
-    if (!driverRole || !driverRole.operator_id) {
+    if (!scopedRole || !scopedRole.operator_id) {
       return res.status(403).json({
         success: false,
-        message: 'Driver operator information not found',
+        message: 'Driver or operator information not found',
       });
     }
 
-    // Get the driver's full name from their user record
-    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
-    const driverName = user?.full_name;
+    const operatorId = scopedRole.operator_id;
 
-    const operatorId = driverRole.operator_id;
-    const currentDate = new Date();
-    const todayStr = currentDate.toISOString().split('T')[0];
-
-    const todayTripWhere = { trip_date: todayStr };
-    if (driverName) {
-      todayTripWhere.driver_name = driverName;
+    // With an active driver role, scope to trips assigned to this driver
+    const todayTripWhere = {};
+    if (driverRole) {
+      const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+      if (!user?.full_name) {
+        return res.status(403).json({
+          success: false,
+          message: 'Driver name not found',
+        });
+      }
+      todayTripWhere.driver_name = user.full_name;
     }
+
+    // "Today" in Nepal time (app operates in NPT regardless of server/container TZ)
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
+    todayTripWhere.trip_date = todayStr;
 
     const [
       todayTrips,
@@ -667,6 +675,12 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
           {
             model: Bus,
             as: 'bus',
+          },
+          {
+            model: Booking,
+            as: 'bookings',
+            where: { booking_status: ['CONFIRMED', 'COMPLETED'] },
+            required: false,
           },
         ],
         order: [['departure_time', 'ASC']],
@@ -716,6 +730,16 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
       }),
     ]);
 
+    // Enrich trips with passenger count per trip
+    const enrichedTrips = todayTrips.map(trip => {
+      const tripData = trip.toJSON();
+      tripData.passenger_count = (tripData.bookings || []).reduce(
+        (sum, b) => sum + (parseInt(b.total_passengers, 10) || 1), 0
+      );
+      delete tripData.bookings;
+      return tripData;
+    });
+
     res.json({
       success: true,
       message: 'Driver dashboard data retrieved successfully',
@@ -727,7 +751,7 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
           boarding: tripStatuses.boarding,
           total_passengers: totalPassengersToday,
         },
-        today_trips: todayTrips,
+        today_trips: enrichedTrips,
       },
     });
   } catch (error) {
@@ -757,7 +781,7 @@ router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR', 'OPERATOR'
 
     const operatorId = scopedRole.operator_id;
     const currentDate = new Date();
-    const todayStr = currentDate.toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
 
     // With an active conductor role, scope to trips assigned to this conductor
     let tripScope = {};
@@ -894,7 +918,7 @@ router.get('/counter-agent', authenticateToken, requireRole(['COUNTER_AGENT']), 
 
     const operatorId = counterAgentRole.operator_id;
     const currentDate = new Date();
-    const todayStr = currentDate.toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
 
     const [
       availableTrips,
@@ -1203,7 +1227,7 @@ router.get('/operator/notifications', authenticateToken, requireRole(['OPERATOR'
 
     const operatorId = operatorRole.operator_id;
     const currentDate = new Date();
-    const todayStr = currentDate.toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
     const sevenDaysAgo = new Date(currentDate.getTime() - (7 * 24 * 60 * 60 * 1000));
 
     const [

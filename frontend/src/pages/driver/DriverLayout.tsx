@@ -35,6 +35,13 @@ export default function DriverLayout() {
     let currentPath = '';
     segments.forEach((seg, i) => {
       if (i === 0) return;
+      if (/^\d+$/.test(seg)) {
+        const last = crumbs[crumbs.length - 1];
+        if (last && last.label !== 'Home') {
+          crumbs[crumbs.length - 1] = { label: `${last.label} #${seg}`, path: last.path };
+        }
+        return;
+      }
       currentPath += `/${seg}`;
       const full = `/driver${currentPath}`;
       const item = navItems.find(n => n.to === full);
@@ -44,7 +51,8 @@ export default function DriverLayout() {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const currentPageLabel = navItems.find(n => n.end ? location.pathname === n.to : location.pathname.startsWith(n.to))?.label || 'Dashboard';
+  const currentPageLabel = navItems.find(n => n.end ? location.pathname === n.to : location.pathname.startsWith(n.to))?.label
+    || (location.pathname.startsWith('/driver/trip/') ? 'Trip Details' : 'Dashboard');
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

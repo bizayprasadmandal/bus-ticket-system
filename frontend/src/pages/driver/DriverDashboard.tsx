@@ -35,7 +35,8 @@ export default function DriverDashboard() {
   const fetchData = useCallback(async () => {
     try {
       const res = await api.get('/dashboard/driver');
-      setStats(res.data.data);
+      const data = res.data.data || {};
+      setStats({ ...(data.stats || {}), today_trips: data.today_trips || [] });
     } catch {
       toast.error('Failed to load dashboard');
     } finally {
@@ -57,9 +58,8 @@ export default function DriverDashboard() {
     SCHEDULED: 'bg-blue-100 text-blue-700',
     BOARDING: 'bg-amber-100 text-amber-700',
     DEPARTED: 'bg-purple-100 text-purple-700',
-    COMPLETED: 'bg-green-100 text-green-700',
+    ARRIVED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
-    ARRIVED: 'bg-purple-100 text-purple-700',
   };
 
   if (isLoading) {

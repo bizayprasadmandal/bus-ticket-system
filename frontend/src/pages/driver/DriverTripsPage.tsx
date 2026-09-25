@@ -31,7 +31,7 @@ export default function DriverTripsPage() {
   const loadData = useCallback(async () => {
     try {
       const res = await driverTripAPI.getMyTrips();
-      setTrips(res.data.data.trips || []);
+      setTrips(res.data.data?.trips || []);
     } catch {
       toast.error('Failed to load trips');
     } finally {
@@ -48,7 +48,7 @@ export default function DriverTripsPage() {
         trip.route?.origin_city?.toLowerCase().includes(query) ||
         trip.route?.destination_city?.toLowerCase().includes(query) ||
         trip.bus?.bus_number?.toLowerCase().includes(query) ||
-        trip.trip_date.includes(query)
+        trip.trip_date?.includes(query)
       );
     });
   }, [trips, searchQuery]);

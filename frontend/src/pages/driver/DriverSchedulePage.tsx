@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, RefreshCw, Clock, ArrowRight, Bus, Download } from 'lucide-react';
 import api from '../../api';
@@ -22,9 +22,8 @@ const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'S
 const statusColors: Record<string, string> = {
   SCHEDULED: 'bg-blue-100 text-blue-700 border-blue-200',
   BOARDING: 'bg-amber-100 text-amber-700 border-amber-200',
-  DEPARTED: 'bg-green-100 text-green-700 border-green-200',
-  ARRIVED: 'bg-purple-100 text-purple-700 border-purple-200',
-  COMPLETED: 'bg-gray-100 text-gray-600 border-gray-200',
+  DEPARTED: 'bg-purple-100 text-purple-700 border-purple-200',
+  ARRIVED: 'bg-green-100 text-green-700 border-green-200',
   CANCELLED: 'bg-red-100 text-red-700 border-red-200',
 };
 
@@ -44,7 +43,8 @@ function getWeekDates(baseDate: Date): Date[] {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export default function DriverSchedulePage() {
@@ -69,7 +69,11 @@ export default function DriverSchedulePage() {
     }
   }, [startDate, endDate]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000, true, false);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const tripsByDate = useMemo(() => {
     const map: Record<string, TripItem[]> = {};

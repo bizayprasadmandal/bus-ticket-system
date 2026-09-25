@@ -21,7 +21,7 @@ const generatePNR = () => {
 
 const today = new Date();
 const futureDates = [];
-for (let i = 1; i <= 14; i++) {
+for (let i = 0; i <= 14; i++) {
   const d = new Date(today);
   d.setDate(today.getDate() + i);
   futureDates.push(d.toISOString().split('T')[0]);
@@ -218,7 +218,7 @@ const seed = async () => {
     const allRoutes = await Route.findAll();
     const allBuses = await Bus.findAll();
     const drivers = [
-      { name: 'Krishna Prasad', phone: '9841000001' },
+      { name: 'Suresh Driver', phone: '9800000004' },
       { name: 'Suresh Thapa', phone: '9841000003' },
       { name: 'Rajesh Rai', phone: '9841000005' },
       { name: 'Prakash Adhikari', phone: '9841000007' },

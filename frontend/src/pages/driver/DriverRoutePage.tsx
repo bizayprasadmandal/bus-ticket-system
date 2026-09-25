@@ -17,7 +17,7 @@ interface TripDetail {
     id: number;
     origin_city: string;
     destination_city: string;
-    distance?: number;
+    distance_km?: number;
     stops?: string | string[];
   };
   driver_name?: string;
@@ -41,7 +41,7 @@ export default function DriverRoutePage() {
         api.get(`/trips/${id}`),
         api.get(`/trips/${id}/passengers`).catch(() => ({ data: { data: { passengers: [] } } })),
       ]);
-      setTrip(tripRes.data.data);
+      setTrip(tripRes.data.data?.trip || null);
       const passengers = passengersRes.data.data?.passengers || [];
       setPassengerCount(passengers.length);
     } catch {
@@ -93,9 +93,8 @@ export default function DriverRoutePage() {
     SCHEDULED: 'bg-blue-100 text-blue-700',
     BOARDING: 'bg-amber-100 text-amber-700',
     DEPARTED: 'bg-purple-100 text-purple-700',
-    COMPLETED: 'bg-green-100 text-green-700',
+    ARRIVED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
-    ARRIVED: 'bg-purple-100 text-purple-700',
   };
 
   const statusActions: Record<string, { label: string; next: string; color: string }> = {
@@ -186,7 +185,7 @@ export default function DriverRoutePage() {
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div>
                 <p className="text-xs text-gray-500">Distance</p>
-                <p className="text-sm font-medium text-gray-800">{trip.route?.distance ? `${trip.route.distance} km` : 'N/A'}</p>
+                <p className="text-sm font-medium text-gray-800">{trip.route?.distance_km ? `${trip.route.distance_km} km` : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Duration</p>

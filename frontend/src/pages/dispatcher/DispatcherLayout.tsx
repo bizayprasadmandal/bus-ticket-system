@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bus, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Users, ClipboardList, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Bus, Calendar, LogOut, Menu, X, ChevronRight, ExternalLink, Users, ClipboardList, UserCircle, Ticket } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useCompanyBrand } from '../../hooks/useCompanyBrand';
 import Avatar from '../../components/Avatar';
@@ -12,7 +12,7 @@ const navItems = [
   { to: '/dispatcher/schedule', label: 'Schedule', icon: ClipboardList },
   { to: '/dispatcher/buses', label: 'Buses', icon: Bus },
   { to: '/dispatcher/crew', label: 'Crew', icon: Users },
-  { to: '/dispatcher/passengers', label: 'Passengers', icon: Users },
+  { to: '/dispatcher/passengers', label: 'Passengers', icon: Ticket },
   { to: '/dispatcher/profile', label: 'Profile', icon: UserCircle },
 ];
 

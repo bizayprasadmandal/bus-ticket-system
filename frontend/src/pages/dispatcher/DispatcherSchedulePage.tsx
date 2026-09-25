@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MapPin, ArrowRight, Bus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { dispatcherTripAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -15,7 +15,7 @@ interface TripItem {
   route?: { id: number; origin_city: string; destination_city: string };
 }
 
-const timeSlots = Array.from({ length: 18 }, (_, i) => {
+const baseTimeSlots = Array.from({ length: 18 }, (_, i) => {
   const hour = 6 + i;
   return `${String(hour).padStart(2, '0')}:00`;
 });
@@ -24,7 +24,6 @@ const statusColors: Record<string, { bg: string; text: string; dot: string }> = 
   SCHEDULED: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', dot: 'bg-blue-500' },
   BOARDING: { bg: 'bg-yellow-50 border-yellow-200', text: 'text-yellow-700', dot: 'bg-yellow-500' },
   DEPARTED: { bg: 'bg-green-50 border-green-200', text: 'text-green-700', dot: 'bg-green-500' },
-  COMPLETED: { bg: 'bg-gray-50 border-gray-200', text: 'text-gray-500', dot: 'bg-gray-400' },
   ARRIVED: { bg: 'bg-teal-50 border-teal-200', text: 'text-teal-700', dot: 'bg-teal-500' },
   CANCELLED: { bg: 'bg-red-50 border-red-200', text: 'text-red-500', dot: 'bg-red-400' },
 };
@@ -45,34 +44,65 @@ export default function DispatcherSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  const dateRef = useRef(formatDate(new Date()));
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    dateRef.current = formatDate(selectedDate);
+  }, [selectedDate]);
+
   const fetchData = useCallback(async () => {
+    const seq = ++requestSeq.current;
     try {
-      const res = await dispatcherTripAPI.getMyTrips();
+      const res = await dispatcherTripAPI.getMyTrips({ trip_date: dateRef.current });
+      if (seq !== requestSeq.current) return;
       setTrips(res.data.data?.trips || []);
     } catch {
-      toast.error('Failed to load schedule');
+      if (seq === requestSeq.current) toast.error('Failed to load schedule');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, []);
 
   const { isRefreshing, refresh } = useAutoRefresh(fetchData, 30000);
+
+  const isFirstDateRender = useRef(true);
+  useEffect(() => {
+    if (isFirstDateRender.current) {
+      isFirstDateRender.current = false;
+      return;
+    }
+    refresh();
+  }, [selectedDate, refresh]);
 
   const filteredTrips = useMemo(() => {
     const dateStr = formatDate(selectedDate);
     return trips.filter((t) => t.trip_date === dateStr);
   }, [trips, selectedDate]);
 
+  const slotHours = useMemo(() => {
+    const hours = new Set(baseTimeSlots);
+    filteredTrips.forEach((trip) => {
+      if (trip.departure_time) hours.add(`${trip.departure_time.substring(0, 2)}:00`);
+    });
+    return Array.from(hours).sort();
+  }, [filteredTrips]);
+
+  const unscheduledTrips = useMemo(
+    () => filteredTrips.filter((t) => !t.departure_time),
+    [filteredTrips]
+  );
+
   const tripsBySlot = useMemo(() => {
     const map: Record<string, TripItem[]> = {};
-    timeSlots.forEach((s) => (map[s] = []));
+    slotHours.forEach((s) => (map[s] = []));
     filteredTrips.forEach((trip) => {
-      const hour = trip.departure_time?.substring(0, 2);
-      const slotKey = `${hour}:00`;
+      if (!trip.departure_time) return;
+      const slotKey = `${trip.departure_time.substring(0, 2)}:00`;
       if (map[slotKey]) map[slotKey].push(trip);
     });
     return map;
-  }, [filteredTrips]);
+  }, [filteredTrips, slotHours]);
 
   const prevDay = () => {
     const d = new Date(selectedDate);
@@ -140,10 +170,41 @@ export default function DispatcherSchedulePage() {
         ))}
       </div>
 
+      {/* Unscheduled trips (no departure time) */}
+      {unscheduledTrips.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <p className="text-xs font-medium text-gray-500 uppercase mb-2">No departure time</p>
+          <div className="flex flex-wrap gap-2">
+            {unscheduledTrips.map((trip) => {
+              const colors = statusColors[trip.status] || statusColors.SCHEDULED;
+              return (
+                <div key={trip.id} className={`border rounded-lg p-3 min-w-[200px] ${colors.bg}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-xs font-semibold ${colors.text}`}>{trip.status}</span>
+                    <span className="text-xs text-gray-500">—</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
+                    <MapPin className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <span>{trip.route?.origin_city}</span>
+                    <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span>{trip.route?.destination_city}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-600">
+                    <span className="flex items-center gap-1">
+                      <Bus className="h-3 w-3" /> {trip.bus?.bus_number}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Day View */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="divide-y divide-gray-100">
-          {timeSlots.map((slot) => (
+          {slotHours.map((slot) => (
             <div key={slot} className="flex min-h-[60px]">
               <div className="w-20 flex-shrink-0 flex items-start justify-center pt-3 text-sm font-medium text-gray-500 border-r border-gray-100 bg-gray-50">
                 {slot}

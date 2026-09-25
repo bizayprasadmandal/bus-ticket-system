@@ -75,7 +75,7 @@ const resolveSeatLayout = (seat_layout_type, customSeatLayout, total_seats) => {
 };
 
 // List buses, optionally filtered by operator or status
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const { operator_id, status = 'ACTIVE' } = req.query;
 

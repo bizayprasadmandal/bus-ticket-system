@@ -29,9 +29,9 @@ export default function DispatcherBusesPage() {
 
   const itemsPerPage = 10;
 
-  const fetchBuses = async () => {
+  const fetchBuses = async (initial = false) => {
     try {
-      setLoading(true);
+      if (initial) setLoading(true);
       const params: Record<string, any> = { status: statusFilter };
       if (operatorId) params.operator_id = operatorId;
       const res = await api.get('/buses', { params });
@@ -43,8 +43,8 @@ export default function DispatcherBusesPage() {
     }
   };
 
-  useEffect(() => { fetchBuses(); }, [statusFilter, operatorId]);
-  useAutoRefresh(fetchBuses, 30000);
+  useEffect(() => { fetchBuses(true); }, [statusFilter, operatorId]);
+  useAutoRefresh(fetchBuses, 30000, true, false);
 
   const filtered = useMemo(() => {
     return buses.filter(b => {
@@ -68,7 +68,7 @@ export default function DispatcherBusesPage() {
           <h1 className="text-2xl font-bold text-gray-800">Buses</h1>
           <p className="text-sm text-gray-500 mt-1">View buses assigned to your operator</p>
         </div>
-        <button onClick={fetchBuses} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+        <button onClick={() => fetchBuses(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>

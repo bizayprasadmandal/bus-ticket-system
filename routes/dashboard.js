@@ -498,19 +498,21 @@ router.get('/analytics/bookings', authenticateToken, requireRole(['OPERATOR', 'S
 });
 
 // Dashboard overview for dispatchers
-router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER']), async (req, res) => {
+router.get('/dispatcher', authenticateToken, requireRole(['DISPATCHER', 'OPERATOR']), async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
-    const dispatcherRole = userRoles.find(role => role.role === 'DISPATCHER' && role.is_active);
+    const scopedRole =
+      userRoles.find(role => role.role === 'DISPATCHER' && role.is_active && role.operator_id) ||
+      userRoles.find(role => role.role === 'OPERATOR' && role.is_active && role.operator_id);
 
-    if (!dispatcherRole || !dispatcherRole.operator_id) {
+    if (!scopedRole) {
       return res.status(403).json({
         success: false,
         message: 'Dispatcher operator information not found',
       });
     }
 
-    const operatorId = dispatcherRole.operator_id;
+    const operatorId = scopedRole.operator_id;
     const currentDate = new Date();
     const todayStr = currentDate.toISOString().split('T')[0];
 

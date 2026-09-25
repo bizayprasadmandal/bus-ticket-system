@@ -10,7 +10,6 @@ interface TripItem {
   id: number;
   trip_date: string;
   departure_time: string;
-  current_fare: number;
   available_seats: number;
   status: string;
   bus?: { id: number; bus_number: string; bus_type: string };
@@ -79,6 +78,10 @@ export default function DispatcherTripsPage() {
     const csvContent = [
       headers.join(','),
       ...data.map(row => headers.map(h => {
+        if (h === 'ID') return `"${row.id}"`;
+        if (h === 'Date') return `"${row.trip_date}"`;
+        if (h === 'Time') return `"${row.departure_time || ''}"`;
+        if (h === 'Status') return `"${row.status}"`;
         if (h === 'Route') return `"${row.route?.origin_city || ''} → ${row.route?.destination_city || ''}"`;
         if (h === 'Bus') return `"${row.bus?.bus_number || ''} (${row.bus?.bus_type || ''})"`;
         if (h === 'Seats Available') return `"${row.available_seats}"`;
@@ -253,6 +256,7 @@ export default function DispatcherTripsPage() {
                     <div className="flex items-center justify-end gap-2">
                       {getNextStatuses(trip.status).length > 0 ? (
                         <select
+                          key={trip.status}
                           defaultValue=""
                           onChange={(e) => { if (e.target.value) handleStatusUpdate(trip.id, e.target.value); }}
                           className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -292,15 +296,17 @@ export default function DispatcherTripsPage() {
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button key={page} onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                    {page}
-                  </button>
-                );
-              })}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+                    const page = start + i;
+                    if (page > totalPages) return null;
+                    return (
+                      <button key={page} onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        {page}
+                      </button>
+                    );
+                  })}
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 <ChevronRight className="h-4 w-4" />

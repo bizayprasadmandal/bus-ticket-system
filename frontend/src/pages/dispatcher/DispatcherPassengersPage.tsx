@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Users, MapPin, ArrowRight, Clock, Bus, ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { dispatcherTripAPI } from '../../api';
-import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
@@ -17,7 +16,7 @@ interface TripItem {
 }
 
 interface Passenger {
-  name: string;
+  passenger_name: string;
   seat_number: string;
   phone_number: string;
   pnr: string;
@@ -26,7 +25,6 @@ interface Passenger {
 }
 
 interface PassengerData {
-  trip?: TripItem;
   passengers?: Passenger[];
 }
 
@@ -50,12 +48,10 @@ export default function DispatcherPassengersPage() {
     }
   }, []);
 
-  const { isRefreshing, refresh } = useAutoRefresh(fetchTrips, 30000);
-
-  const fetchPassengers = useCallback(async (tripId: number) => {
+  const fetchPassengers = useCallback(async (tripId: number, initial = false) => {
     try {
-      setLoadingPassengers(true);
-      const res = await api.get(`/trips/${tripId}/passengers`);
+      if (initial) setLoadingPassengers(true);
+      const res = await dispatcherTripAPI.getPassengers(tripId);
       setPassengerData(res.data.data || {});
     } catch {
       toast.error('Failed to load passengers');
@@ -65,10 +61,19 @@ export default function DispatcherPassengersPage() {
     }
   }, []);
 
+  const loadAll = useCallback(async () => {
+    await Promise.all([
+      fetchTrips(),
+      selectedTripId ? fetchPassengers(selectedTripId) : Promise.resolve(),
+    ]);
+  }, [fetchTrips, fetchPassengers, selectedTripId]);
+
+  const { isRefreshing, refresh } = useAutoRefresh(loadAll, 30000);
+
   useEffect(() => {
     setCurrentPage(1);
     if (selectedTripId) {
-      fetchPassengers(selectedTripId);
+      fetchPassengers(selectedTripId, true);
     } else {
       setPassengerData({});
     }
@@ -79,7 +84,6 @@ export default function DispatcherPassengersPage() {
     BOARDING: 'bg-amber-100 text-amber-700',
     DEPARTED: 'bg-purple-100 text-purple-700',
     ARRIVED: 'bg-teal-100 text-teal-700',
-    COMPLETED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
   };
 
@@ -98,7 +102,7 @@ export default function DispatcherPassengersPage() {
   };
 
   const handleExportCSV = () => {
-    exportCSV(passengers, `passengers-trip-${selectedTripId}.csv`, ['pnr', 'name', 'seat_number', 'phone_number', 'booking_status']);
+    exportCSV(passengers, `passengers-trip-${selectedTripId}.csv`, ['pnr', 'passenger_name', 'seat_number', 'phone_number', 'booking_status']);
   };
 
   const selectedTrip = trips.find((t) => t.id === selectedTripId);
@@ -233,7 +237,7 @@ export default function DispatcherPassengersPage() {
                   {paginatedPassengers.map((p, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-gray-500">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{p.passenger_name}</td>
                       <td className="px-4 py-3 text-gray-700">{p.seat_number}</td>
                       <td className="px-4 py-3 text-gray-700">{p.phone_number}</td>
                       <td className="px-4 py-3 text-gray-700 font-mono text-xs">{p.pnr}</td>
@@ -243,7 +247,7 @@ export default function DispatcherPassengersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.payment_status === 'PAID' ? 'bg-green-100 text-green-700' : p.payment_status === 'REFUNDED' ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.payment_status === 'COMPLETED' ? 'bg-green-100 text-green-700' : p.payment_status === 'REFUNDED' ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>
                           {paymentStatusLabel(p.payment_status)}
                         </span>
                       </td>
@@ -263,7 +267,9 @@ export default function DispatcherPassengersPage() {
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const page = i + 1;
+                    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+                    const page = start + i;
+                    if (page > totalPages) return null;
                     return (
                       <button key={page} onClick={() => setCurrentPage(page)}
                         className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#d84e55] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>

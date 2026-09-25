@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Users, MapPin, ArrowRight, Clock, Bus, X, Loader2 } from 'lucide-react';
 import { dispatcherTripAPI } from '../../api';
-import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
@@ -62,9 +61,13 @@ export default function DispatcherCrewPage() {
 
   const handleSave = async () => {
     if (!selectedTrip) return;
+    if (!form.driver_name.trim() && !form.conductor_name.trim()) {
+      toast.error('Enter at least a driver or conductor name');
+      return;
+    }
     try {
       setSaving(true);
-      await api.put(`/trips/${selectedTrip.id}/assign-crew`, form);
+      await dispatcherTripAPI.assignCrew(selectedTrip.id, form);
       toast.success('Crew assigned successfully');
       setModalOpen(false);
       setSelectedTrip(null);
@@ -81,7 +84,6 @@ export default function DispatcherCrewPage() {
     BOARDING: 'bg-amber-100 text-amber-700',
     DEPARTED: 'bg-purple-100 text-purple-700',
     ARRIVED: 'bg-teal-100 text-teal-700',
-    COMPLETED: 'bg-green-100 text-green-700',
     CANCELLED: 'bg-red-100 text-red-700',
   };
 
@@ -92,7 +94,7 @@ export default function DispatcherCrewPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Crew Assignment</h1>
-          <p className="text-sm text-gray-500 mt-1">Assign drivers and conductors to today's trips</p>
+          <p className="text-sm text-gray-500 mt-1">Assign drivers and conductors to trips</p>
         </div>
         <button
           onClick={refresh}
@@ -153,12 +155,16 @@ export default function DispatcherCrewPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => openCrewModal(trip)}
-                      className="px-3 py-1.5 text-xs font-medium bg-[#d84e55] text-white rounded-lg hover:bg-[#c4434b] transition-colors"
-                    >
-                      Assign Crew
-                    </button>
+                    {trip.status === 'ARRIVED' || trip.status === 'CANCELLED' ? (
+                      <span className="text-xs text-gray-400">Not available</span>
+                    ) : (
+                      <button
+                        onClick={() => openCrewModal(trip)}
+                        className="px-3 py-1.5 text-xs font-medium bg-[#d84e55] text-white rounded-lg hover:bg-[#c4434b] transition-colors"
+                      >
+                        Assign Crew
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

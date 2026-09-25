@@ -453,7 +453,10 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
     // If operator, dispatcher, driver, or conductor, verify they own/are assigned to this trip
     if (!isAdmin && (operatorRole || dispatcherRole || driverRole || conductorRole)) {
       const tripWithBus = await Trip.findByPk(id, {
-        include: [{ model: Bus, as: 'bus', attributes: ['operator_id'] }],
+        include: [
+          { model: Bus, as: 'bus', attributes: ['operator_id'] },
+          { model: Route, as: 'route', attributes: ['operator_id'] },
+        ],
       });
 
       if (driverRole) {
@@ -476,7 +479,8 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
         }
       } else {
         const ownerId = operatorRole ? operatorRole.operator_id : dispatcherRole.operator_id;
-        if (!tripWithBus || tripWithBus.bus.operator_id !== ownerId) {
+        const tripOwners = [tripWithBus?.bus?.operator_id, tripWithBus?.route?.operator_id];
+        if (!tripWithBus || !tripOwners.includes(ownerId)) {
           return res.status(403).json({
             success: false,
             message: 'You can only update status of your own trips',
@@ -494,6 +498,7 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
       });
     }
 
+    const previousStatus = trip.status;
     await trip.update({ status });
 
     res.json({
@@ -501,7 +506,7 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
       message: `Trip status updated to ${status}`,
       data: {
         trip_id: trip.id,
-        previous_status: trip.status,
+        previous_status: previousStatus,
         new_status: status,
       },
     });
@@ -515,24 +520,91 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
   }
 });
 
+// Shared access check for trip-scoped endpoints (manifest, crew assignment, ...)
+// Returns { ok: true } or { ok: false, status, message }
+async function checkTripAccess(req, trip) {
+  const userRoles = req.user.roles || [];
+  const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
+  if (isAdmin) return { ok: true };
+
+  const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
+  const dispatcherRole = userRoles.find(r => r.role === 'DISPATCHER' && r.is_active);
+  const driverRole = userRoles.find(r => r.role === 'DRIVER' && r.is_active);
+  const conductorRole = userRoles.find(r => r.role === 'CONDUCTOR' && r.is_active);
+
+  if (!operatorRole && !dispatcherRole && !driverRole && !conductorRole) {
+    return { ok: false, status: 403, message: 'Only operators, dispatchers, drivers, conductors, or admins can access this trip' };
+  }
+
+  if (driverRole) {
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    if (!user || trip.driver_name !== user.full_name) {
+      return { ok: false, status: 403, message: 'You can only access trips assigned to you' };
+    }
+    return { ok: true };
+  }
+
+  if (conductorRole) {
+    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+    if (!user || trip.conductor_name !== user.full_name) {
+      return { ok: false, status: 403, message: 'You can only access trips assigned to you' };
+    }
+    return { ok: true };
+  }
+
+  const ownerId = operatorRole ? operatorRole.operator_id : dispatcherRole.operator_id;
+  const tripOwners = [trip.bus?.operator_id, trip.route?.operator_id].filter(Boolean);
+  if (!tripOwners.includes(ownerId)) {
+    return { ok: false, status: 403, message: 'You can only access trips of your own operator' };
+  }
+  return { ok: true };
+}
+
 // Assign crew (driver/conductor) to a trip
 router.put('/:id/assign-crew', authenticateToken, requireRole(['OPERATOR', 'SUPER_ADMIN', 'DISPATCHER']), async (req, res) => {
   try {
     const { id } = req.params;
-    const { driver_name, driver_phone, conductor_name, conductor_phone } = req.body;
+    const driver_name = typeof req.body.driver_name === 'string' ? req.body.driver_name.trim() : undefined;
+    const driver_phone = typeof req.body.driver_phone === 'string' ? req.body.driver_phone.trim() : undefined;
+    const conductor_name = typeof req.body.conductor_name === 'string' ? req.body.conductor_name.trim() : undefined;
+    const conductor_phone = typeof req.body.conductor_phone === 'string' ? req.body.conductor_phone.trim() : undefined;
 
-    const trip = await Trip.findByPk(id);
+    const trip = await Trip.findByPk(id, {
+      include: [
+        { model: Bus, as: 'bus', attributes: ['operator_id'] },
+        { model: Route, as: 'route', attributes: ['operator_id'] },
+      ],
+    });
     if (!trip) {
       return res.status(404).json({ success: false, message: 'Trip not found' });
     }
 
-    // Update crew fields
-    if (driver_name !== undefined) trip.driver_name = driver_name;
-    if (driver_phone !== undefined) trip.driver_phone = driver_phone;
-    if (conductor_name !== undefined) trip.conductor_name = conductor_name;
-    if (conductor_phone !== undefined) trip.conductor_phone = conductor_phone;
+    const access = await checkTripAccess(req, trip);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
+    }
 
-    await trip.save();
+    if (trip.status === 'ARRIVED' || trip.status === 'CANCELLED') {
+      return res.status(400).json({
+        success: false,
+        message: trip.status === 'CANCELLED'
+          ? 'Cannot assign crew to a cancelled trip'
+          : 'Cannot assign crew to a trip that has already arrived',
+      });
+    }
+
+    // Update crew fields (empty/whitespace values are ignored so they cannot wipe existing crew)
+    const updates = {};
+    if (driver_name) updates.driver_name = driver_name;
+    if (driver_phone) updates.driver_phone = driver_phone;
+    if (conductor_name) updates.conductor_name = conductor_name;
+    if (conductor_phone) updates.conductor_phone = conductor_phone;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'No crew details provided' });
+    }
+
+    await trip.update(updates);
 
     res.json({
       success: true,
@@ -552,8 +624,8 @@ router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER
 
     const trip = await Trip.findByPk(id, {
       include: [
-        { model: Route, as: 'route', attributes: ['route_name', 'origin_city', 'destination_city'] },
-        { model: Bus, as: 'bus', attributes: ['bus_number', 'bus_type'] },
+        { model: Route, as: 'route', attributes: ['route_name', 'origin_city', 'destination_city', 'operator_id'] },
+        { model: Bus, as: 'bus', attributes: ['bus_number', 'bus_type', 'operator_id'] },
       ],
     });
 
@@ -561,9 +633,14 @@ router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER
       return res.status(404).json({ success: false, message: 'Trip not found' });
     }
 
-    // Get all bookings for this trip
+    const access = await checkTripAccess(req, trip);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
+    }
+
+    // Get all bookings for this trip (include COMPLETED — set when passengers board — and NO_SHOW)
     const bookings = await Booking.findAll({
-      where: { trip_id: id, booking_status: { [Op.in]: ['CONFIRMED', 'PENDING'] } },
+      where: { trip_id: id, booking_status: { [Op.in]: ['CONFIRMED', 'PENDING', 'COMPLETED', 'NO_SHOW'] } },
       include: [
         { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'] },
         { model: BookingPassenger, as: 'passengers' },
@@ -575,12 +652,14 @@ router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER
     const passengers = [];
     for (const booking of bookings) {
       for (const p of (booking.passengers || [])) {
+        const phone = p.phone_number || booking.user?.phone_number || '';
         passengers.push({
           booking_id: booking.id,
           pnr: booking.pnr,
           passenger_name: p.passenger_name || p.name,
           seat_number: p.seat_number,
-          phone: booking.user?.phone_number || '',
+          phone,
+          phone_number: phone,
           booking_status: booking.booking_status,
           payment_status: booking.payment_status,
         });
@@ -589,6 +668,7 @@ router.get('/:id/passengers', authenticateToken, requireRole(['OPERATOR', 'SUPER
 
     res.json({
       success: true,
+      message: 'Passengers retrieved successfully',
       data: {
         trip: {
           id: trip.id,
@@ -702,15 +782,26 @@ router.get('/operator/my-trips', authenticateToken, async (req, res) => {
 router.get('/dispatcher/my-trips', authenticateToken, async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
-    const dispatcherRole = userRoles.find(role => role.role === 'DISPATCHER' && role.is_active);
+    const scopedRole =
+      userRoles.find(r => r.role === 'DISPATCHER' && r.is_active && r.operator_id) ||
+      userRoles.find(r => r.role === 'OPERATOR' && r.is_active && r.operator_id);
 
-    if (!dispatcherRole || !dispatcherRole.operator_id) {
+    if (!scopedRole) {
       return res.status(403).json({ success: false, message: 'Dispatcher operator information not found' });
     }
 
+    const whereClause = {};
+    if (req.query.trip_date) whereClause.trip_date = req.query.trip_date;
+    if (req.query.status) {
+      const status = String(req.query.status).toUpperCase();
+      const validStatuses = ['SCHEDULED', 'BOARDING', 'DEPARTED', 'ARRIVED', 'CANCELLED'];
+      if (validStatuses.includes(status)) whereClause.status = status;
+    }
+
     const trips = await Trip.findAll({
+      where: whereClause,
       include: [
-        { model: Bus, as: 'bus', where: { operator_id: dispatcherRole.operator_id }, required: true },
+        { model: Bus, as: 'bus', where: { operator_id: scopedRole.operator_id }, required: true },
         { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
       ],
       order: [['trip_date', 'DESC']],

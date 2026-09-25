@@ -2,12 +2,12 @@ import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Clock, RefreshCw, Loader2, ArrowRight, CheckCircle, Bus, Users, PlayCircle, ClipboardList } from 'lucide-react';
 import api from '../../api';
+import { dashboardAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 interface TripItem {
   id: number;
-  trip_date: string;
   departure_time: string;
   status: string;
   bus?: { id: number; bus_number: string; bus_type: string };
@@ -17,7 +17,6 @@ interface TripItem {
 interface BusItem {
   id: number;
   bus_number: string;
-  bus_model: string;
   bus_type: string;
   total_seats: number;
   status: string;
@@ -40,8 +39,13 @@ export default function DispatcherDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await api.get('/dashboard/dispatcher');
-      setStats(res.data.data);
+      const res = await dashboardAPI.getDispatcher();
+      const d = res.data.data;
+      setStats({
+        ...(d.stats || {}),
+        today_trips: d.today_trips || [],
+        available_buses_list: d.available_buses_list || [],
+      });
     } catch {
       toast.error('Failed to load dashboard');
     } finally {
@@ -146,7 +150,7 @@ export default function DispatcherDashboard() {
         {stats.today_trips && stats.today_trips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: TripItem) => (
-              <div key={trip.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+              <div key={trip.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Bus className="h-5 w-5 text-blue-600" />
                 </div>

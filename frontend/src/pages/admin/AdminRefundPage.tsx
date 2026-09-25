@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { RotateCcw, Search, ChevronLeft, ChevronRight, RefreshCw, Calendar, CheckCircle, XCircle, DollarSign, Clock } from 'lucide-react';
+import { RotateCcw, Search, RefreshCw, Calendar, CheckCircle, XCircle, DollarSign, Clock } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface RefundItem {
@@ -27,6 +28,7 @@ export default function AdminRefundPage() {
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [serverTotalItems, setServerTotalItems] = useState(0);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [rejectModal, setRejectModal] = useState<RefundItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -43,6 +45,7 @@ export default function AdminRefundPage() {
       const bookings = res.data.data.items || [];
       const pagination = res.data.data.pagination || {};
       setServerTotalPages(pagination.total_pages || 1);
+      setServerTotalItems(pagination.total_items || bookings.length);
       const refundsList: RefundItem[] = bookings
         .filter((b: any) => b.booking_status === 'CANCELLED')
         .map((b: any) => ({
@@ -65,7 +68,7 @@ export default function AdminRefundPage() {
     }
   }, [searchQuery, dateFrom, dateTo, currentPage]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadRefunds, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadRefunds, 30000, true, false);
 
   useEffect(() => { loadRefunds(); }, [loadRefunds]);
 
@@ -77,7 +80,7 @@ export default function AdminRefundPage() {
   const totalPages = statusFilter === 'ALL' ? serverTotalPages : Math.max(1, Math.ceil(filteredRefunds.length / itemsPerPage));
   const paginatedRefunds = statusFilter === 'ALL' ? refunds : filteredRefunds;
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, dateFrom, dateTo]);
+  const resetPage = () => setCurrentPage(1);
 
   const stats = useMemo(() => ({
     total: filteredRefunds.length,
@@ -207,13 +210,13 @@ export default function AdminRefundPage() {
               type="text"
               placeholder="Search by PNR..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -226,14 +229,14 @@ export default function AdminRefundPage() {
             <input
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
             <span className="text-gray-400">-</span>
             <input
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
           </div>
@@ -318,45 +321,13 @@ export default function AdminRefundPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + paginatedRefunds.length)} of {statusFilter === 'ALL' ? serverTotalPages * itemsPerPage : filteredRefunds.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={statusFilter === 'ALL' ? serverTotalItems : filteredRefunds.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {rejectModal && (

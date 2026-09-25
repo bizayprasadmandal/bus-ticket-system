@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { seatLockValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
+const { getSystemSettings } = require('../services/settings');
 
 const router = express.Router();
 
@@ -13,7 +14,8 @@ router.post('/', authenticateToken, seatLockValidation.lock, handleValidationErr
   try {
     const { trip_id, seat_numbers } = req.body;
     const userId = req.user.id;
-    const lockDurationMinutes = process.env.SEAT_LOCK_DURATION_MINUTES || 15;
+    const systemSettings = await getSystemSettings();
+    const lockDurationMinutes = Number(systemSettings.seat_lock_timeout) || 15;
 
     // Check if trip exists
     const trip = await Trip.findByPk(trip_id);

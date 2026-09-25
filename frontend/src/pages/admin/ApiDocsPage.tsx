@@ -13,7 +13,7 @@ interface Endpoint {
 const endpoints: Record<string, Endpoint[]> = {
   Authentication: [
     { method: 'POST', path: '/api/auth/register', description: 'Register a new user', requiresAuth: false, body: { email: 'string', password: 'string', full_name: 'string', phone_number: 'string' } },
-    { method: 'POST', path: '/api/auth/login', description: 'Login and get access token', requiresAuth: false, body: { email: 'string', password: 'string' } },
+    { method: 'POST', path: '/api/auth/login', description: 'Login and get access token', requiresAuth: false, body: { phone_number: 'string', password: 'string' } },
     { method: 'POST', path: '/api/auth/send-otp', description: 'Send OTP for verification', requiresAuth: false, body: { phone_number: 'string' } },
     { method: 'POST', path: '/api/auth/verify-otp', description: 'Verify OTP code', requiresAuth: false, body: { phone_number: 'string', otp: 'string' } },
     { method: 'PUT', path: '/api/auth/change-password', description: 'Change password', requiresAuth: true, body: { current_password: 'string', new_password: 'string' } },
@@ -22,24 +22,24 @@ const endpoints: Record<string, Endpoint[]> = {
     { method: 'GET', path: '/api/trips/search', description: 'Search available trips', requiresAuth: false },
     { method: 'GET', path: '/api/trips/:id', description: 'Get trip details', requiresAuth: false },
     { method: 'GET', path: '/api/trips/:id/seats', description: 'Get trip seat layout', requiresAuth: false },
-    { method: 'POST', path: '/api/operator/trips', description: 'Create a new trip', requiresAuth: true, roles: ['OPERATOR'] },
-    { method: 'PUT', path: '/api/operator/trips/:id', description: 'Update trip details', requiresAuth: true, roles: ['OPERATOR'] },
-    { method: 'PUT', path: '/api/operator/trips/:id/status', description: 'Update trip status', requiresAuth: true, roles: ['OPERATOR'] },
+    { method: 'POST', path: '/api/trips', description: 'Create a new trip', requiresAuth: true, roles: ['OPERATOR'] },
+    { method: 'PUT', path: '/api/trips/:id', description: 'Update trip details', requiresAuth: true, roles: ['OPERATOR'] },
+    { method: 'PUT', path: '/api/trips/:id/status', description: 'Update trip status', requiresAuth: true, roles: ['OPERATOR'] },
   ],
   Bookings: [
     { method: 'POST', path: '/api/bookings', description: 'Create a new booking', requiresAuth: true, body: { trip_id: 'number', passengers: 'Passenger[]' } },
-    { method: 'GET', path: '/api/bookings/my', description: 'Get user bookings', requiresAuth: true },
-    { method: 'GET', path: '/api/bookings/:pnr', description: 'Get booking by PNR', requiresAuth: true },
-    { method: 'PUT', path: '/api/bookings/:pnr/cancel', description: 'Cancel a booking', requiresAuth: true },
+    { method: 'GET', path: '/api/bookings', description: 'Get user bookings', requiresAuth: true },
+    { method: 'GET', path: '/api/bookings/pnr/:pnr', description: 'Get booking by PNR', requiresAuth: true },
+    { method: 'POST', path: '/api/bookings/:id/cancel', description: 'Cancel a booking', requiresAuth: true },
   ],
   Payments: [
     { method: 'POST', path: '/api/payments/initiate', description: 'Initiate payment', requiresAuth: true, body: { booking_id: 'number', payment_method: 'string', amount: 'number' } },
-    { method: 'GET', path: '/api/payments/:id/verify', description: 'Verify payment status', requiresAuth: true },
-    { method: 'GET', path: '/api/payments/callback', description: 'Payment gateway callback', requiresAuth: false },
+    { method: 'POST', path: '/api/payments/:id/verify', description: 'Verify payment status', requiresAuth: true },
+    { method: 'GET', path: '/api/payments/:id/callback', description: 'Payment gateway callback', requiresAuth: false },
   ],
   SeatLocks: [
     { method: 'POST', path: '/api/seat-locks', description: 'Lock seats for booking', requiresAuth: true, body: { trip_id: 'number', seat_numbers: 'string[]' } },
-    { method: 'GET', path: '/api/seat-locks/trip/:tripId', description: 'Get locked seats for trip', requiresAuth: true },
+    { method: 'GET', path: '/api/seat-locks/active', description: 'Get active seat locks', requiresAuth: true },
     { method: 'DELETE', path: '/api/seat-locks/:id', description: 'Release seat lock', requiresAuth: true },
   ],
   Reports: [
@@ -47,7 +47,7 @@ const endpoints: Record<string, Endpoint[]> = {
     { method: 'GET', path: '/api/reports/revenue', description: 'Generate revenue report', requiresAuth: true, roles: ['SUPER_ADMIN', 'OPERATOR'] },
   ],
   Admin: [
-    { method: 'GET', path: '/api/admin/dashboard', description: 'Get admin dashboard stats', requiresAuth: true, roles: ['SUPER_ADMIN'] },
+    { method: 'GET', path: '/api/dashboard/admin', description: 'Get admin dashboard stats', requiresAuth: true, roles: ['SUPER_ADMIN'] },
     { method: 'GET', path: '/api/admin/operators', description: 'List all operators', requiresAuth: true, roles: ['SUPER_ADMIN'] },
     { method: 'POST', path: '/api/admin/operators', description: 'Register new operator', requiresAuth: true, roles: ['SUPER_ADMIN'] },
     { method: 'GET', path: '/api/admin/users', description: 'List all users', requiresAuth: true, roles: ['SUPER_ADMIN'] },

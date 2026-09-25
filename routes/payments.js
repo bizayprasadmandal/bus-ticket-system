@@ -59,6 +59,22 @@ const initiatePaymentHandler = async (req, res) => {
       });
     }
 
+    // Reject payment methods disabled in system settings
+    try {
+      const { getSystemSettings } = require('../services/settings');
+      const systemSettings = await getSystemSettings();
+      const methods = systemSettings.payment_methods || {};
+      const methodKey = String(payment_method || '').toLowerCase();
+      if (methodKey && methods[methodKey] === false) {
+        return res.status(400).json({
+          success: false,
+          message: `${String(payment_method).toUpperCase()} payments are currently disabled`,
+        });
+      }
+    } catch (e) {
+      console.error('Payment method settings check error:', e.message);
+    }
+
     // Create payment record
     const payment = await Payment.create({
       booking_id,

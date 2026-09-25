@@ -21,17 +21,21 @@ const { bookingValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const { NotificationService } = require('../services/notifications');
 const { expireStalePendingBookings } = require('../services/booking-cleanup');
+const { getSystemSettings } = require('../services/settings');
 
 const notificationService = new NotificationService();
 
 const router = express.Router();
 
-const TAX_RATE = 0.13; // 13% VAT
+const DEFAULT_TAX_RATE = 0.13; // 13% VAT
 const SERVICE_FEE_PER_PASSENGER = 50; // NPR 50 per passenger
 
-const calculateBookingAmounts = (farePerPassenger, totalPassengers) => {
+const calculateBookingAmounts = (farePerPassenger, totalPassengers, settings = null) => {
   const subtotal = farePerPassenger * totalPassengers;
-  const tax_amount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const taxRate = settings && settings.tax_rate != null
+    ? Number(settings.tax_rate) / 100
+    : DEFAULT_TAX_RATE;
+  const tax_amount = Math.round(subtotal * taxRate * 100) / 100;
   const service_fee = SERVICE_FEE_PER_PASSENGER * totalPassengers;
   const total_amount = Math.round((subtotal + tax_amount + service_fee) * 100) / 100;
 
@@ -165,7 +169,18 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
     }
 
     // Calculate amounts
-    const amounts = calculateBookingAmounts(trip.current_fare, passengers.length);
+    const systemSettings = await getSystemSettings();
+    const amounts = calculateBookingAmounts(trip.current_fare, passengers.length, systemSettings);
+
+    // Enforce max passengers per booking from settings
+    const maxPassengers = Number(systemSettings.max_passengers) || 10;
+    if (passengers.length > maxPassengers) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `A maximum of ${maxPassengers} passengers is allowed per booking`,
+      });
+    }
 
     // Create booking
     const booking = await Booking.create({
@@ -297,7 +312,7 @@ router.post('/cash-payment', authenticateToken, requireRole(['COUNTER_AGENT', 'O
     }
 
     // Calculate fare
-    const amounts = calculateBookingAmounts(trip.current_fare, passengers.length);
+    const amounts = calculateBookingAmounts(trip.current_fare, passengers.length, await getSystemSettings());
 
     // Generate PNR
     const pnr = generatePNR();

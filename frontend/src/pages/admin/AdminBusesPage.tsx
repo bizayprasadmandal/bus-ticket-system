@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bus, Search, ChevronLeft, ChevronRight, RefreshCw, Users } from 'lucide-react';
+import { Bus, Search, RefreshCw, Users } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface BusItem {
@@ -69,20 +70,17 @@ export default function AdminBusesPage() {
     }
   }, [searchQuery, statusFilter, typeFilter, currentPage]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBuses, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBuses, 30000, true, false);
 
   useEffect(() => { loadBuses(); }, [loadBuses]);
 
-  const paginatedBuses = buses;
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, typeFilter]);
+  const resetPage = () => setCurrentPage(1);
 
   const getBusTypeColor = (type: string) => {
     switch (type) {
       case 'AC': return 'bg-blue-100 text-blue-700';
       case 'DELUXE': return 'bg-purple-100 text-purple-700';
       case 'SLEEPER': return 'bg-indigo-100 text-indigo-700';
-      case 'VIP': return 'bg-amber-100 text-amber-700';
       default: return 'bg-gray-100 text-gray-600';
     }
   };
@@ -142,13 +140,13 @@ export default function AdminBusesPage() {
               type="text"
               placeholder="Search by bus number, model, or operator..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(e) => { setTypeFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Types</option>
@@ -162,7 +160,7 @@ export default function AdminBusesPage() {
           </select>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -188,7 +186,7 @@ export default function AdminBusesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedBuses.map((bus) => (
+              {buses.map((bus) => (
                 <tr key={bus.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -221,7 +219,7 @@ export default function AdminBusesPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedBuses.length === 0 && (
+              {buses.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <Bus className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -233,47 +231,13 @@ export default function AdminBusesPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + buses.length)} of {totalItems}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-                const page = start + i;
-                if (page > totalPages) return null;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

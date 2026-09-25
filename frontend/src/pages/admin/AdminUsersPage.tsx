@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Users, Search, UserCheck, UserX, Shield, Phone, Mail, Calendar, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Users, Search, UserCheck, UserX, Shield, Phone, Mail, Calendar, Eye } from 'lucide-react';
 import { adminUserAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface UserItem {
@@ -16,57 +17,63 @@ interface UserItem {
   roles?: { role: string; is_active: boolean }[];
 }
 
+interface UserStats {
+  total: number;
+  active: number;
+  suspended: number;
+  customers: number;
+  operators: number;
+  admins: number;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
-  useEffect(() => { loadUsers(); }, []);
-
-  const loadUsers = async () => {
+  const fetchUsers = useCallback(async (page: number, search: string, role: string, status: string) => {
     try {
-      const res = await adminUserAPI.getAll();
-      setUsers(res.data.data.users || []);
-    } catch { toast.error('Failed to load users'); } finally { setLoading(false); }
-  };
+      const params: Record<string, unknown> = { page, limit: itemsPerPage };
+      if (search.trim()) params.search = search.trim();
+      if (status !== 'ALL') params.status = status;
+      if (role !== 'ALL') params.role = role;
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
-      const matchesSearch =
-        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.phone_number?.includes(searchQuery) ||
-        user.email?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRole = roleFilter === 'ALL' || user.roles?.some(r => r.role === roleFilter);
-      const isActive = user.status === 'ACTIVE';
-      const matchesStatus =
-        statusFilter === 'ALL' ||
-        (statusFilter === 'ACTIVE' && isActive) ||
-        (statusFilter === 'SUSPENDED' && !isActive);
-      return matchesSearch && matchesRole && matchesStatus;
-    });
-  }, [users, searchQuery, roleFilter, statusFilter]);
-
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+      const res = await adminUserAPI.getAll(params);
+      const data = res.data?.data || {};
+      setUsers(data.users || []);
+      setStats(data.stats || null);
+      if (data.pagination) {
+        setTotalPages(data.pagination.total_pages || 1);
+        setTotalItems(data.pagination.total_items || 0);
+      } else {
+        setTotalPages(1);
+        setTotalItems((data.users || []).length);
+      }
+    } catch {
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, roleFilter, statusFilter]);
+    fetchUsers(currentPage, searchQuery, roleFilter, statusFilter);
+  }, [fetchUsers, currentPage, searchQuery, roleFilter, statusFilter]);
 
   const toggleStatus = async (userId: number, currentStatus: string) => {
     try {
       await adminUserAPI.updateStatus(userId, currentStatus !== 'ACTIVE');
       toast.success(`User ${currentStatus === 'ACTIVE' ? 'suspended' : 'activated'}`);
-      loadUsers();
+      fetchUsers(currentPage, searchQuery, roleFilter, statusFilter);
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
 
@@ -87,15 +94,6 @@ export default function AdminUsersPage() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === 'ACTIVE').length,
-    inactive: users.filter(u => u.status !== 'ACTIVE').length,
-    customers: users.filter(u => u.roles?.some(r => r.role === 'CUSTOMER')).length,
-    operators: users.filter(u => u.roles?.some(r => r.role === 'OPERATOR')).length,
-    admins: users.filter(u => u.roles?.some(r => r.role === 'SUPER_ADMIN')).length,
-  };
-
   if (loading) return <TableSkeleton rows={5} cols={5} />;
 
   return (
@@ -110,27 +108,27 @@ export default function AdminUsersPage() {
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-xs text-gray-500">Total Users</p>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+          <p className="text-2xl font-bold text-gray-800">{stats?.total ?? totalItems}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-xs text-gray-500">Active</p>
-          <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+          <p className="text-2xl font-bold text-green-600">{stats?.active ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-xs text-gray-500">Inactive</p>
-          <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
+          <p className="text-xs text-gray-500">Suspended</p>
+          <p className="text-2xl font-bold text-red-600">{stats?.suspended ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-xs text-gray-500">Customers</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.customers}</p>
+          <p className="text-2xl font-bold text-blue-600">{stats?.customers ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-xs text-gray-500">Operators</p>
-          <p className="text-2xl font-bold text-purple-600">{stats.operators}</p>
+          <p className="text-2xl font-bold text-purple-600">{stats?.operators ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-xs text-gray-500">Admins</p>
-          <p className="text-2xl font-bold text-orange-600">{stats.admins}</p>
+          <p className="text-2xl font-bold text-orange-600">{stats?.admins ?? 0}</p>
         </div>
       </div>
 
@@ -143,13 +141,13 @@ export default function AdminUsersPage() {
               type="text"
               placeholder="Search by name, phone, or email..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
           <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
+            onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="ALL">All Roles</option>
@@ -159,7 +157,7 @@ export default function AdminUsersPage() {
           </select>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -184,7 +182,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedUsers.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -257,7 +255,7 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedUsers.length === 0 && (
+              {users.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
                     <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -269,46 +267,13 @@ export default function AdminUsersPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* User Detail Modal */}

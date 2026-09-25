@@ -1,18 +1,18 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Star, Search, ChevronLeft, ChevronRight, RefreshCw, MessageSquare } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Star, Search, RefreshCw, MessageSquare } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface ReviewItem {
   id: number;
-  user_name: string;
-  user_phone: string;
-  trip_route: string;
+  user?: { full_name?: string };
+  trip?: { route?: { origin_city?: string; destination_city?: string } };
   rating: number;
-  title: string;
-  comment: string;
+  title?: string;
+  comment?: string;
   created_at: string;
 }
 
@@ -22,36 +22,35 @@ export default function AdminReviewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [averageRating, setAverageRating] = useState(0);
+  const [ratingStats, setRatingStats] = useState({ five_star: 0, low_star: 0 });
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   const loadReviews = useCallback(async () => {
     try {
-      const params: any = {};
-      if (searchQuery) params.search = searchQuery;
+      const params: any = { page: currentPage, limit: itemsPerPage };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
       if (ratingFilter !== 'ALL') params.rating = ratingFilter;
       const res = await api.get('/admin/reviews', { params });
-      setReviews(res.data.data.items || []);
+      const data = res.data.data || {};
+      setReviews(data.items || []);
+      setTotalPages(data.pagination?.total_pages || 1);
+      setTotalItems(data.pagination?.total_items || (data.items || []).length);
+      setAverageRating(Number(data.average_rating) || 0);
+      setRatingStats(data.rating_stats || { five_star: 0, low_star: 0 });
     } catch {
       toast.error('Failed to load reviews');
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, ratingFilter]);
+  }, [searchQuery, ratingFilter, currentPage]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadReviews, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadReviews, 30000, true, false);
 
   useEffect(() => { loadReviews(); }, [loadReviews]);
-
-  const filteredReviews = useMemo(() => reviews, [reviews]);
-
-  const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
-  const paginatedReviews = filteredReviews.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, ratingFilter]);
 
   const renderStars = (rating: number) => {
     return (
@@ -93,23 +92,19 @@ export default function AdminReviewsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Total Reviews</p>
-          <p className="text-2xl font-bold text-gray-800">{reviews.length}</p>
+          <p className="text-2xl font-bold text-gray-800">{totalItems}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Average Rating</p>
-          <p className="text-2xl font-bold text-amber-500">
-            {reviews.length > 0
-              ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-              : '0.0'}
-          </p>
+          <p className="text-2xl font-bold text-amber-500">{averageRating.toFixed(1)}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">5 Star Reviews</p>
-          <p className="text-2xl font-bold text-green-600">{reviews.filter(r => r.rating === 5).length}</p>
+          <p className="text-2xl font-bold text-green-600">{ratingStats.five_star}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">1-2 Star Reviews</p>
-          <p className="text-2xl font-bold text-[#d84e55]">{reviews.filter(r => r.rating <= 2).length}</p>
+          <p className="text-2xl font-bold text-[#d84e55]">{ratingStats.low_star}</p>
         </div>
       </div>
 
@@ -121,13 +116,13 @@ export default function AdminReviewsPage() {
               type="text"
               placeholder="Search by user, route, or comment..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
           <select
             value={ratingFilter}
-            onChange={(e) => setRatingFilter(e.target.value)}
+            onChange={(e) => { setRatingFilter(e.target.value); setCurrentPage(1); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Ratings</option>
@@ -154,15 +149,16 @@ export default function AdminReviewsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedReviews.map((review) => (
+              {reviews.map((review) => (
                 <tr key={review.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium text-gray-800">{review.user_name}</p>
-                      <p className="text-xs text-gray-400">{review.user_phone}</p>
-                    </div>
+                    <p className="font-medium text-gray-800">{review.user?.full_name || 'Unknown'}</p>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{review.trip_route}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {review.trip?.route
+                      ? `${review.trip.route.origin_city} → ${review.trip.route.destination_city}`
+                      : '-'}
+                  </td>
                   <td className="px-4 py-3">{renderStars(review.rating)}</td>
                   <td className="px-4 py-3">
                     <span className="font-medium text-gray-800">{review.title || '-'}</span>
@@ -177,7 +173,7 @@ export default function AdminReviewsPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedReviews.length === 0 && (
+              {reviews.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
                     <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -189,45 +185,13 @@ export default function AdminReviewsPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredReviews.length)} of {filteredReviews.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

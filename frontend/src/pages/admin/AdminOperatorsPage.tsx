@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
-import { UserCog, Plus, X, Search, Edit, Trash2, ChevronLeft, ChevronRight, Building2, Phone, Calendar } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { UserCog, Plus, X, Search, Edit, Trash2, Building2, Phone, Calendar } from 'lucide-react';
 import { adminOperatorAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface OperatorItem {
@@ -9,62 +10,74 @@ interface OperatorItem {
   company_name: string;
   company_name_nepali: string;
   contact_person: string;
-  contact_phone: string;
+  contact_phone?: string;
+  phone_number?: string;
   email?: string;
   status: string;
   commission_rate?: number;
   created_at: string;
 }
 
+interface OperatorStats {
+  total: number;
+  approved: number;
+  pending: number;
+  suspended: number;
+  rejected: number;
+}
+
+const emptyForm = {
+  company_name: '',
+  company_name_nepali: '',
+  contact_person: '',
+  contact_phone: '',
+  email: '',
+  password: '',
+  commission_rate: 10,
+};
+
 export default function AdminOperatorsPage() {
   const [operators, setOperators] = useState<OperatorItem[]>([]);
+  const [stats, setStats] = useState<OperatorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingOperator, setEditingOperator] = useState<OperatorItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [form, setForm] = useState({
-    company_name: '',
-    company_name_nepali: '',
-    contact_person: '',
-    contact_phone: '',
-    email: '',
-    password: '',
-    commission_rate: 10,
-  });
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [form, setForm] = useState(emptyForm);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
-  useEffect(() => { loadOperators(); }, []);
-
-  const loadOperators = async () => {
+  const fetchOperators = useCallback(async (page: number, search: string, status: string) => {
     try {
-      const res = await adminOperatorAPI.getAll();
-      setOperators(res.data.data.operators || []);
-    } catch { toast.error('Failed to load operators'); } finally { setLoading(false); }
-  };
+      const params: Record<string, unknown> = { page, limit: itemsPerPage };
+      if (search.trim()) params.search = search.trim();
+      if (status !== 'ALL') params.status = status;
 
-  const filteredOperators = useMemo(() => {
-    return operators.filter((op) => {
-      const matchesSearch =
-        op.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        op.contact_person.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        op.contact_phone.includes(searchQuery);
-      const matchesStatus = statusFilter === 'ALL' || op.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [operators, searchQuery, statusFilter]);
-
-  const totalPages = Math.ceil(filteredOperators.length / itemsPerPage);
-  const paginatedOperators = filteredOperators.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+      const res = await adminOperatorAPI.getAll(params);
+      const data = res.data.data || {};
+      setOperators(data.operators || []);
+      setStats(data.stats || null);
+      if (data.pagination) {
+        setTotalPages(data.pagination.total_pages || 1);
+        setTotalItems(data.pagination.total_items || 0);
+      } else {
+        setTotalPages(1);
+        setTotalItems((data.operators || []).length);
+      }
+    } catch {
+      toast.error('Failed to load operators');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+    fetchOperators(currentPage, searchQuery, statusFilter);
+  }, [fetchOperators, currentPage, searchQuery, statusFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,8 +91,8 @@ export default function AdminOperatorsPage() {
       }
       setShowModal(false);
       setEditingOperator(null);
-      setForm({ company_name: '', company_name_nepali: '', contact_person: '', contact_phone: '', email: '', password: '', commission_rate: 10 });
-      loadOperators();
+      setForm(emptyForm);
+      fetchOperators(currentPage, searchQuery, statusFilter);
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
 
@@ -89,20 +102,20 @@ export default function AdminOperatorsPage() {
       company_name: operator.company_name,
       company_name_nepali: operator.company_name_nepali || '',
       contact_person: operator.contact_person,
-      contact_phone: operator.contact_phone,
+      contact_phone: operator.contact_phone || operator.phone_number || '',
       email: operator.email || '',
       password: '',
-      commission_rate: operator.commission_rate || 10,
+      commission_rate: operator.commission_rate ?? 10,
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: number, companyName: string) => {
-    if (!confirm(`Are you sure you want to delete "${companyName}"?`)) return;
+    if (!confirm(`Are you sure you want to suspend "${companyName}"?`)) return;
     try {
       await adminOperatorAPI.update(id, { status: 'SUSPENDED' });
       toast.success('Operator suspended');
-      loadOperators();
+      fetchOperators(currentPage, searchQuery, statusFilter);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to deactivate');
     }
@@ -115,7 +128,7 @@ export default function AdminOperatorsPage() {
         return 'bg-green-100 text-green-700';
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-700';
-      case 'INACTIVE':
+      case 'SUSPENDED':
       case 'REJECTED':
         return 'bg-red-100 text-red-700';
       default:
@@ -136,7 +149,7 @@ export default function AdminOperatorsPage() {
         <button
           onClick={() => {
             setEditingOperator(null);
-            setForm({ company_name: '', company_name_nepali: '', contact_person: '', contact_phone: '', email: '', password: '', commission_rate: 10 });
+            setForm(emptyForm);
             setShowModal(true);
           }}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -149,19 +162,19 @@ export default function AdminOperatorsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Total Operators</p>
-          <p className="text-2xl font-bold text-gray-800">{operators.length}</p>
+          <p className="text-2xl font-bold text-gray-800">{stats?.total ?? totalItems}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Active</p>
-          <p className="text-2xl font-bold text-green-600">{operators.filter(o => o.status === 'ACTIVE' || o.status === 'APPROVED').length}</p>
+          <p className="text-sm text-gray-500">Approved</p>
+          <p className="text-2xl font-bold text-green-600">{stats?.approved ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
           <p className="text-sm text-gray-500">Pending</p>
-          <p className="text-2xl font-bold text-yellow-600">{operators.filter(o => o.status === 'PENDING').length}</p>
+          <p className="text-2xl font-bold text-yellow-600">{stats?.pending ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-sm text-gray-500">Inactive</p>
-          <p className="text-2xl font-bold text-red-600">{operators.filter(o => o.status === 'INACTIVE' || o.status === 'REJECTED').length}</p>
+          <p className="text-sm text-gray-500">Suspended / Rejected</p>
+          <p className="text-2xl font-bold text-red-600">{(stats?.suspended ?? 0) + (stats?.rejected ?? 0)}</p>
         </div>
       </div>
 
@@ -174,20 +187,20 @@ export default function AdminOperatorsPage() {
               type="text"
               placeholder="Search by company, contact person, or phone..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="ALL">All Status</option>
-            <option value="ACTIVE">Active</option>
             <option value="APPROVED">Approved</option>
             <option value="PENDING">Pending</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="REJECTED">Rejected</option>
           </select>
         </div>
       </div>
@@ -208,7 +221,7 @@ export default function AdminOperatorsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedOperators.map((op) => (
+              {operators.map((op) => (
                 <tr key={op.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -227,7 +240,7 @@ export default function AdminOperatorsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-gray-600">
                       <Phone className="h-3.5 w-3.5 text-gray-400" />
-                      {op.contact_phone}
+                      {op.contact_phone || op.phone_number}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -235,7 +248,7 @@ export default function AdminOperatorsPage() {
                       {op.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{op.commission_rate || 10}%</td>
+                  <td className="px-4 py-3 text-gray-600">{op.commission_rate ?? 10}%</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-gray-500 text-xs">
                       <Calendar className="h-3.5 w-3.5" />
@@ -254,7 +267,7 @@ export default function AdminOperatorsPage() {
                       <button
                         onClick={() => handleDelete(op.id, op.company_name)}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Deactivate"
+                        title="Suspend"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -262,7 +275,7 @@ export default function AdminOperatorsPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedOperators.length === 0 && (
+              {operators.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <UserCog className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -274,46 +287,13 @@ export default function AdminOperatorsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredOperators.length)} of {filteredOperators.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Modal */}

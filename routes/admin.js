@@ -5,19 +5,9 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const { PLATFORM_NAME } = require('../config/brand');
+const { getSystemSettings, DEFAULT_SETTINGS, invalidateSettingsCache } = require('../services/settings');
 
-const DEFAULT_SETTINGS = {
-  service_fee: 5,
-  tax_rate: 13,
-  currency: 'NPR',
-  platform_name: PLATFORM_NAME,
-  seat_lock_timeout: 10,
-  max_passengers: 10,
-  auto_cancel_timeout: 30,
-  payment_methods: { khalti: true, esewa: true, cash: true },
-  default_payment: 'khalti',
-  notifications: { email: true, sms: true, push: true },
-};
+DEFAULT_SETTINGS.platform_name = PLATFORM_NAME;
 
 async function logAudit(userId, action, entityType, entityId, details, ip) {
   try {
@@ -68,11 +58,26 @@ router.get('/operators', async (req, res) => {
       return j;
     });
 
+    let stats = null;
+    try {
+      const [total, approved, pending, suspended, rejected] = await Promise.all([
+        Operator.count(),
+        Operator.count({ where: { status: 'APPROVED' } }),
+        Operator.count({ where: { status: 'PENDING' } }),
+        Operator.count({ where: { status: 'SUSPENDED' } }),
+        Operator.count({ where: { status: 'REJECTED' } }),
+      ]);
+      stats = { total, approved, pending, suspended, rejected };
+    } catch (e) {
+      console.error('Operator stats error:', e.message);
+    }
+
     res.json({
       success: true,
       message: 'Operators retrieved successfully',
       data: {
         operators,
+        stats,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(count / limit),
@@ -107,6 +112,7 @@ router.get('/operators/:id', commonValidation.idParam, handleValidationErrors, a
     const operatorBusIds = (operator.buses || []).map(b => b.id);
     let totalBookings = 0;
     let totalRevenue = 0;
+    let tripIds = [];
 
     if (operatorBusIds.length > 0) {
       const trips = await Trip.findAll({
@@ -114,7 +120,7 @@ router.get('/operators/:id', commonValidation.idParam, handleValidationErrors, a
         attributes: ['id'],
         raw: true,
       });
-      const tripIds = trips.map(t => t.id);
+      tripIds = trips.map(t => t.id);
 
       if (tripIds.length > 0) {
         totalBookings = await Booking.count({ where: { trip_id: { [Op.in]: tripIds } } });
@@ -137,10 +143,27 @@ router.get('/operators/:id', commonValidation.idParam, handleValidationErrors, a
     operatorData.total_revenue = totalRevenue;
     operatorData.contact_phone = operatorData.phone_number;
 
+    let recent_bookings = [];
+    if (tripIds.length > 0) {
+      recent_bookings = await Booking.findAll({
+        where: { trip_id: { [Op.in]: tripIds } },
+        include: [
+          { model: User, as: 'user', attributes: ['full_name'] },
+          {
+            model: Trip,
+            as: 'trip',
+            include: [{ model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] }],
+          },
+        ],
+        order: [['booking_date', 'DESC']],
+        limit: 10,
+      });
+    }
+
     delete operatorData.buses;
     delete operatorData.routes;
 
-    res.json({ success: true, data: { operator: operatorData } });
+    res.json({ success: true, data: { operator: { ...operatorData, recent_bookings } } });
   } catch (error) {
     console.error('Admin get operator error:', error);
     res.status(500).json({ success: false, message: 'Failed to get operator', error: error.message });
@@ -150,10 +173,15 @@ router.get('/operators/:id', commonValidation.idParam, handleValidationErrors, a
 // POST /admin/operators - Register a new operator account
 router.post('/operators', async (req, res) => {
   try {
-    const { company_name, company_name_nepali, contact_person, contact_phone, email, password } = req.body;
+    const { company_name, company_name_nepali, contact_person, contact_phone, email, password, commission_rate } = req.body;
 
     if (!company_name || !contact_person || !contact_phone || !email || !password) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const existingUser = await User.findOne({ where: { [Op.or]: [{ phone_number: contact_phone }, { email }] } });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'A user with this phone or email already exists' });
     }
 
     // Create user account for operator
@@ -173,8 +201,9 @@ router.post('/operators', async (req, res) => {
       company_name,
       company_name_nepali: company_name_nepali || '',
       contact_person,
-      contact_phone,
+      phone_number: contact_phone,
       email,
+      commission_rate: commission_rate != null ? commission_rate : 10,
       status: 'APPROVED',
     });
 
@@ -204,15 +233,16 @@ router.put('/operators/:id', commonValidation.idParam, handleValidationErrors, a
       return res.status(404).json({ success: false, message: 'Operator not found' });
     }
 
-    const { company_name, company_name_nepali, contact_person, contact_phone, phone_number, email, status } = req.body;
-    await operator.update({
-      company_name,
-      company_name_nepali,
-      contact_person,
-      phone_number: phone_number || contact_phone,
-      email,
-      status,
-    });
+    const { company_name, company_name_nepali, contact_person, contact_phone, phone_number, email, status, commission_rate } = req.body;
+    const updates = {};
+    if (company_name !== undefined) updates.company_name = company_name;
+    if (company_name_nepali !== undefined) updates.company_name_nepali = company_name_nepali;
+    if (contact_person !== undefined) updates.contact_person = contact_person;
+    if (phone_number || contact_phone) updates.phone_number = phone_number || contact_phone;
+    if (email !== undefined) updates.email = email;
+    if (status !== undefined) updates.status = status;
+    if (commission_rate !== undefined) updates.commission_rate = commission_rate;
+    await operator.update(updates);
 
     res.json({ success: true, message: 'Operator updated successfully', data: { operator } });
   } catch (error) {
@@ -224,7 +254,7 @@ router.put('/operators/:id', commonValidation.idParam, handleValidationErrors, a
 // GET /admin/users - List all users
 router.get('/users', commonValidation.pagination, handleValidationErrors, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20, status, search, role } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = {};
@@ -237,20 +267,48 @@ router.get('/users', commonValidation.pagination, handleValidationErrors, async 
       ];
     }
 
+    const roleInclude = {
+      model: UserRole,
+      as: 'roles',
+      where: { is_active: true },
+      required: false,
+    };
+    if (role) {
+      roleInclude.where.role = role.toUpperCase();
+      roleInclude.required = true;
+    }
+
     const { count, rows: users } = await User.findAndCountAll({
       where: whereClause,
       attributes: { exclude: ['password', 'firebase_uid'] },
-      include: [{ model: UserRole, as: 'roles', where: { is_active: true }, required: false }],
+      include: [roleInclude],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
+
+    let stats = null;
+    try {
+      const [total, active, suspended, customers, operators, admins] = await Promise.all([
+        User.count(),
+        User.count({ where: { status: 'ACTIVE' } }),
+        User.count({ where: { status: 'SUSPENDED' } }),
+        UserRole.count({ where: { role: 'CUSTOMER', is_active: true }, distinct: true, col: 'user_id' }),
+        UserRole.count({ where: { role: 'OPERATOR', is_active: true }, distinct: true, col: 'user_id' }),
+        UserRole.count({ where: { role: 'SUPER_ADMIN', is_active: true }, distinct: true, col: 'user_id' }),
+      ]);
+      stats = { total, active, suspended, customers, operators, admins };
+    } catch (e) {
+      console.error('User stats error:', e.message);
+    }
 
     res.json({
       success: true,
       message: 'Users retrieved successfully',
       data: {
         users,
+        stats,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(count / limit),
@@ -404,7 +462,7 @@ router.get('/bookings', async (req, res) => {
 // GET /admin/payments - List all payments
 router.get('/payments', async (req, res) => {
   try {
-    const { page = 1, limit = 20, payment_method, status, start_date, end_date } = req.query;
+    const { page = 1, limit = 20, payment_method, status, start_date, end_date, search } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = {};
@@ -416,24 +474,34 @@ router.get('/payments', async (req, res) => {
       if (end_date) whereClause.created_at[Op.lte] = new Date(end_date + 'T23:59:59');
     }
 
-    const { count, rows: payments } = await Payment.findAndCountAll({
-      where: whereClause,
+    const findWhere = { ...whereClause };
+    if (search) {
+      findWhere[Op.or] = [
+        { '$booking.pnr$': { [Op.like]: `%${search}%` } },
+        { '$booking.user.full_name$': { [Op.like]: `%${search}%` } },
+        { '$booking.user.phone_number$': { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const bookingInclude = {
+      model: Booking,
+      as: 'booking',
+      required: !!search,
       include: [
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'] },
         {
-          model: Booking,
-          as: 'booking',
+          model: Trip,
+          as: 'trip',
           include: [
-            { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number'] },
-            {
-              model: Trip,
-              as: 'trip',
-              include: [
-                { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
-              ],
-            },
+            { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
           ],
         },
       ],
+    };
+
+    const { count, rows: payments } = await Payment.findAndCountAll({
+      where: findWhere,
+      include: [bookingInclude],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
@@ -442,10 +510,34 @@ router.get('/payments', async (req, res) => {
 
     const summary = {
       total: count,
-      completed: await Payment.count({ where: { ...whereClause, status: 'SUCCESS' } }),
-      pending: await Payment.count({ where: { ...whereClause, status: 'PENDING' } }),
-      refunded: await Payment.count({ where: { ...whereClause, status: 'CANCELLED' } }),
+      completed: 0,
+      pending: 0,
+      refunded: 0,
+      completed_amount: 0,
+      pending_amount: 0,
+      refunded_amount: 0,
     };
+    try {
+      const { fn, col } = require('sequelize');
+      const baseWhere = { ...whereClause };
+      delete baseWhere.status;
+      const [successRows, pendingRows, cancelledRows, successCount, pendingCount, cancelledCount] = await Promise.all([
+        Payment.findAll({ where: { ...baseWhere, status: 'SUCCESS' }, attributes: [[fn('COALESCE', fn('SUM', col('amount')), 0), 'total']], raw: true }),
+        Payment.findAll({ where: { ...baseWhere, status: 'PENDING' }, attributes: [[fn('COALESCE', fn('SUM', col('amount')), 0), 'total']], raw: true }),
+        Payment.findAll({ where: { ...baseWhere, status: 'CANCELLED' }, attributes: [[fn('COALESCE', fn('SUM', col('amount')), 0), 'total']], raw: true }),
+        Payment.count({ where: { ...baseWhere, status: 'SUCCESS' } }),
+        Payment.count({ where: { ...baseWhere, status: 'PENDING' } }),
+        Payment.count({ where: { ...baseWhere, status: 'CANCELLED' } }),
+      ]);
+      summary.completed = successCount;
+      summary.pending = pendingCount;
+      summary.refunded = cancelledCount;
+      summary.completed_amount = parseFloat(successRows[0]?.total || 0);
+      summary.pending_amount = parseFloat(pendingRows[0]?.total || 0);
+      summary.refunded_amount = parseFloat(cancelledRows[0]?.total || 0);
+    } catch (err) {
+      console.error('Payment summary error:', err.message);
+    }
 
     res.json({
       success: true,
@@ -515,6 +607,7 @@ router.post('/bookings/:id/refund', commonValidation.idParam, handleValidationEr
       await wallet.update({
         balance: parseFloat(wallet.balance) + refundAmount,
         total_earned: parseFloat(wallet.total_earned) + refundAmount,
+        updated_at: new Date(),
       }, { transaction });
 
       await WalletTransaction.create({
@@ -528,7 +621,7 @@ router.post('/bookings/:id/refund', commonValidation.idParam, handleValidationEr
     }
 
     await Payment.update(
-      { status: refundAmount > 0 ? 'REFUNDED' : 'CANCELLED' },
+      { status: 'CANCELLED' },
       { where: { booking_id: booking.id, status: 'SUCCESS' }, transaction }
     );
 
@@ -625,7 +718,10 @@ router.get('/buses', async (req, res) => {
 
     let capacity = 0;
     try {
-      capacity = (await Bus.sum('total_seats', { where: whereClause })) || 0;
+      capacity = (await Bus.sum('total_seats', {
+        where: whereClause,
+        include: [{ model: Operator, as: 'operator', required: !!search }],
+      })) || 0;
     } catch {
       capacity = 0;
     }
@@ -773,6 +869,17 @@ router.get('/reviews', async (req, res) => {
       raw: true,
     });
 
+    let rating_stats = { five_star: 0, low_star: 0 };
+    try {
+      const [five, low] = await Promise.all([
+        Review.count({ where: { is_active: true, rating: 5 } }),
+        Review.count({ where: { is_active: true, rating: { [Op.lte]: 2 } } }),
+      ]);
+      rating_stats = { five_star: five, low_star: low };
+    } catch (e) {
+      console.error('Review stats error:', e.message);
+    }
+
     res.json({
       success: true,
       data: {
@@ -784,6 +891,7 @@ router.get('/reviews', async (req, res) => {
           items_per_page: parseInt(limit),
         },
         average_rating: avgResult ? parseFloat(parseFloat(avgResult.average_rating).toFixed(1)) : 0,
+        rating_stats,
       },
     });
   } catch (error) {
@@ -887,6 +995,13 @@ router.get('/wallets/transactions', async (req, res) => {
             model: User,
             as: 'user',
             attributes: ['id', 'full_name', 'phone_number'],
+            where: search
+              ? { [Op.or]: [
+                  { full_name: { [Op.like]: `%${search}%` } },
+                  { phone_number: { [Op.like]: `%${search}%` } },
+                ] }
+              : undefined,
+            required: !!search,
           },
         ],
       },
@@ -1213,9 +1328,13 @@ router.put('/promo-codes/:id', commonValidation.idParam, handleValidationErrors,
     const promo = await PromoCode.findByPk(req.params.id);
     if (!promo) return res.status(404).json({ success: false, message: 'Promo code not found' });
 
-    const allowed = ['description', 'discount_type', 'discount_value', 'min_amount', 'max_uses', 'valid_from', 'valid_until', 'status'];
+    const allowed = ['code', 'description', 'discount_type', 'discount_value', 'min_amount', 'max_uses', 'valid_from', 'valid_until', 'status'];
     const updates = {};
-    for (const f of allowed) if (req.body[f] !== undefined) updates[f] = req.body[f];
+    for (const f of allowed) if (req.body[f] !== undefined) updates[f] = f === 'code' ? String(req.body[f]).toUpperCase() : req.body[f];
+    if (updates.code && updates.code !== promo.code) {
+      const existing = await PromoCode.findOne({ where: { code: updates.code, id: { [Op.ne]: promo.id } } });
+      if (existing) return res.status(400).json({ success: false, message: 'Promo code already exists' });
+    }
     await promo.update(updates);
 
     res.json({ success: true, message: 'Promo code updated', data: { promo } });
@@ -1242,11 +1361,12 @@ router.delete('/promo-codes/:id', commonValidation.idParam, handleValidationErro
 // GET /admin/disputes - List disputes
 router.get('/disputes', async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20, status, search, type } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = {};
     if (status) whereClause.status = status.toUpperCase();
+    if (type) whereClause.type = type.toUpperCase();
     if (search) {
       whereClause[Op.or] = [
         { subject: { [Op.like]: `%${search}%` } },
@@ -1264,10 +1384,24 @@ router.get('/disputes', async (req, res) => {
       distinct: true,
     });
 
+    let stats = null;
+    try {
+      const [total, open, investigating, resolved] = await Promise.all([
+        Dispute.count(),
+        Dispute.count({ where: { status: 'OPEN' } }),
+        Dispute.count({ where: { status: 'INVESTIGATING' } }),
+        Dispute.count({ where: { status: 'RESOLVED' } }),
+      ]);
+      stats = { total, open, investigating, resolved };
+    } catch (e) {
+      console.error('Dispute stats error:', e.message);
+    }
+
     res.json({
       success: true,
       data: {
         items: disputes,
+        stats,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(count / limit),
@@ -1330,10 +1464,19 @@ router.put('/disputes/:id', commonValidation.idParam, handleValidationErrors, as
 // GET /admin/notifications - List announcements
 router.get('/notifications', async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const offset = (page - 1) * limit;
 
+    let whereClause = {};
+    if (search) {
+      whereClause[Op.or] = [
+        { title: { [Op.like]: `%${search}%` } },
+        { message: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
     const { count, rows: items } = await Announcement.findAndCountAll({
+      where: whereClause,
       order: [['sent_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
@@ -1444,6 +1587,7 @@ router.put('/settings', async (req, res) => {
       await SystemSetting.create({ key: 'system_settings', value: JSON.stringify(updatedSettings) });
     }
 
+    invalidateSettingsCache();
     await logAudit(req.user.id, 'SETTINGS_UPDATED', 'SYSTEM', null, JSON.stringify(updates), req.ip);
 
     res.json({ success: true, message: 'Settings updated successfully', data: { settings: updatedSettings } });
@@ -1456,12 +1600,17 @@ router.put('/settings', async (req, res) => {
 // GET /admin/audit-log - Get real audit log entries
 router.get('/audit-log', async (req, res) => {
   try {
-    const { page = 1, limit = 20, action, entity_type, search } = req.query;
+    const { page = 1, limit = 20, action, entity_type, search, start_date, end_date } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = {};
-    if (action) whereClause.action = action.toUpperCase();
+    if (action) whereClause.action = { [Op.like]: `%${action.toUpperCase()}%` };
     if (entity_type) whereClause.entity_type = entity_type.toUpperCase();
+    if (start_date || end_date) {
+      whereClause.created_at = {};
+      if (start_date) whereClause.created_at[Op.gte] = new Date(start_date);
+      if (end_date) whereClause.created_at[Op.lte] = new Date(end_date + 'T23:59:59');
+    }
     if (search) {
       whereClause[Op.or] = [
         { user: { [Op.like]: `%${search}%` } },

@@ -273,6 +273,8 @@ router.get('/admin', authenticateToken, requireRole(['SUPER_ADMIN']), async (req
   try {
     const currentDate = new Date();
     const thirtyDaysAgo = new Date(currentDate.getTime() - (30 * 24 * 60 * 60 * 1000));
+    const startOfDay = new Date(currentDate);
+    startOfDay.setHours(0, 0, 0, 0);
 
     const [
       totalUsers,
@@ -281,6 +283,7 @@ router.get('/admin', authenticateToken, requireRole(['SUPER_ADMIN']), async (req
       monthlyRevenue,
       systemStats,
       recentActivity,
+      quickStats,
     ] = await Promise.all([
       // Total users
       User.count({ where: { status: 'ACTIVE' } }),
@@ -338,6 +341,19 @@ router.get('/admin', authenticateToken, requireRole(['SUPER_ADMIN']), async (req
         order: [['booking_date', 'DESC']],
         limit: 15,
       }),
+
+      // Quick status counts
+      Promise.all([
+        Booking.count({ where: { booking_date: { [Op.gte]: startOfDay } } }),
+        Booking.count({ where: { booking_status: 'CONFIRMED' } }),
+        Booking.count({ where: { booking_status: 'COMPLETED' } }),
+        Booking.count({ where: { booking_status: 'CANCELLED' } }),
+      ]).then(([today_bookings, confirmed, completed, cancelled]) => ({
+        today_bookings,
+        confirmed,
+        completed,
+        cancelled,
+      })),
     ]);
 
     res.json({
@@ -350,6 +366,7 @@ router.get('/admin', authenticateToken, requireRole(['SUPER_ADMIN']), async (req
           total_bookings: totalBookings,
           monthly_commission: parseFloat(monthlyRevenue || 0),
           system_stats: systemStats,
+          quick_stats: quickStats,
         },
         system_stats: systemStats,
         recent_activity: recentActivity,

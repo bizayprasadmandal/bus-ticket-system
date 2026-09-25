@@ -58,6 +58,7 @@ export default function AdminUserDetailPage() {
   const [bookingsLoading, setBookingsLoading] = useState(false);
 
   const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [walletLoaded, setWalletLoaded] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
 
   const [addingRole, setAddingRole] = useState(false);
@@ -75,12 +76,12 @@ export default function AdminUserDetailPage() {
       const enriched: UserDetail = {
         ...u,
         total_bookings: data.total_bookings ?? u.total_bookings,
+        total_spent: data.total_spent ?? u.total_spent,
         wallet_balance: data.wallet ? Number(data.wallet.balance) || 0 : u.wallet_balance,
         recent_bookings: data.bookings || u.recent_bookings,
       };
       setUser(enriched);
       if (data.bookings) setBookings(data.bookings);
-      if (data.wallet) setWallet({ balance: Number(data.wallet.balance) || 0, transactions: [] });
     } catch {
       try {
         const res = await api.get('/admin/users', { params: { search: id } });
@@ -138,6 +139,7 @@ export default function AdminUserDetailPage() {
       } else {
         setWallet({ balance: 0, transactions: [] });
       }
+      setWalletLoaded(true);
     } catch {
       toast.error('Failed to load wallet data');
     } finally {
@@ -147,8 +149,8 @@ export default function AdminUserDetailPage() {
 
   useEffect(() => {
     if (activeTab === 'bookings' && bookings.length === 0 && !bookingsLoading) loadBookings();
-    if (activeTab === 'wallet' && !wallet && !walletLoading) loadWallet();
-  }, [activeTab, loadBookings, loadWallet, bookings.length, wallet, bookingsLoading, walletLoading]);
+    if (activeTab === 'wallet' && !walletLoaded && !walletLoading) loadWallet();
+  }, [activeTab, loadBookings, loadWallet, bookings.length, walletLoaded, bookingsLoading, walletLoading]);
 
   const handleAddRole = async () => {
     if (!selectedRole) return;

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Ticket, Search, ChevronLeft, ChevronRight, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
+import { Ticket, Search, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 import { bookingStatusLabel, paymentStatusLabel } from '../../utils/statusLabels';
 
@@ -69,13 +70,11 @@ export default function AdminBookingsPage() {
     }
   }, [searchQuery, statusFilter, paymentFilter, dateFrom, dateTo, currentPage]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000, true, false);
 
   useEffect(() => { loadBookings(); }, [loadBookings]);
 
-  const paginatedBookings = bookings;
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, paymentFilter, dateFrom, dateTo]);
+  const resetPage = () => setCurrentPage(1);
 
   const getBookingStatusColor = (status: string) => {
     switch (status) {
@@ -89,8 +88,7 @@ export default function AdminBookingsPage() {
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
-      case 'PAID': return 'bg-green-100 text-green-700';
+      case 'COMPLETED': return 'bg-green-100 text-green-700';
       case 'PENDING': return 'bg-yellow-100 text-yellow-700';
       case 'REFUNDED': return 'bg-purple-100 text-purple-700';
       case 'FAILED': return 'bg-red-100 text-red-700';
@@ -129,13 +127,13 @@ export default function AdminBookingsPage() {
               type="text"
               placeholder="Search by PNR or name..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -146,7 +144,7 @@ export default function AdminBookingsPage() {
           </select>
           <select
             value={paymentFilter}
-            onChange={(e) => setPaymentFilter(e.target.value)}
+            onChange={(e) => { setPaymentFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Payments</option>
@@ -160,14 +158,14 @@ export default function AdminBookingsPage() {
             <input
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
             <span className="text-gray-400">-</span>
             <input
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
           </div>
@@ -191,7 +189,7 @@ export default function AdminBookingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedBookings.map((booking) => (
+              {bookings.map((booking) => (
                 <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-mono text-[#d84e55] font-medium">{booking.pnr}</td>
                   <td className="px-4 py-3">
@@ -225,7 +223,7 @@ export default function AdminBookingsPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedBookings.length === 0 && (
+              {bookings.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center">
                     <Ticket className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -237,45 +235,13 @@ export default function AdminBookingsPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, (currentPage - 1) * itemsPerPage + bookings.length)} of {totalItems}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

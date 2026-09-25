@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, Users, Bus, Ticket, DollarSign, ArrowUpRight, ArrowRight } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import api from '../../api';
+import { adminAnalyticsAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
@@ -10,8 +10,6 @@ interface SummaryData {
   new_operators: number;
   bookings_growth: number;
   revenue_growth: number;
-  total_bookings: number;
-  total_revenue: number;
 }
 
 interface DailyTrend {
@@ -38,7 +36,6 @@ export default function AdminAnalyticsPage() {
   const [dailyTrends, setDailyTrends] = useState<DailyTrend[]>([]);
   const [routeData, setRouteData] = useState<RouteData[]>([]);
   const [hourData, setHourData] = useState<HourData[]>([]);
-  const [totalSearches, setTotalSearches] = useState(0);
   const [totalBookingsCompleted, setTotalBookingsCompleted] = useState(0);
   const [totalPaidPayments, setTotalPaidPayments] = useState(0);
 
@@ -49,69 +46,39 @@ export default function AdminAnalyticsPage() {
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      const [dashRes, routeRes, hourRes, trendRes] = await Promise.allSettled([
-        api.get('/dashboard/admin'),
-        api.get('/reports/bookings', { params: { group_by: 'route' } }),
-        api.get('/reports/bookings', { params: { group_by: 'hour' } }),
-        api.get('/reports/bookings', { params: { group_by: 'date' } }),
-      ]);
+      const res = await adminAnalyticsAPI.get();
+      const d = res.data.data || {};
 
-      if (dashRes.status === 'fulfilled') {
-        const d = dashRes.value.data.data;
-        const stats = d.stats ?? d;
-        const sys = stats.system_stats ?? d.system_stats ?? {};
-        setSummary({
-          new_users_this_month: stats.new_users_this_month ?? sys.total_users ?? stats.total_users ?? 0,
-          new_operators: stats.new_operators ?? sys.total_operators ?? stats.total_operators ?? 0,
-          bookings_growth: stats.bookings_growth ?? 0,
-          revenue_growth: stats.revenue_growth ?? 0,
-          total_bookings: stats.total_bookings ?? 0,
-          total_revenue: stats.total_revenue ?? 0,
-        });
-        setTotalSearches(stats.total_searches ?? sys.total_searches ?? 0);
-        setTotalBookingsCompleted(stats.total_bookings_completed ?? stats.total_bookings ?? 0);
-        setTotalPaidPayments(stats.total_paid_payments ?? 0);
-      }
+      const growth = d.growth || {};
+      setSummary({
+        new_users_this_month: growth.users_this_month ?? 0,
+        new_operators: growth.operators_this_month ?? 0,
+        bookings_growth: growth.bookings_growth_pct ?? 0,
+        revenue_growth: growth.revenue_growth_pct ?? 0,
+      });
 
-      if (routeRes.status === 'fulfilled') {
-        const bookings = routeRes.value.data.data?.bookings ?? [];
-        const routeMap = new Map<string, { origin_city: string; destination_city: string; bookings: number; revenue: number; total_fare: number }>();
-        for (const b of bookings) {
-          const parts = (b.route || ' → ').split(' → ');
-          const key = b.route || 'Unknown';
-          const existing = routeMap.get(key) || { origin_city: parts[0] || 'Unknown', destination_city: parts[1] || 'Unknown', bookings: 0, revenue: 0, total_fare: 0 };
-          existing.bookings += 1;
-          existing.revenue += b.total_amount || 0;
-          existing.total_fare += b.total_amount || 0;
-          routeMap.set(key, existing);
-        }
-        const routes = Array.from(routeMap.values())
-          .map(r => ({ ...r, avg_fare: r.bookings > 0 ? Math.round(r.total_fare / r.bookings) : 0 }))
-          .sort((a, b) => b.bookings - a.bookings);
-        setRouteData(routes);
-      }
+      setDailyTrends((d.daily_new_users || []).map((r: any) => ({
+        date: String(r.date || '').slice(0, 10),
+        count: Number(r.count) || 0,
+      })));
 
-      if (hourRes.status === 'fulfilled') {
-        const bookings = hourRes.value.data.data?.bookings ?? [];
-        const hourMap = new Map<number, number>();
-        for (let h = 0; h < 24; h++) hourMap.set(h, 0);
-        for (const b of bookings) {
-          const d = new Date(b.booking_date);
-          const hour = d.getHours();
-          hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
-        }
-        setHourData(Array.from(hourMap.entries()).map(([hour, count]) => ({ hour, count })));
-      }
+      setRouteData((d.popular_routes || []).map((r: any) => ({
+        origin_city: r.origin || 'Unknown',
+        destination_city: r.destination || 'Unknown',
+        bookings: Number(r.bookings) || 0,
+        revenue: Number(r.revenue) || 0,
+        avg_fare: Number(r.bookings) > 0 ? Math.round(Number(r.revenue) / Number(r.bookings)) : 0,
+      })));
 
-      if (trendRes.status === 'fulfilled') {
-        const bookings = trendRes.value.data.data?.bookings ?? [];
-        const dayMap = new Map<string, number>();
-        for (const b of bookings) {
-          const date = b.booking_date?.split('T')[0] || 'unknown';
-          dayMap.set(date, (dayMap.get(date) || 0) + 1);
-        }
-        setDailyTrends(Array.from(dayMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)));
+      const peakMap = new Map<number, number>();
+      for (let h = 0; h < 24; h++) peakMap.set(h, 0);
+      for (const r of d.peak_hours || []) {
+        peakMap.set(Number(r.hour), Number(r.count) || 0);
       }
+      setHourData(Array.from(peakMap.entries()).map(([hour, count]) => ({ hour, count })));
+
+      setTotalBookingsCompleted(Number(d.conversion?.bookings) || 0);
+      setTotalPaidPayments(Number(d.conversion?.completed_payments) || 0);
     } catch {
       toast.error('Failed to load analytics');
     } finally {
@@ -125,7 +92,6 @@ export default function AdminAnalyticsPage() {
 
   const topRoutes = routeData.slice(0, 10);
 
-  const searchToBooking = totalSearches > 0 ? ((totalBookingsCompleted / totalSearches) * 100).toFixed(1) : '0';
   const bookingToPayment = totalBookingsCompleted > 0 ? ((totalPaidPayments / totalBookingsCompleted) * 100).toFixed(1) : '0';
 
   if (loading) return <TableSkeleton rows={5} cols={4} />;
@@ -266,8 +232,8 @@ export default function AdminAnalyticsPage() {
       {/* Peak Hours */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Bookings by Hour of Day</h3>
-          {peakHour && (
+          <h3 className="text-lg font-semibold text-gray-800">Bookings by Hour of Day (Last 30 Days)</h3>
+          {peakHour && peakHour.count > 0 && (
             <div className="flex items-center gap-2 bg-[#d84e55]/10 text-[#d84e55] px-4 py-2 rounded-lg">
               <ArrowUpRight className="h-4 w-4" />
               <span className="text-sm font-semibold">Peak Hour: {peakHour.hour}:00</span>
@@ -275,41 +241,31 @@ export default function AdminAnalyticsPage() {
             </div>
           )}
         </div>
-        {hourData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={hourData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="hour"
-                tick={{ fontSize: 12 }}
-                tickFormatter={(h: number) => `${h}:00`}
-              />
-              <YAxis />
-              <Tooltip
-                labelFormatter={(h: any) => `Hour: ${h}:00`}
-                formatter={(value: any) => [value, 'Bookings']}
-              />
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Bookings" />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-sm text-gray-400 text-center py-8">No hourly data available</p>
-        )}
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={hourData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="hour"
+              tick={{ fontSize: 12 }}
+              tickFormatter={(h: number) => `${h}:00`}
+            />
+            <YAxis />
+            <Tooltip
+              labelFormatter={(h: any) => `Hour: ${h}:00`}
+              formatter={(value: any) => [value, 'Bookings']}
+            />
+            <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Bookings" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Conversion Funnel */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Conversion Funnel</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-6 bg-gray-50 rounded-xl">
-            <p className="text-sm text-gray-500 mb-1">Searches</p>
-            <p className="text-3xl font-bold text-gray-800">{totalSearches.toLocaleString()}</p>
-            <p className="text-xs text-gray-400 mt-1">Total searches</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="text-center p-6 bg-gray-50 rounded-xl relative">
-            <p className="text-sm text-gray-500 mb-1">Bookings</p>
+            <p className="text-sm text-gray-500 mb-1">Total Bookings</p>
             <p className="text-3xl font-bold text-gray-800">{totalBookingsCompleted.toLocaleString()}</p>
-            <p className="text-xs text-[#d84e55] font-semibold mt-1">{searchToBooking}% conversion</p>
             <div className="hidden md:flex absolute top-1/2 -right-4 -translate-y-1/2 text-gray-300">
               <ArrowRight className="h-5 w-5" />
             </div>
@@ -318,9 +274,6 @@ export default function AdminAnalyticsPage() {
             <p className="text-sm text-gray-500 mb-1">Completed Payments</p>
             <p className="text-3xl font-bold text-gray-800">{totalPaidPayments.toLocaleString()}</p>
             <p className="text-xs text-[#d84e55] font-semibold mt-1">{bookingToPayment}% conversion</p>
-            <div className="hidden md:flex absolute top-1/2 -right-4 -translate-y-1/2 text-gray-300">
-              <ArrowRight className="h-5 w-5" />
-            </div>
           </div>
         </div>
       </div>

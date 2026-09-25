@@ -3,7 +3,8 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 export function useAutoRefresh(
   fetchFn: () => Promise<void>,
   intervalMs: number = 30000,
-  enabled: boolean = true
+  enabled: boolean = true,
+  immediate: boolean = true
 ) {
   const fetchFnRef = useRef(fetchFn);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -24,11 +25,11 @@ export function useAutoRefresh(
   useEffect(() => {
     if (!enabled) return;
 
-    refresh();
+    if (immediate) refresh();
 
     const interval = setInterval(refresh, intervalMs);
     return () => clearInterval(interval);
-  }, [refresh, intervalMs, enabled]);
+  }, [refresh, intervalMs, enabled, immediate]);
 
   return { isRefreshing, lastUpdated, refresh };
 }

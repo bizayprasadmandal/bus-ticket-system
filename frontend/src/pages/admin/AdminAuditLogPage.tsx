@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Shield, Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Shield, Search, RefreshCw } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface AuditEntry {
@@ -25,40 +26,33 @@ export default function AdminAuditLogPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const itemsPerPage = 8;
+  const itemsPerPage = 20;
 
   const loadEntries = useCallback(async () => {
     try {
-      const params: any = { page: currentPage, limit: 50 };
+      const params: any = { page: currentPage, limit: itemsPerPage };
       if (actionFilter !== 'ALL') params.action = actionFilter;
       if (entityFilter !== 'ALL') params.entity_type = entityFilter;
-      if (searchQuery) params.search = searchQuery;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (dateFrom) params.start_date = dateFrom;
+      if (dateTo) params.end_date = dateTo;
       const res = await api.get('/admin/audit-log', { params });
-      setEntries(res.data.data.items || []);
+      const data = res.data.data || {};
+      setEntries(data.items || []);
+      setTotalPages(data.pagination?.total_pages || 1);
+      setTotalItems(data.pagination?.total_items || (data.items || []).length);
     } catch {
       toast.error('Failed to load audit log');
     } finally {
       setLoading(false);
     }
-  }, [currentPage, actionFilter, entityFilter, searchQuery]);
+  }, [currentPage, actionFilter, entityFilter, searchQuery, dateFrom, dateTo]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadEntries, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadEntries, 30000, true, false);
   useEffect(() => { loadEntries(); }, [loadEntries]);
-
-  const filteredEntries = useMemo(() => {
-    let result = entries;
-    if (dateFrom) result = result.filter(e => new Date(e.timestamp) >= new Date(dateFrom));
-    if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59, 999);
-      result = result.filter(e => new Date(e.timestamp) <= to);
-    }
-    return result;
-  }, [entries, dateFrom, dateTo]);
-
-  const totalPages = Math.ceil(filteredEntries.length / itemsPerPage);
-  const paginatedEntries = filteredEntries.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getActionColor = (action: string) => {
     if (action.includes('CREATE') || action.includes('CREATED') || action.includes('ASSIGNED') || action.includes('SENT')) return 'bg-green-100 text-green-700';
@@ -112,10 +106,12 @@ export default function AdminAuditLogPage() {
             <option value="CREATE">Create</option>
             <option value="UPDATE">Update</option>
             <option value="DELETE">Delete</option>
-            <option value="LOGIN">Login</option>
             <option value="REFUND">Refund</option>
-            <option value="SUSPEND">Suspend</option>
+            <option value="SUSPEND">Suspend / Activate</option>
             <option value="ANNOUNCE">Announce</option>
+            <option value="SETTINGS">Settings</option>
+            <option value="PROMO">Promo</option>
+            <option value="DISPUTE">Dispute</option>
           </select>
           <select
             value={entityFilter}
@@ -174,7 +170,7 @@ export default function AdminAuditLogPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedEntries.map((entry) => (
+              {entries.map((entry) => (
                 <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
                     {new Date(entry.timestamp).toLocaleString()}
@@ -195,7 +191,7 @@ export default function AdminAuditLogPage() {
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">{entry.ip_address}</td>
                 </tr>
               ))}
-              {paginatedEntries.length === 0 && (
+              {entries.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <Shield className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -207,45 +203,13 @@ export default function AdminAuditLogPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredEntries.length)} of {filteredEntries.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Wallet, Search, ChevronLeft, ChevronRight, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw, CreditCard } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Wallet, Search, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw, CreditCard } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface WalletItem {
@@ -23,88 +24,94 @@ interface TransactionItem {
   created_at: string;
 }
 
+interface PageMeta {
+  totalPages: number;
+  totalItems: number;
+}
+
 export default function AdminWalletsPage() {
   const [activeTab, setActiveTab] = useState<'wallets' | 'transactions'>('wallets');
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [walletPage, setWalletPage] = useState<PageMeta>({ totalPages: 1, totalItems: 0 });
+  const [txnPage, setTxnPage] = useState<PageMeta>({ totalPages: 1, totalItems: 0 });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [walletCurrentPage, setWalletCurrentPage] = useState(1);
+  const [txnCurrentPage, setTxnCurrentPage] = useState(1);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
-  const loadWallets = useCallback(async () => {
+  const loadWallets = useCallback(async (page: number, search: string) => {
     try {
-      const params: any = {};
-      if (searchQuery) params.search = searchQuery;
+      const params: any = { page, limit: itemsPerPage };
+      if (search.trim()) params.search = search.trim();
       const res = await api.get('/admin/wallets', { params });
-      const rawItems = res.data.data.items || [];
-      const mapped = rawItems.map((w: any) => ({
+      const data = res.data.data || {};
+      const rawItems = data.items || [];
+      setWallets(rawItems.map((w: any) => ({
         id: w.id,
         user_name: w.user?.full_name || w.user_name || '',
         user_phone: w.user?.phone_number || w.user_phone || '',
         balance: parseFloat(w.balance || 0),
         last_transaction_date: w.updated_at || w.last_transaction_date || null,
-      }));
-      setWallets(mapped);
+      })));
+      setWalletPage({
+        totalPages: data.pagination?.total_pages || 1,
+        totalItems: data.pagination?.total_items || rawItems.length,
+      });
     } catch {
       toast.error('Failed to load wallets');
-    } finally {
-      setLoading(false);
     }
-  }, [searchQuery]);
+  }, []);
 
-  const loadTransactions = useCallback(async () => {
+  const loadTransactions = useCallback(async (page: number, search: string) => {
     try {
-      const params: any = {};
-      if (searchQuery) params.search = searchQuery;
+      const params: any = { page, limit: itemsPerPage };
+      if (search.trim()) params.search = search.trim();
       const res = await api.get('/admin/wallets/transactions', { params });
-      const txns = res.data.data?.items || res.data.data?.transactions || res.data.data || [];
-      const mapped = txns.map((t: any) => ({
+      const data = res.data.data || {};
+      const txns = data.items || data.transactions || [];
+      setTransactions(txns.map((t: any) => ({
         id: t.id,
-        user_name: t.user?.full_name || t.user_name || '',
-        user_phone: t.user?.phone_number || t.user_phone || '',
-        type: t.transaction_type || t.type || 'UNKNOWN',
+        user_name: t.user_name || t.user?.full_name || '',
+        user_phone: t.user_phone || t.user?.phone_number || '',
+        type: t.type || t.transaction_type || 'UNKNOWN',
         amount: parseFloat(t.amount || 0),
         description: t.description || '',
         created_at: t.created_at || t.createdAt || '',
-      }));
-      setTransactions(mapped);
+      })));
+      setTxnPage({
+        totalPages: data.pagination?.total_pages || 1,
+        totalItems: data.pagination?.total_items || txns.length,
+      });
     } catch {
       setTransactions([]);
-    } finally {
-      setLoading(false);
     }
-  }, [searchQuery]);
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadWallets(), loadTransactions()]);
-  }, [loadWallets, loadTransactions]);
+    await Promise.all([
+      loadWallets(walletCurrentPage, searchQuery),
+      loadTransactions(txnCurrentPage, searchQuery),
+    ]);
+    setLoading(false);
+  }, [loadWallets, loadTransactions, walletCurrentPage, txnCurrentPage, searchQuery]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000, true, false);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filteredData = useMemo(() => {
-    if (activeTab === 'wallets') return wallets;
-    return transactions;
-  }, [activeTab, wallets, transactions]);
+  const currentMeta = activeTab === 'wallets' ? walletPage : txnPage;
+  const currentSetters = activeTab === 'wallets' ? { list: wallets, page: walletCurrentPage, setPage: setWalletCurrentPage } : { list: transactions, page: txnCurrentPage, setPage: setTxnCurrentPage };
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab]);
-
-  const stats = useMemo(() => ({
+  const stats = {
     totalBalance: wallets.reduce((sum, w) => sum + (w.balance || 0), 0),
     totalTopUps: transactions.filter(t => t.type === 'CREDIT').reduce((sum, t) => sum + (t.amount || 0), 0),
     totalTransfers: transactions.filter(t => t.type === 'DEBIT').reduce((sum, t) => sum + (t.amount || 0), 0),
     totalRefunds: transactions.filter(t => t.type === 'CREDIT' && /refund/i.test(t.description || '')).reduce((sum, t) => sum + (t.amount || 0), 0),
-  }), [wallets, transactions]);
+  };
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
@@ -212,7 +219,7 @@ export default function AdminWalletsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex gap-2">
             <button
-              onClick={() => setActiveTab('wallets')}
+              onClick={() => { setActiveTab('wallets'); setWalletCurrentPage(1); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'wallets'
                   ? 'bg-[#d84e55] text-white shadow-sm'
@@ -223,7 +230,7 @@ export default function AdminWalletsPage() {
               Wallets
             </button>
             <button
-              onClick={() => setActiveTab('transactions')}
+              onClick={() => { setActiveTab('transactions'); setTxnCurrentPage(1); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'transactions'
                   ? 'bg-[#d84e55] text-white shadow-sm'
@@ -240,7 +247,11 @@ export default function AdminWalletsPage() {
               type="text"
               placeholder="Search by name or phone..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setWalletCurrentPage(1);
+                setTxnCurrentPage(1);
+              }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
@@ -260,7 +271,7 @@ export default function AdminWalletsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {(paginatedData as WalletItem[]).map((wallet) => (
+                {wallets.map((wallet) => (
                   <tr key={wallet.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -281,7 +292,7 @@ export default function AdminWalletsPage() {
                     </td>
                   </tr>
                 ))}
-                {(paginatedData as WalletItem[]).length === 0 && (
+                {wallets.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-12 text-center">
                       <Wallet className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -303,7 +314,7 @@ export default function AdminWalletsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {(paginatedData as TransactionItem[]).map((tx) => (
+                {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div>
@@ -326,7 +337,7 @@ export default function AdminWalletsPage() {
                     </td>
                   </tr>
                 ))}
-                {(paginatedData as TransactionItem[]).length === 0 && (
+                {transactions.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-12 text-center">
                       <CreditCard className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -339,45 +350,13 @@ export default function AdminWalletsPage() {
           )}
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentSetters.page}
+          totalPages={currentMeta.totalPages}
+          totalItems={currentMeta.totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={currentSetters.setPage}
+        />
       </div>
     </div>
   );

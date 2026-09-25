@@ -50,7 +50,7 @@ export default function AdminTripsPage() {
     }
   }, [currentPage, searchQuery, statusFilter, dateFrom, dateTo]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadTrips, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadTrips, 30000, true, false);
 
   useEffect(() => { loadTrips(); }, [loadTrips]);
 
@@ -61,7 +61,7 @@ export default function AdminTripsPage() {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, dateFrom, dateTo]);
+  const resetPage = () => setCurrentPage(1);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -105,13 +105,13 @@ export default function AdminTripsPage() {
               type="text"
               placeholder="Search by route, bus, or operator..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -126,14 +126,14 @@ export default function AdminTripsPage() {
             <input
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
             <span className="text-gray-400">-</span>
             <input
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
             />
           </div>

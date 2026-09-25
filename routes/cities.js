@@ -10,7 +10,7 @@ const router = express.Router();
 
 const invalidateCitiesCache = async () => {
   try {
-    await cachingService.clearPattern('route_GET_/api/cities');
+    await cachingService.clearPattern('route_GET_/api/cities*');
     await cachingService.del('cities_list');
   } catch (e) {
     // cache invalidation is best-effort

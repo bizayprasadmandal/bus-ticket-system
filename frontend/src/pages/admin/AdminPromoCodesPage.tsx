@@ -32,7 +32,12 @@ const emptyForm: Omit<PromoCode, 'id' | 'used_count' | 'status'> = {
 
 function deriveStatus(p: PromoCode): PromoCode['status'] {
   if (p.status === 'DISABLED') return 'DISABLED';
-  if (p.valid_until && new Date(p.valid_until) < new Date()) return 'EXPIRED';
+  if (p.valid_until) {
+    const until = /^\d{4}-\d{2}-\d{2}$/.test(p.valid_until)
+      ? new Date(`${p.valid_until}T23:59:59`)
+      : new Date(p.valid_until);
+    if (until < new Date()) return 'EXPIRED';
+  }
   if (p.max_uses > 0 && p.used_count >= p.max_uses) return 'EXPIRED';
   return 'ACTIVE';
 }
@@ -68,7 +73,7 @@ export default function AdminPromoCodesPage() {
     }
   }, []);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadPromos, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadPromos, 30000, true, false);
   useEffect(() => { loadPromos(); }, [loadPromos]);
 
   const totalCodes = promos.length;

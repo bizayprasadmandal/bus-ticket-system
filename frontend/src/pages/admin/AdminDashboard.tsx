@@ -12,12 +12,20 @@ interface SystemStats {
   successful_payments: number;
 }
 
+interface QuickStats {
+  today_bookings: number;
+  confirmed: number;
+  completed: number;
+  cancelled: number;
+}
+
 interface Stats {
   total_users: number;
   total_operators: number;
   total_bookings: number;
   monthly_commission: number;
   system_stats: SystemStats;
+  quick_stats?: QuickStats;
 }
 
 interface Activity {
@@ -215,10 +223,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-blue-100 text-xs">Today's Bookings</p>
               <p className="text-2xl font-bold mt-1">
-                {activities.filter(a => {
-                  const today = new Date().toISOString().split('T')[0];
-                  return a.trip?.trip_date === today;
-                }).length}
+                {(stats?.quick_stats?.today_bookings ?? 0).toLocaleString()}
               </p>
             </div>
             <ArrowUpRight className="h-5 w-5 text-blue-200" />
@@ -229,7 +234,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-green-100 text-xs">Confirmed</p>
               <p className="text-2xl font-bold mt-1">
-                {activities.filter(a => a.booking_status === 'CONFIRMED').length}
+                {(stats?.quick_stats?.confirmed ?? 0).toLocaleString()}
               </p>
             </div>
             <ArrowUpRight className="h-5 w-5 text-green-200" />
@@ -240,7 +245,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-purple-100 text-xs">Completed</p>
               <p className="text-2xl font-bold mt-1">
-                {activities.filter(a => a.booking_status === 'COMPLETED').length}
+                {(stats?.quick_stats?.completed ?? 0).toLocaleString()}
               </p>
             </div>
             <ArrowUpRight className="h-5 w-5 text-purple-200" />
@@ -251,7 +256,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-red-100 text-xs">Cancelled</p>
               <p className="text-2xl font-bold mt-1">
-                {activities.filter(a => a.booking_status === 'CANCELLED').length}
+                {(stats?.quick_stats?.cancelled ?? 0).toLocaleString()}
               </p>
             </div>
             <ArrowDownRight className="h-5 w-5 text-red-200" />

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { AlertTriangle, Search, ChevronLeft, ChevronRight, Plus, Eye, MessageSquare, Filter, XCircle, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, Search, Plus, Eye, MessageSquare, Filter, XCircle, RefreshCw } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface DisputeItem {
@@ -19,57 +20,52 @@ interface DisputeItem {
   updated_at: string;
 }
 
+interface DisputeStats {
+  total: number;
+  open: number;
+  investigating: number;
+  resolved: number;
+}
+
 export default function AdminDisputePage() {
   const [disputes, setDisputes] = useState<DisputeItem[]>([]);
+  const [stats, setStats] = useState<DisputeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ customer_name: '', customer_phone: '', booking_pnr: '', type: 'complaint', subject: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   const loadDisputes = useCallback(async () => {
     try {
-      const params: any = { page: currentPage, limit: 50 };
+      const params: any = { page: currentPage, limit: itemsPerPage };
       if (statusFilter !== 'ALL') params.status = statusFilter;
-      if (searchQuery) params.search = searchQuery;
+      if (typeFilter !== 'ALL') params.type = typeFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
       const res = await api.get('/admin/disputes', { params });
-      setDisputes(res.data.data.items || []);
+      const data = res.data.data || {};
+      setDisputes(data.items || []);
+      setStats(data.stats || null);
+      setTotalPages(data.pagination?.total_pages || 1);
+      setTotalItems(data.pagination?.total_items || (data.items || []).length);
     } catch {
       toast.error('Failed to load disputes');
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, searchQuery]);
+  }, [currentPage, statusFilter, typeFilter, searchQuery]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadDisputes, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadDisputes, 30000, true, false);
   useEffect(() => { loadDisputes(); }, [loadDisputes]);
-
-  const filteredDisputes = useMemo(() => {
-    return disputes.filter((d) => {
-      const matchType = typeFilter === 'ALL' || d.type === typeFilter;
-      return matchType;
-    });
-  }, [disputes, typeFilter]);
-
-  const totalPages = Math.ceil(filteredDisputes.length / itemsPerPage);
-  const paginatedDisputes = filteredDisputes.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const stats = useMemo(() => ({
-    total: disputes.length,
-    open: disputes.filter(d => d.status === 'OPEN').length,
-    investigating: disputes.filter(d => d.status === 'INVESTIGATING').length,
-    resolved: disputes.filter(d => d.status === 'RESOLVED').length,
-  }), [disputes]);
 
   const handleInvestigate = async (dispute: DisputeItem) => {
     try {
@@ -172,7 +168,7 @@ export default function AdminDisputePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Total Disputes</p>
-              <p className="text-xl font-bold text-gray-800">{stats.total}</p>
+              <p className="text-xl font-bold text-gray-800">{stats?.total ?? totalItems}</p>
             </div>
           </div>
         </div>
@@ -183,7 +179,7 @@ export default function AdminDisputePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Open</p>
-              <p className="text-xl font-bold text-red-600">{stats.open}</p>
+              <p className="text-xl font-bold text-red-600">{stats?.open ?? 0}</p>
             </div>
           </div>
         </div>
@@ -194,7 +190,7 @@ export default function AdminDisputePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Investigating</p>
-              <p className="text-xl font-bold text-yellow-600">{stats.investigating}</p>
+              <p className="text-xl font-bold text-yellow-600">{stats?.investigating ?? 0}</p>
             </div>
           </div>
         </div>
@@ -205,7 +201,7 @@ export default function AdminDisputePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Resolved</p>
-              <p className="text-xl font-bold text-green-600">{stats.resolved}</p>
+              <p className="text-xl font-bold text-green-600">{stats?.resolved ?? 0}</p>
             </div>
           </div>
         </div>
@@ -219,13 +215,13 @@ export default function AdminDisputePage() {
               type="text"
               placeholder="Search by customer, PNR, or subject..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -235,7 +231,7 @@ export default function AdminDisputePage() {
           </select>
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none bg-white"
           >
             <option value="ALL">All Types</option>
@@ -263,7 +259,7 @@ export default function AdminDisputePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedDisputes.map((dispute) => (
+              {disputes.map((dispute) => (
                 <tr key={dispute.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-mono text-[#d84e55] font-medium">#{dispute.id}</td>
                   <td className="px-4 py-3">
@@ -314,7 +310,7 @@ export default function AdminDisputePage() {
                   </td>
                 </tr>
               ))}
-              {paginatedDisputes.length === 0 && (
+              {disputes.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center">
                     <AlertTriangle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -326,45 +322,13 @@ export default function AdminDisputePage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredDisputes.length)} of {filteredDisputes.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {selectedDispute && (

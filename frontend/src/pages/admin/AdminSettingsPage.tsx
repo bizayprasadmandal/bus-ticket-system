@@ -5,7 +5,6 @@ import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
 interface PlatformSettings {
-  service_fee_percent: number;
   tax_rate_percent: number;
   currency: string;
   platform_name: string;
@@ -39,7 +38,6 @@ interface SettingsData {
 
 const defaultSettings: SettingsData = {
   platform: {
-    service_fee_percent: 5,
     tax_rate_percent: 13,
     currency: 'NPR',
     platform_name: 'Gadi Ticket',
@@ -79,7 +77,6 @@ export default function AdminSettingsPage() {
       const s = res.data?.data?.settings || res.data?.data || {};
       setSettings({
         platform: {
-          service_fee_percent: s.service_fee ?? defaultSettings.platform.service_fee_percent,
           tax_rate_percent: s.tax_rate ?? defaultSettings.platform.tax_rate_percent,
           currency: s.currency ?? defaultSettings.platform.currency,
           platform_name: s.platform_name ?? defaultSettings.platform.platform_name,
@@ -124,7 +121,6 @@ export default function AdminSettingsPage() {
     setSaving(true);
     try {
       const payload = {
-        service_fee: editValues.platform.service_fee_percent,
         tax_rate: editValues.platform.tax_rate_percent,
         currency: editValues.platform.currency,
         platform_name: editValues.platform.platform_name,
@@ -249,19 +245,6 @@ export default function AdminSettingsPage() {
               type="text"
               value={isEditing('platform') ? vals.platform.currency : settings.platform.currency}
               onChange={(e) => updatePlatform('currency', e.target.value)}
-              disabled={!isEditing('platform')}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none disabled:bg-gray-50 disabled:text-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Service Fee (%)</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              value={isEditing('platform') ? vals.platform.service_fee_percent : settings.platform.service_fee_percent}
-              onChange={(e) => updatePlatform('service_fee_percent', Number(e.target.value))}
               disabled={!isEditing('platform')}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none disabled:bg-gray-50 disabled:text-gray-500"
             />

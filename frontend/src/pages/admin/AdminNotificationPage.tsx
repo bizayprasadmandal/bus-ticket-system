@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, Send, Search, ChevronLeft, ChevronRight, RefreshCw, Megaphone } from 'lucide-react';
+import { Bell, Send, Search, RefreshCw, Megaphone } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import toast from 'react-hot-toast';
 
 interface NotificationItem {
@@ -19,6 +20,8 @@ export default function AdminNotificationPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [title, setTitle] = useState('');
@@ -26,38 +29,27 @@ export default function AdminNotificationPage() {
   const [target, setTarget] = useState('ALL');
   const [priority, setPriority] = useState('MEDIUM');
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   const loadNotifications = useCallback(async () => {
     try {
-      const res = await api.get('/admin/notifications', { params: { page: currentPage, limit: 20 } });
-      setNotifications(res.data.data.items || res.data.data.notifications || []);
+      const params: any = { page: currentPage, limit: itemsPerPage };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      const res = await api.get('/admin/notifications', { params });
+      const data = res.data.data || {};
+      setNotifications(data.items || data.notifications || []);
+      setTotalPages(data.pagination?.total_pages || 1);
+      setTotalItems(data.pagination?.total_items || (data.items || []).length);
     } catch {
       setNotifications([]);
     } finally {
       setLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, searchQuery]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadNotifications, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadNotifications, 30000, true, false);
 
   useEffect(() => { loadNotifications(); }, [loadNotifications]);
-
-  const filteredNotifications = notifications.filter((n) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      n.title?.toLowerCase().includes(q) ||
-      n.message?.toLowerCase().includes(q) ||
-      n.target?.toLowerCase().includes(q)
-    );
-  });
-
-  const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
-  const paginatedNotifications = filteredNotifications.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,7 +202,7 @@ export default function AdminNotificationPage() {
               type="text"
               placeholder="Search notifications..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none transition-all"
             />
           </div>
@@ -230,7 +222,7 @@ export default function AdminNotificationPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedNotifications.map((notification) => (
+              {notifications.map((notification) => (
                 <tr key={notification.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -258,7 +250,7 @@ export default function AdminNotificationPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedNotifications.length === 0 && (
+              {notifications.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center">
                     <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -270,45 +262,13 @@ export default function AdminNotificationPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredNotifications.length)} of {filteredNotifications.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#d84e55] text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

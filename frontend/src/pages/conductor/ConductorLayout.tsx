@@ -34,19 +34,28 @@ export default function ConductorLayout() {
   const getBreadcrumbs = () => {
     const segments = location.pathname.split('/').filter(Boolean);
     const crumbs = [{ label: 'Home', path: '/conductor' }];
+    const segmentLabels: Record<string, string> = { 'seat-map': 'Seat Map' };
     let currentPath = '';
     segments.forEach((seg, i) => {
       if (i === 0) return;
+      if (/^\d+$/.test(seg)) {
+        const last = crumbs[crumbs.length - 1];
+        if (last && last.label !== 'Home') {
+          crumbs[crumbs.length - 1] = { label: `${last.label} #${seg}`, path: last.path };
+        }
+        return;
+      }
       currentPath += `/${seg}`;
       const full = `/conductor${currentPath}`;
       const item = navItems.find(n => n.to === full);
-      crumbs.push({ label: item?.label || seg.charAt(0).toUpperCase() + seg.slice(1), path: full });
+      crumbs.push({ label: segmentLabels[seg] || item?.label || seg.charAt(0).toUpperCase() + seg.slice(1), path: full });
     });
     return crumbs;
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const currentPageLabel = navItems.find(n => n.end ? location.pathname === n.to : location.pathname.startsWith(n.to))?.label || 'Dashboard';
+  const currentPageLabel = navItems.find(n => n.end ? location.pathname === n.to : location.pathname.startsWith(n.to))?.label
+    || (location.pathname.startsWith('/conductor/seat-map') ? 'Seat Map' : 'Dashboard');
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

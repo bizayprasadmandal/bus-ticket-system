@@ -228,7 +228,7 @@ const seed = async () => {
       { name: 'Sanjay Bhandari', phone: '9841000015' },
     ];
     const conductors = [
-      { name: 'Hari Bahadur', phone: '9841000002' },
+      { name: 'Ram Bahadur Conductor', phone: '9800000005' },
       { name: 'Deepak Gurung', phone: '9841000004' },
       { name: 'Bikash Tamang', phone: '9841000006' },
       { name: 'Nirmal Karki', phone: '9841000008' },

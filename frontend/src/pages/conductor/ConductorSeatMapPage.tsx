@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Bus, MapPin, ArrowRight, Clock, Users, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { Bus, MapPin, ArrowRight, Clock, Users, CheckCircle, XCircle, RefreshCw, Calendar } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
@@ -15,7 +15,7 @@ interface PassengerDetail {
 
 interface SeatData {
   seat_number: string;
-  status: 'AVAILABLE' | 'BOOKED' | 'BOARDING' | 'BLOCKED' | 'PENDING';
+  status: 'AVAILABLE' | 'BOOKED' | 'BOARDING' | 'BLOCKED' | 'PENDING' | 'NO_SHOW';
   booking_id?: number;
   passenger?: PassengerDetail;
   booking_status?: string;
@@ -30,8 +30,9 @@ interface TripInfo {
   bus?: { bus_number: string; bus_type: string; total_seats?: number };
 }
 
-interface TripSeatsResponse {
+interface SeatMapState {
   trip: TripInfo;
+  layoutRows: string[][];
   seats: SeatData[];
 }
 
@@ -41,6 +42,7 @@ const seatColors: Record<string, string> = {
   PENDING: 'bg-yellow-400 text-gray-800',
   AVAILABLE: 'bg-gray-200 text-gray-600',
   BLOCKED: 'bg-red-400 text-white',
+  NO_SHOW: 'bg-red-400 text-white',
 };
 
 const seatBorders: Record<string, string> = {
@@ -49,20 +51,66 @@ const seatBorders: Record<string, string> = {
   PENDING: 'border-yellow-500',
   AVAILABLE: 'border-gray-300',
   BLOCKED: 'border-red-500',
+  NO_SHOW: 'border-red-500',
 };
 
 export default function ConductorSeatMapPage() {
   const { tripId } = useParams<{ tripId: string }>();
-  const [data, setData] = useState<TripSeatsResponse | null>(null);
+  const [data, setData] = useState<SeatMapState | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSeat, setSelectedSeat] = useState<SeatData | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const loadData = useCallback(async () => {
-    if (!tripId) return;
+    if (!tripId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await api.get(`/trips/${tripId}/seats`);
-      setData(res.data.data);
+      const [seatsRes, passengersRes] = await Promise.all([
+        api.get(`/trips/${tripId}/seats`),
+        api.get(`/trips/${tripId}/passengers`),
+      ]);
+
+      const seatsPayload = seatsRes.data.data || {};
+      const passengersPayload = passengersRes.data.data || {};
+
+      const layoutRows: string[][] = seatsPayload.seat_layout?.layout || [];
+      const bookedSet: Set<string> = new Set(seatsPayload.booked_seats || []);
+
+      const passengers: any[] = passengersPayload.passengers || [];
+      const passengerBySeat = new Map<string, any>();
+      passengers.forEach(p => {
+        if (p.seat_number) passengerBySeat.set(p.seat_number, p);
+      });
+
+      const seats: SeatData[] = [];
+      layoutRows.forEach(row => {
+        row.forEach(seatNumber => {
+          const p = passengerBySeat.get(seatNumber);
+          let status: SeatData['status'] = bookedSet.has(seatNumber) ? 'BOOKED' : 'AVAILABLE';
+          if (p) {
+            if (p.booking_status === 'COMPLETED') status = 'BOARDING';
+            else if (p.booking_status === 'CONFIRMED') status = 'BOOKED';
+            else if (p.booking_status === 'PENDING') status = 'PENDING';
+            else if (p.booking_status === 'NO_SHOW') status = 'NO_SHOW';
+            else status = 'AVAILABLE';
+          }
+          seats.push({
+            seat_number: seatNumber,
+            status,
+            booking_id: p?.booking_id,
+            booking_status: p?.booking_status,
+            passenger: p ? { name: p.passenger_name || '', seat_number: p.seat_number, phone: p.phone || p.phone_number || '' } : undefined,
+          });
+        });
+      });
+
+      setData({
+        trip: passengersPayload.trip,
+        layoutRows,
+        seats,
+      });
     } catch {
       toast.error('Failed to load seat data');
     } finally {
@@ -70,7 +118,7 @@ export default function ConductorSeatMapPage() {
     }
   }, [tripId]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000, true, false);
 
   useEffect(() => {
     loadData();
@@ -104,39 +152,44 @@ export default function ConductorSeatMapPage() {
     }
   };
 
-  const getSeatLayout = (seats: SeatData[]) => {
-    const totalSeats = seats.length;
-    const seatsPerRow = totalSeats <= 30 ? 4 : 5;
-    const rows: SeatData[][] = [];
-    for (let i = 0; i < seats.length; i += seatsPerRow) {
-      rows.push(seats.slice(i, i + seatsPerRow));
-    }
-    return { rows, seatsPerRow };
-  };
-
   const stats = data ? {
     total: data.seats.length,
     booked: data.seats.filter(s => s.status === 'BOOKED').length,
     boarded: data.seats.filter(s => s.status === 'BOARDING').length,
     available: data.seats.filter(s => s.status === 'AVAILABLE').length,
     pending: data.seats.filter(s => s.status === 'PENDING').length,
-    blocked: data.seats.filter(s => s.status === 'BLOCKED').length,
+    noShow: data.seats.filter(s => s.status === 'NO_SHOW').length,
   } : null;
 
   if (loading) {
     return <TableSkeleton rows={5} cols={4} />;
   }
 
-  if (!data) {
+  if (!tripId) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-        <Bus className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">Trip not found</p>
+        <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500 mb-4">No trip selected</p>
+        <Link to="/conductor/trips" className="inline-block px-4 py-2 bg-[#d84e55] text-white rounded-lg text-sm font-medium hover:bg-[#c23e44] transition-colors">
+          Go to My Trips
+        </Link>
       </div>
     );
   }
 
-  const { rows, seatsPerRow } = getSeatLayout(data.seats);
+  if (!data) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+        <Bus className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500 mb-4">Trip not found</p>
+        <Link to="/conductor/trips" className="inline-block px-4 py-2 bg-[#d84e55] text-white rounded-lg text-sm font-medium hover:bg-[#c23e44] transition-colors">
+          Go to My Trips
+        </Link>
+      </div>
+    );
+  }
+
+  const seatsPerRow = Math.max(...data.layoutRows.map(r => r.length), 0);
 
   return (
     <div className="space-y-6">
@@ -183,8 +236,8 @@ export default function ConductorSeatMapPage() {
           <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
             data.trip.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700' :
             data.trip.status === 'BOARDING' ? 'bg-amber-100 text-amber-700' :
-            data.trip.status === 'DEPARTED' ? 'bg-green-100 text-green-700' :
-            data.trip.status === 'ARRIVED' ? 'bg-gray-100 text-gray-600' :
+            data.trip.status === 'DEPARTED' ? 'bg-purple-100 text-purple-700' :
+            data.trip.status === 'ARRIVED' ? 'bg-green-100 text-green-700' :
             'bg-gray-100 text-gray-600'
           }`}>
             {data.trip.status}
@@ -193,7 +246,7 @@ export default function ConductorSeatMapPage() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
           <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
             <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
             <p className="text-xs text-gray-500">Total</p>
@@ -211,6 +264,10 @@ export default function ConductorSeatMapPage() {
             <p className="text-xs text-gray-500">Pending</p>
           </div>
           <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
+            <p className="text-2xl font-bold text-red-500">{stats.noShow}</p>
+            <p className="text-xs text-gray-500">No-Show</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
             <p className="text-2xl font-bold text-gray-400">{stats.available}</p>
             <p className="text-xs text-gray-500">Available</p>
           </div>
@@ -218,7 +275,7 @@ export default function ConductorSeatMapPage() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-4 mb-6 text-xs">
+        <div className="flex items-center gap-4 mb-6 text-xs flex-wrap">
           <div className="flex items-center gap-2">
             <span className="w-4 h-4 rounded bg-green-500" />
             <span className="text-gray-600">Boarded</span>
@@ -237,7 +294,7 @@ export default function ConductorSeatMapPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="w-4 h-4 rounded bg-red-400" />
-            <span className="text-gray-600">Blocked</span>
+            <span className="text-gray-600">No-Show / Blocked</span>
           </div>
         </div>
 
@@ -247,11 +304,13 @@ export default function ConductorSeatMapPage() {
           </div>
 
           <div className="space-y-3">
-            {rows.map((row, rowIndex) => (
+            {data.layoutRows.map((row, rowIndex) => (
               <div key={rowIndex} className="flex items-center gap-3">
                 <span className="w-6 text-center text-xs text-gray-400 font-medium">{rowIndex + 1}</span>
                 <div className="flex gap-2">
-                  {row.map((seat, seatIndex) => {
+                  {row.map((seatNumber, seatIndex) => {
+                    const seat = data.seats.find(s => s.seat_number === seatNumber);
+                    if (!seat) return null;
                     const isAisle = seatsPerRow > 4 && seatIndex === 2;
                     return (
                       <div key={seat.seat_number} className="flex items-center">
@@ -319,7 +378,9 @@ export default function ConductorSeatMapPage() {
                 <p className="text-xs text-gray-500">Booking Status</p>
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                   selectedSeat.booking_status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
+                  selectedSeat.booking_status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
                   selectedSeat.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                  selectedSeat.booking_status === 'NO_SHOW' ? 'bg-red-100 text-red-700' :
                   'bg-gray-100 text-gray-600'
                 }`}>
                   {bookingStatusLabel(selectedSeat.booking_status ?? '')}
@@ -327,7 +388,7 @@ export default function ConductorSeatMapPage() {
               </div>
             </div>
           </div>
-          {selectedSeat.booking_id && selectedSeat.status !== 'BOARDING' && selectedSeat.status !== 'BLOCKED' && (
+          {selectedSeat.booking_id && selectedSeat.booking_status === 'CONFIRMED' && (
             <div className="flex gap-3">
               <button
                 onClick={() => handleMarkBoarded(selectedSeat.booking_id!)}
@@ -351,6 +412,12 @@ export default function ConductorSeatMapPage() {
             <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-100 text-green-700 rounded-lg font-medium">
               <CheckCircle className="h-4 w-4" />
               Boarded
+            </span>
+          )}
+          {selectedSeat.status === 'NO_SHOW' && (
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-100 text-red-700 rounded-lg font-medium">
+              <XCircle className="h-4 w-4" />
+              No-Show
             </span>
           )}
         </div>

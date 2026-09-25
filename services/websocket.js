@@ -139,10 +139,10 @@ class WebSocketService {
   handleBusLocationUpdate(socket, data) {
     const { trip_id, latitude, longitude, speed, heading } = data;
     
-    // Verify user has permission to update location (operator/driver)
+    // Verify user has permission to update location (staff on the trip)
     const userRoles = socket.user.roles || [];
     const canUpdateLocation = userRoles.some(role => 
-      ['OPERATOR', 'AGENT'].includes(role.role) && role.is_active
+      ['OPERATOR', 'AGENT', 'DRIVER', 'CONDUCTOR', 'DISPATCHER', 'SUPER_ADMIN'].includes(role.role) && role.is_active
     );
 
     if (!canUpdateLocation) {

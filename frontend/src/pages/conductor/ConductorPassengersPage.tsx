@@ -8,9 +8,9 @@ import toast from 'react-hot-toast';
 import { bookingStatusLabel } from '../../utils/statusLabels';
 
 interface PassengerDetail {
-  name: string;
+  passenger_name: string;
   seat_number: string;
-  phone?: string;
+  phone_number?: string;
 }
 
 interface BookingItem {
@@ -19,7 +19,6 @@ interface BookingItem {
   total_passengers: number;
   total_amount: number;
   booking_status: string;
-  boarded?: boolean;
   trip?: {
     trip_date: string;
     departure_time: string;
@@ -47,7 +46,7 @@ export default function ConductorPassengersPage() {
     }
   }, []);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000, true, false);
 
   useEffect(() => {
     loadBookings();
@@ -58,7 +57,7 @@ export default function ConductorPassengersPage() {
     const query = searchQuery.toLowerCase();
     return bookings.filter((booking) => {
       const matchesPNR = booking.pnr?.toLowerCase().includes(query);
-      const matchesPassenger = booking.passengers?.some(p => p.name?.toLowerCase().includes(query));
+      const matchesPassenger = booking.passengers?.some(p => p.passenger_name?.toLowerCase().includes(query));
       const matchesUser = booking.user?.full_name?.toLowerCase().includes(query);
       return matchesPNR || matchesPassenger || matchesUser;
     });
@@ -69,7 +68,7 @@ export default function ConductorPassengersPage() {
     try {
       await api.post(`/bookings/${bookingId}/board`);
       setBookings(prev =>
-        prev.map(b => b.id === bookingId ? { ...b, boarded: true } : b)
+        prev.map(b => b.id === bookingId ? { ...b, booking_status: 'COMPLETED' } : b)
       );
       toast.success('Passenger boarded successfully');
     } catch {
@@ -97,13 +96,7 @@ export default function ConductorPassengersPage() {
     PENDING: 'bg-amber-100 text-amber-700',
     CANCELLED: 'bg-red-100 text-red-700',
     COMPLETED: 'bg-blue-100 text-blue-700',
-    BOARDING: 'bg-yellow-100 text-yellow-700',
-    'NO-SHOW': 'bg-red-100 text-red-700',
-  };
-
-  const getBookingDisplayStatus = (booking: BookingItem) => {
-    if (booking.boarded) return 'BOARDING';
-    return booking.booking_status;
+    NO_SHOW: 'bg-red-100 text-red-700',
   };
 
   if (loading) {
@@ -170,8 +163,10 @@ export default function ConductorPassengersPage() {
           </div>
         ) : (
           filteredBookings.map((booking) => {
-            const displayStatus = getBookingDisplayStatus(booking);
-            const isBoarded = booking.boarded;
+            const displayStatus = booking.booking_status;
+            const isBoarded = booking.booking_status === 'COMPLETED';
+            const canAct = booking.booking_status === 'CONFIRMED';
+            const isNoShow = booking.booking_status === 'NO_SHOW';
             return (
               <div
                 key={booking.id}
@@ -208,28 +203,36 @@ export default function ConductorPassengersPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleMarkBoarded(booking.id)}
-                        disabled={boardingId === booking.id}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          isBoarded
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-[#d84e55] text-white hover:bg-[#c23e44]'
-                        } disabled:opacity-50`}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                        {boardingId === booking.id ? 'Processing...' : isBoarded ? 'Boarded' : 'Mark Boarded'}
-                      </button>
-                      {!isBoarded && (
-                        <button
-                          onClick={() => handleNoShow(booking.id)}
-                          disabled={boardingId === booking.id}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        >
+                      {canAct ? (
+                        <>
+                          <button
+                            onClick={() => handleMarkBoarded(booking.id)}
+                            disabled={boardingId === booking.id}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#d84e55] text-white hover:bg-[#c23e44] transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            {boardingId === booking.id ? 'Processing...' : 'Mark Boarded'}
+                          </button>
+                          <button
+                            onClick={() => handleNoShow(booking.id)}
+                            disabled={boardingId === booking.id}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            No-Show
+                          </button>
+                        </>
+                      ) : isBoarded ? (
+                        <span className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-700">
+                          <CheckCircle className="h-4 w-4" />
+                          Boarded
+                        </span>
+                      ) : isNoShow ? (
+                        <span className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700">
                           <XCircle className="h-4 w-4" />
                           No-Show
-                        </button>
-                      )}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
@@ -254,7 +257,7 @@ export default function ConductorPassengersPage() {
                       <div className="flex flex-wrap gap-2">
                         {booking.passengers.map((p, i) => (
                           <div key={i} className="flex items-center gap-2 bg-white rounded-lg px-3 py-1.5 border border-gray-100 text-sm">
-                            <span className="font-medium text-gray-800">{p.name}</span>
+                            <span className="font-medium text-gray-800">{p.passenger_name}</span>
                             <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
                               Seat {p.seat_number}
                             </span>

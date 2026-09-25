@@ -21,7 +21,7 @@ const endpoints: Record<string, Endpoint[]> = {
   Trips: [
     { method: 'GET', path: '/api/trips/search', description: 'Search available trips', requiresAuth: false },
     { method: 'GET', path: '/api/trips/:id', description: 'Get trip details', requiresAuth: false },
-    { method: 'GET', path: '/api/trips/:id/seats', description: 'Get trip seat layout', requiresAuth: false },
+    { method: 'GET', path: '/api/trips/:id/seats', description: 'Get trip seat layout', requiresAuth: true },
     { method: 'POST', path: '/api/trips', description: 'Create a new trip', requiresAuth: true, roles: ['OPERATOR'] },
     { method: 'PUT', path: '/api/trips/:id', description: 'Update trip details', requiresAuth: true, roles: ['OPERATOR'] },
     { method: 'PUT', path: '/api/trips/:id/status', description: 'Update trip status', requiresAuth: true, roles: ['OPERATOR'] },

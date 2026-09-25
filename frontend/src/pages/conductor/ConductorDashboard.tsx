@@ -11,7 +11,7 @@ interface TripItem {
   departure_time: string;
   status: string;
   passenger_count?: number;
-  revenue?: number;
+  total_revenue?: number;
   route?: { origin_city: string; destination_city: string };
   bus?: { bus_number: string; bus_type: string };
 }
@@ -19,7 +19,7 @@ interface TripItem {
 interface Stats {
   total_trips?: number;
   total_passengers?: number;
-  today_revenue?: number;
+  total_revenue?: number;
   today_trips?: TripItem[];
   [key: string]: any;
 }
@@ -31,7 +31,8 @@ export default function ConductorDashboard() {
   const fetchData = useCallback(async () => {
     try {
       const res = await api.get('/dashboard/conductor');
-      setStats(res.data.data);
+      const payload = res.data.data || {};
+      setStats({ ...(payload.stats || {}), today_trips: payload.today_trips || [] });
     } catch {
       toast.error('Failed to load dashboard');
     } finally {
@@ -44,7 +45,7 @@ export default function ConductorDashboard() {
   const statCards = [
     { label: 'Total Trips', value: stats.total_trips ?? 0, icon: Calendar, color: 'text-purple-600', bgColor: 'bg-purple-50' },
     { label: 'Total Passengers', value: stats.total_passengers ?? 0, icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { label: "Today's Revenue", value: `NPR ${(stats.today_revenue || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { label: "Today's Revenue", value: `NPR ${(stats.total_revenue || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50' },
   ];
 
   if (isLoading) {
@@ -107,7 +108,7 @@ export default function ConductorDashboard() {
         {stats.today_trips && stats.today_trips.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {stats.today_trips.map((trip: TripItem, i: number) => (
-              <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+              <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                   <Calendar className="h-5 w-5 text-purple-600" />
                 </div>
@@ -130,8 +131,8 @@ export default function ConductorDashboard() {
                     <Users className="h-3.5 w-3.5" />
                     <span className="font-medium">{trip.passenger_count ?? 0}</span>
                   </div>
-                  {trip.revenue !== undefined && (
-                    <p className="text-xs text-green-600 font-medium mt-0.5">NPR {trip.revenue.toLocaleString()}</p>
+                  {trip.total_revenue !== undefined && (
+                    <p className="text-xs text-green-600 font-medium mt-0.5">NPR {trip.total_revenue.toLocaleString()}</p>
                   )}
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -165,7 +166,7 @@ export default function ConductorDashboard() {
             <p className="text-purple-100 text-sm">Total Passengers</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">NPR {(stats.today_revenue || 0).toLocaleString()}</p>
+            <p className="text-3xl font-bold">NPR {(stats.total_revenue || 0).toLocaleString()}</p>
             <p className="text-purple-100 text-sm">Today's Revenue</p>
           </div>
         </div>

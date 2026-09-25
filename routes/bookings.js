@@ -17,6 +17,7 @@ const {
   UserWallet,
 } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { checkBookingAccess } = require('../middleware/tripAccess');
 const { bookingValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const { NotificationService } = require('../services/notifications');
@@ -978,25 +979,76 @@ router.get('/operator/my-bookings', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /bookings/conductor/my-bookings - Get bookings for conductor's operator
+// GET /bookings/conductor/my-bookings - Conductor's own trips (or operator fallback: whole operator)
 router.get('/conductor/my-bookings', authenticateToken, async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
     const conductorRole = userRoles.find(role => role.role === 'CONDUCTOR' && role.is_active);
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+    const scopedRole = conductorRole || operatorRole;
 
-    if (!conductorRole || !conductorRole.operator_id) {
-      return res.status(403).json({ success: false, message: 'Conductor operator information not found' });
+    if (!scopedRole || !scopedRole.operator_id) {
+      return res.status(403).json({ success: false, message: 'Conductor or operator information not found' });
+    }
+
+    const tripWhere = {};
+    if (conductorRole) {
+      const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+      if (!user?.full_name) {
+        return res.status(403).json({ success: false, message: 'Conductor name not found' });
+      }
+      tripWhere.conductor_name = user.full_name;
+    }
+
+    if (req.query.trip_id) {
+      const tripId = parseInt(req.query.trip_id, 10);
+      if (tripId) tripWhere.id = tripId;
+    }
+
+    const include = [
+      {
+        model: Trip,
+        as: 'trip',
+        where: tripWhere,
+        required: true,
+        include: [
+          { model: Bus, as: 'bus', attributes: ['bus_number', 'bus_type', 'operator_id'], where: { operator_id: scopedRole.operator_id }, required: true },
+          { model: Route, as: 'route', attributes: ['route_name', 'origin_city', 'destination_city'] },
+        ],
+      },
+      { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
+      { model: BookingPassenger, as: 'passengers' },
+    ];
+
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+
+    if (page || limit) {
+      const itemsPerPage = limit || 20;
+      const currentPage = page || 1;
+      const { count, rows } = await Booking.findAndCountAll({
+        include,
+        distinct: true,
+        order: [['booking_date', 'DESC']],
+        limit: itemsPerPage,
+        offset: (currentPage - 1) * itemsPerPage,
+      });
+      return res.json({
+        success: true,
+        message: 'Conductor bookings retrieved successfully',
+        data: {
+          bookings: rows,
+          total: count,
+          current_page: currentPage,
+          total_pages: Math.ceil(count / itemsPerPage),
+          total_items: count,
+          items_per_page: itemsPerPage,
+        },
+      });
     }
 
     const bookings = await Booking.findAll({
-      include: [
-        {
-          model: Trip,
-          as: 'trip',
-          include: [{ model: Bus, as: 'bus', where: { operator_id: conductorRole.operator_id }, required: true }],
-        },
-        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
-      ],
+      include,
       order: [['booking_date', 'DESC']],
     });
 
@@ -1094,7 +1146,7 @@ router.get('/counter/search-by-phone', authenticateToken, requireRole(['COUNTER_
   }
 });
 
-router.get('/verify-pnr/:pnr', authenticateToken, async (req, res) => {
+router.get('/verify-pnr/:pnr', authenticateToken, requireRole(['COUNTER_AGENT', 'CONDUCTOR', 'DRIVER', 'OPERATOR', 'DISPATCHER', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const { pnr } = req.params;
 
@@ -1118,6 +1170,11 @@ router.get('/verify-pnr/:pnr', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found for this PNR' });
     }
 
+    const access = await checkBookingAccess(req, booking);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
+    }
+
     res.json({
       success: true,
       data: {
@@ -1131,7 +1188,7 @@ router.get('/verify-pnr/:pnr', authenticateToken, async (req, res) => {
 });
 
 // Mark a booking as boarded
-router.post('/:id/board', authenticateToken, async (req, res) => {
+router.post('/:id/board', authenticateToken, requireRole(['CONDUCTOR', 'DRIVER', 'OPERATOR', 'DISPATCHER', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -1140,8 +1197,24 @@ router.post('/:id/board', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    if (booking.booking_status === 'CANCELLED') {
-      return res.status(400).json({ success: false, message: 'Cannot board a cancelled booking' });
+    const access = await checkBookingAccess(req, booking);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
+    }
+
+    if (booking.booking_status === 'COMPLETED') {
+      return res.json({
+        success: true,
+        message: 'Passenger already boarded',
+        data: { booking_id: booking.id, status: booking.booking_status },
+      });
+    }
+
+    if (booking.booking_status !== 'CONFIRMED') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot board a booking with status ${booking.booking_status}`,
+      });
     }
 
     // Update status to COMPLETED (boarded)
@@ -1160,7 +1233,7 @@ router.post('/:id/board', authenticateToken, async (req, res) => {
 });
 
 // Mark a booking as no-show
-router.post('/:id/no-show', authenticateToken, async (req, res) => {
+router.post('/:id/no-show', authenticateToken, requireRole(['CONDUCTOR', 'DRIVER', 'OPERATOR', 'DISPATCHER', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -1169,12 +1242,29 @@ router.post('/:id/no-show', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
+    const access = await checkBookingAccess(req, booking);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message });
+    }
+
+    if (booking.booking_status === 'NO_SHOW') {
+      return res.json({
+        success: true,
+        message: 'Passenger already marked as no-show',
+        data: { booking_id: booking.id, status: booking.booking_status },
+      });
+    }
+
+    if (booking.booking_status === 'COMPLETED') {
+      return res.status(400).json({ success: false, message: 'Cannot mark a boarded passenger as no-show' });
+    }
+
     if (booking.booking_status === 'CANCELLED') {
       return res.status(400).json({ success: false, message: 'Cannot mark cancelled booking as no-show' });
     }
 
-    // Mark as cancelled (no-show)
-    booking.booking_status = 'CANCELLED';
+    // Mark as no-show
+    booking.booking_status = 'NO_SHOW';
     booking.cancellation_reason = 'No-show';
     await booking.save();
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCw, Clock, ArrowRight, Bus } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -42,7 +42,8 @@ function getWeekDates(baseDate: Date): Date[] {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export default function ConductorSchedulePage() {
@@ -67,7 +68,11 @@ export default function ConductorSchedulePage() {
     }
   }, [startDate, endDate]);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000, true, false);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const tripsByDate = useMemo(() => {
     const map: Record<string, TripItem[]> = {};

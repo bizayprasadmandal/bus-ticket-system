@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const moment = require('moment');
 const { Trip, Route, Bus, Operator, Booking, BookingPassenger, BusLocation, User } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { checkTripAccess } = require('../middleware/tripAccess');
 const { tripValidation, commonValidation } = require('../validators');
 const { handleValidationErrors } = require('../middleware/error');
 const cachingService = require('../services/caching');
@@ -263,7 +264,7 @@ router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req,
 });
 
 // Get trip seat layout
-router.get('/:id/seats', commonValidation.idParam, handleValidationErrors, async (req, res) => {
+router.get('/:id/seats', authenticateToken, commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
     await expireStalePendingBookings();
 
@@ -519,46 +520,6 @@ router.put('/:id/status', authenticateToken, commonValidation.idParam, handleVal
     });
   }
 });
-
-// Shared access check for trip-scoped endpoints (manifest, crew assignment, ...)
-// Returns { ok: true } or { ok: false, status, message }
-async function checkTripAccess(req, trip) {
-  const userRoles = req.user.roles || [];
-  const isAdmin = userRoles.some(r => r.role === 'SUPER_ADMIN' && r.is_active);
-  if (isAdmin) return { ok: true };
-
-  const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active);
-  const dispatcherRole = userRoles.find(r => r.role === 'DISPATCHER' && r.is_active);
-  const driverRole = userRoles.find(r => r.role === 'DRIVER' && r.is_active);
-  const conductorRole = userRoles.find(r => r.role === 'CONDUCTOR' && r.is_active);
-
-  if (!operatorRole && !dispatcherRole && !driverRole && !conductorRole) {
-    return { ok: false, status: 403, message: 'Only operators, dispatchers, drivers, conductors, or admins can access this trip' };
-  }
-
-  if (driverRole) {
-    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
-    if (!user || trip.driver_name !== user.full_name) {
-      return { ok: false, status: 403, message: 'You can only access trips assigned to you' };
-    }
-    return { ok: true };
-  }
-
-  if (conductorRole) {
-    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
-    if (!user || trip.conductor_name !== user.full_name) {
-      return { ok: false, status: 403, message: 'You can only access trips assigned to you' };
-    }
-    return { ok: true };
-  }
-
-  const ownerId = operatorRole ? operatorRole.operator_id : dispatcherRole.operator_id;
-  const tripOwners = [trip.bus?.operator_id, trip.route?.operator_id].filter(Boolean);
-  if (!tripOwners.includes(ownerId)) {
-    return { ok: false, status: 403, message: 'You can only access trips of your own operator' };
-  }
-  return { ok: true };
-}
 
 // Assign crew (driver/conductor) to a trip
 router.put('/:id/assign-crew', authenticateToken, requireRole(['OPERATOR', 'SUPER_ADMIN', 'DISPATCHER']), async (req, res) => {
@@ -1021,28 +982,48 @@ router.get('/driver/schedule', authenticateToken, requireRole(['DRIVER']), async
 });
 
 // Get conductor's weekly schedule
-router.get('/conductor/schedule', authenticateToken, requireRole(['CONDUCTOR']), async (req, res) => {
+router.get('/conductor/schedule', authenticateToken, requireRole(['CONDUCTOR', 'OPERATOR']), async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
-    const conductorName = user?.full_name;
+    const userRoles = req.user.roles || [];
+    const conductorRole = userRoles.find(r => r.role === 'CONDUCTOR' && r.is_active && r.operator_id);
+    const operatorRole = userRoles.find(r => r.role === 'OPERATOR' && r.is_active && r.operator_id);
+    const scopedRole = conductorRole || operatorRole;
 
-    if (!conductorName) {
-      return res.status(400).json({ success: false, message: 'Conductor name not found' });
+    if (!scopedRole) {
+      return res.status(403).json({ success: false, message: 'Conductor or operator information not found' });
     }
 
+    const where = {};
+
+    if (conductorRole) {
+      const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+      if (!user?.full_name) {
+        return res.status(400).json({ success: false, message: 'Conductor name not found' });
+      }
+      where.conductor_name = user.full_name;
+    }
+
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const { start_date, end_date } = req.query;
     const today = new Date();
-    const weekStart = start_date || new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
-    const weekEnd = end_date || new Date(today.setDate(today.getDate() - today.getDay() + 6)).toISOString().split('T')[0];
+    const sunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+    const weekStart = start_date || fmt(sunday);
+    const weekEnd = end_date || fmt(new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 6));
+
+    where.trip_date = { [Op.between]: [weekStart, weekEnd] };
 
     const trips = await Trip.findAll({
-      where: {
-        conductor_name: conductorName,
-        trip_date: { [Op.between]: [weekStart, weekEnd] },
-      },
+      where,
       include: [
         { model: Route, as: 'route', attributes: ['id', 'route_name', 'origin_city', 'destination_city'] },
-        { model: Bus, as: 'bus', attributes: ['id', 'bus_number', 'bus_type'] },
+        {
+          model: Bus,
+          as: 'bus',
+          attributes: ['id', 'bus_number', 'bus_type'],
+          where: { operator_id: scopedRole.operator_id },
+          required: true,
+        },
       ],
       order: [['trip_date', 'ASC'], ['departure_time', 'ASC']],
     });
@@ -1057,13 +1038,13 @@ router.get('/conductor/schedule', authenticateToken, requireRole(['CONDUCTOR']),
   }
 });
 
-// Report driver's GPS location
-router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
+// Report GPS location (driver or conductor on the trip)
+router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'CONDUCTOR', 'OPERATOR', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const { id } = req.params;
     const { latitude, longitude } = req.body;
 
-    if (!latitude || !longitude) {
+    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
       return res.status(400).json({ success: false, message: 'Latitude and longitude required' });
     }
 
@@ -1071,6 +1052,8 @@ router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'OPERATOR
     if (!trip) {
       return res.status(404).json({ success: false, message: 'Trip not found' });
     }
+
+    const now = new Date();
 
     // Upsert location
     const [location, created] = await BusLocation.findOrCreate({
@@ -1081,7 +1064,7 @@ router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'OPERATOR
         longitude,
         speed: req.body.speed || 0,
         heading: req.body.heading || 0,
-        recorded_at: new Date(),
+        timestamp: now,
       },
     });
 
@@ -1090,14 +1073,14 @@ router.post('/:id/location', authenticateToken, requireRole(['DRIVER', 'OPERATOR
       location.longitude = longitude;
       location.speed = req.body.speed || location.speed;
       location.heading = req.body.heading || location.heading;
-      location.recorded_at = new Date();
+      location.timestamp = now;
       await location.save();
     }
 
     res.json({
       success: true,
       message: 'Location updated',
-      data: { latitude, longitude, recorded_at: new Date() },
+      data: { latitude, longitude, timestamp: now, recorded_at: now },
     });
   } catch (error) {
     console.error('Report location error:', error);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, Clock, Bus, Users, MapPin, ArrowRight, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
 import { conductorTripAPI, conductorBookingAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -14,8 +15,9 @@ interface TripItem {
 }
 
 interface PassengerItem {
-  name: string;
+  passenger_name: string;
   seat_number: string;
+  phone_number?: string;
 }
 
 interface TripWithPassengers extends TripItem {
@@ -27,41 +29,31 @@ export default function ConductorTripsPage() {
   const [trips, setTrips] = useState<TripWithPassengers[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTripId, setExpandedTripId] = useState<number | null>(null);
-  const [loadingPassengers, setLoadingPassengers] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       const tripsRes = await conductorTripAPI.getMyTrips();
       const rawTrips: TripItem[] = tripsRes.data.data.trips || [];
 
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       const todayTrips = rawTrips.filter(t => t.trip_date === today);
 
-      const tripsWithPassengers: TripWithPassengers[] = todayTrips.map(t => ({
-        ...t,
-        passengers: [],
-        passengerCount: 0,
+      const bookingsRes = await conductorBookingAPI.getMyBookings();
+      const bookings = bookingsRes.data.data.bookings || [];
+      const passengersByTrip = new Map<number, PassengerItem[]>();
+      bookings.forEach((b: any) => {
+        if (!b.trip_id) return;
+        const list = passengersByTrip.get(b.trip_id) || [];
+        (b.passengers || []).forEach((p: PassengerItem) => list.push(p));
+        passengersByTrip.set(b.trip_id, list);
+      });
+
+      setTrips(todayTrips.map(t => {
+        const passengers = passengersByTrip.get(t.id) || [];
+        return { ...t, passengers, passengerCount: passengers.length };
       }));
-
-      setTrips(tripsWithPassengers);
-
-      for (const trip of tripsWithPassengers) {
-        try {
-          const bookingsRes = await conductorBookingAPI.getMyBookings({ trip_id: trip.id });
-          const bookings = bookingsRes.data.data.bookings || [];
-          const allPassengers: PassengerItem[] = [];
-          bookings.forEach((b: any) => {
-            if (b.passengers) {
-              b.passengers.forEach((p: PassengerItem) => allPassengers.push(p));
-            }
-          });
-          setTrips(prev => prev.map(t =>
-            t.id === trip.id ? { ...t, passengers: allPassengers, passengerCount: allPassengers.length } : t
-          ));
-        } catch {
-          // skip passenger loading errors
-        }
-      }
     } catch {
       toast.error('Failed to load trips');
     } finally {
@@ -69,35 +61,10 @@ export default function ConductorTripsPage() {
     }
   }, []);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000, true, false);
 
-  const toggleExpand = async (tripId: number) => {
-    if (expandedTripId === tripId) {
-      setExpandedTripId(null);
-      return;
-    }
-    setExpandedTripId(tripId);
-    const trip = trips.find(t => t.id === tripId);
-    if (trip && trip.passengers.length === 0) {
-      setLoadingPassengers(tripId);
-      try {
-        const bookingsRes = await conductorBookingAPI.getMyBookings({ trip_id: tripId });
-        const bookings = bookingsRes.data.data.bookings || [];
-        const allPassengers: PassengerItem[] = [];
-        bookings.forEach((b: any) => {
-          if (b.passengers) {
-            b.passengers.forEach((p: PassengerItem) => allPassengers.push(p));
-          }
-        });
-        setTrips(prev => prev.map(t =>
-          t.id === tripId ? { ...t, passengers: allPassengers, passengerCount: allPassengers.length } : t
-        ));
-      } catch {
-        toast.error('Failed to load passengers');
-      } finally {
-        setLoadingPassengers(null);
-      }
-    }
+  const toggleExpand = (tripId: number) => {
+    setExpandedTripId(prev => (prev === tripId ? null : tripId));
   };
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -149,9 +116,10 @@ export default function ConductorTripsPage() {
         <div className="space-y-4">
           {trips.map((trip) => (
             <div key={trip.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="flex items-stretch">
               <button
                 onClick={() => toggleExpand(trip.id)}
-                className="w-full p-5 text-left hover:bg-gray-50 transition-colors"
+                className="flex-1 p-5 text-left hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -188,14 +156,19 @@ export default function ConductorTripsPage() {
                   </div>
                 </div>
               </button>
+              <div className="flex items-center pr-5 pl-4 border-l border-gray-100">
+                <Link
+                  to={`/conductor/seat-map/${trip.id}`}
+                  className="px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  Seat Map
+                </Link>
+              </div>
+              </div>
 
               {expandedTripId === trip.id && (
                 <div className="border-t border-gray-100 bg-gray-50 p-5">
-                  {loadingPassengers === trip.id ? (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 className="animate-spin h-6 w-6 text-purple-600" />
-                    </div>
-                  ) : trip.passengers.length > 0 ? (
+                  {trip.passengers.length > 0 ? (
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">
                         Passengers ({trip.passengers.length})
@@ -213,7 +186,7 @@ export default function ConductorTripsPage() {
                             {trip.passengers.map((p, i) => (
                               <tr key={i} className="hover:bg-gray-50">
                                 <td className="px-4 py-2.5 text-gray-500">{i + 1}</td>
-                                <td className="px-4 py-2.5 font-medium text-gray-800">{p.name}</td>
+                                <td className="px-4 py-2.5 font-medium text-gray-800">{p.passenger_name}</td>
                                 <td className="px-4 py-2.5">
                                   <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
                                     {p.seat_number}

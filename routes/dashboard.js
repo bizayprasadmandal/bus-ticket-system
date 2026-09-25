@@ -741,29 +741,44 @@ router.get('/driver', authenticateToken, requireRole(['DRIVER']), async (req, re
 });
 
 // Dashboard overview for conductors
-router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR']), async (req, res) => {
+router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR', 'OPERATOR']), async (req, res) => {
   try {
     const userRoles = req.user.roles || [];
     const conductorRole = userRoles.find(role => role.role === 'CONDUCTOR' && role.is_active);
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+    const scopedRole = conductorRole || operatorRole;
 
-    if (!conductorRole || !conductorRole.operator_id) {
+    if (!scopedRole || !scopedRole.operator_id) {
       return res.status(403).json({
         success: false,
-        message: 'Conductor operator information not found',
+        message: 'Conductor or operator information not found',
       });
     }
 
-    const operatorId = conductorRole.operator_id;
+    const operatorId = scopedRole.operator_id;
     const currentDate = new Date();
     const todayStr = currentDate.toISOString().split('T')[0];
+
+    // With an active conductor role, scope to trips assigned to this conductor
+    let tripScope = {};
+    if (conductorRole) {
+      const user = await User.findByPk(req.user.id, { attributes: ['full_name'] });
+      if (!user?.full_name) {
+        return res.status(403).json({
+          success: false,
+          message: 'Conductor name not found',
+        });
+      }
+      tripScope = { conductor_name: user.full_name };
+    }
 
     const [
       todayTrips,
       bookingStats,
     ] = await Promise.all([
-      // Today's trips for the operator with passenger counts
+      // Today's trips (conductor's own, or the operator's) with passenger counts
       Trip.findAll({
-        where: { trip_date: todayStr },
+        where: { trip_date: todayStr, ...tripScope },
         include: [
           {
             model: Route,
@@ -801,7 +816,7 @@ router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR']), async (r
             {
               model: Trip,
               as: 'trip',
-              where: { trip_date: todayStr },
+              where: { trip_date: todayStr, ...tripScope },
               include: [
                 { model: Route, as: 'route', where: { operator_id: operatorId } },
               ],
@@ -817,7 +832,7 @@ router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR']), async (r
             {
               model: Trip,
               as: 'trip',
-              where: { trip_date: todayStr },
+              where: { trip_date: todayStr, ...tripScope },
               include: [
                 { model: Route, as: 'route', where: { operator_id: operatorId } },
               ],
@@ -833,7 +848,9 @@ router.get('/conductor', authenticateToken, requireRole(['CONDUCTOR']), async (r
     // Enrich trips with passenger count per trip
     const enrichedTrips = todayTrips.map(trip => {
       const tripData = trip.toJSON();
-      tripData.passenger_count = tripData.bookings ? tripData.bookings.length : 0;
+      tripData.passenger_count = (tripData.bookings || []).reduce(
+        (sum, b) => sum + (parseInt(b.total_passengers, 10) || 1), 0
+      );
       tripData.total_revenue = tripData.bookings
         ? tripData.bookings.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0)
         : 0;

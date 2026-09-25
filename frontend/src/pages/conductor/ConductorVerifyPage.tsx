@@ -5,9 +5,9 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 interface PassengerDetail {
-  name: string;
+  passenger_name: string;
   seat_number: string;
-  phone?: string;
+  phone_number?: string;
 }
 
 interface BookingDetail {
@@ -17,7 +17,6 @@ interface BookingDetail {
   total_amount: number;
   booking_status: string;
   payment_status?: string;
-  boarded?: boolean;
   trip?: {
     trip_date: string;
     departure_time: string;
@@ -65,7 +64,7 @@ export default function ConductorVerifyPage() {
     setResult(null);
     try {
       const res = await api.get(`/bookings/verify-pnr/${pnr.trim()}`);
-      const booking = res.data.data;
+      const booking: BookingDetail = res.data.data?.booking || res.data.data;
       setResult(booking);
       setHistory(prev => {
         const newHistory = [{ pnr: pnr.trim(), status: 'success' as const, timestamp: new Date(), booking }, ...prev];
@@ -87,9 +86,9 @@ export default function ConductorVerifyPage() {
     setActionLoading(true);
     try {
       await api.post(`/bookings/${bookingId}/board`);
-      setResult(prev => prev ? { ...prev, boarded: true } : prev);
+      setResult(prev => prev ? { ...prev, booking_status: 'COMPLETED' } : prev);
       setHistory(prev =>
-        prev.map(h => h.booking?.id === bookingId ? { ...h, booking: { ...h.booking!, boarded: true } } : h)
+        prev.map(h => h.booking?.id === bookingId ? { ...h, booking: { ...h.booking!, booking_status: 'COMPLETED' } } : h)
       );
       toast.success('Passenger boarded successfully');
     } catch {
@@ -103,10 +102,11 @@ export default function ConductorVerifyPage() {
     setActionLoading(true);
     try {
       await api.post(`/bookings/${bookingId}/no-show`);
+      setResult(prev => prev ? { ...prev, booking_status: 'NO_SHOW' } : prev);
+      setHistory(prev =>
+        prev.map(h => h.booking?.id === bookingId ? { ...h, booking: { ...h.booking!, booking_status: 'NO_SHOW' } } : h)
+      );
       toast.success('Passenger marked as no-show');
-      setResult(null);
-      setPnr('');
-      inputRef.current?.focus();
     } catch {
       toast.error('Failed to mark as no-show');
     } finally {
@@ -128,8 +128,10 @@ export default function ConductorVerifyPage() {
 
   const getVerificationStatus = (booking: BookingDetail) => {
     if (booking.booking_status === 'CANCELLED') return 'cancelled';
-    if (booking.payment_status === 'COMPLETED' && booking.booking_status === 'CONFIRMED') return 'confirmed';
-    if (booking.booking_status === 'CONFIRMED' && booking.payment_status === 'PENDING') return 'pending';
+    if (booking.booking_status === 'NO_SHOW') return 'noshow';
+    if (booking.booking_status === 'COMPLETED') return 'boarded';
+    if (booking.booking_status === 'CONFIRMED' && booking.payment_status === 'COMPLETED') return 'confirmed';
+    if (booking.booking_status === 'CONFIRMED') return 'pending';
     return 'pending';
   };
 
@@ -169,22 +171,26 @@ export default function ConductorVerifyPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           {(() => {
             const verificationStatus = getVerificationStatus(result);
+            const isBoarded = result.booking_status === 'COMPLETED';
+            const canAct = result.booking_status === 'CONFIRMED';
+            const isGreen = verificationStatus === 'confirmed' || verificationStatus === 'boarded';
+            const isRed = verificationStatus === 'cancelled' || verificationStatus === 'noshow';
             return (
               <>
                 <div className={`p-6 ${
-                  verificationStatus === 'confirmed' ? 'bg-green-50 border-b border-green-100' :
-                  verificationStatus === 'cancelled' ? 'bg-red-50 border-b border-red-100' :
+                  isGreen ? 'bg-green-50 border-b border-green-100' :
+                  isRed ? 'bg-red-50 border-b border-red-100' :
                   'bg-yellow-50 border-b border-yellow-100'
                 }`}>
                   <div className="flex items-center gap-4">
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                      verificationStatus === 'confirmed' ? 'bg-green-100' :
-                      verificationStatus === 'cancelled' ? 'bg-red-100' :
+                      isGreen ? 'bg-green-100' :
+                      isRed ? 'bg-red-100' :
                       'bg-yellow-100'
                     }`}>
-                      {verificationStatus === 'confirmed' ? (
+                      {isGreen ? (
                         <CheckCircle className="h-8 w-8 text-green-600" />
-                      ) : verificationStatus === 'cancelled' ? (
+                      ) : isRed ? (
                         <XCircle className="h-8 w-8 text-red-600" />
                       ) : (
                         <AlertTriangle className="h-8 w-8 text-yellow-600" />
@@ -193,11 +199,13 @@ export default function ConductorVerifyPage() {
                     <div>
                       <p className="text-2xl font-mono font-bold text-gray-800">{result.pnr}</p>
                       <p className={`text-sm font-medium ${
-                        verificationStatus === 'confirmed' ? 'text-green-700' :
-                        verificationStatus === 'cancelled' ? 'text-red-700' :
+                        isGreen ? 'text-green-700' :
+                        isRed ? 'text-red-700' :
                         'text-yellow-700'
                       }`}>
                         {verificationStatus === 'confirmed' ? 'VERIFIED - CONFIRMED' :
+                         verificationStatus === 'boarded' ? 'VERIFIED - BOARDED' :
+                         verificationStatus === 'noshow' ? 'NO-SHOW' :
                          verificationStatus === 'cancelled' ? 'CANCELLED' :
                          'PENDING VERIFICATION'}
                       </p>
@@ -268,7 +276,7 @@ export default function ConductorVerifyPage() {
                         <div className="flex flex-wrap gap-2">
                           {result.passengers.map((p, i) => (
                             <div key={i} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-100">
-                              <span className="font-medium text-gray-800">{p.name}</span>
+                              <span className="font-medium text-gray-800">{p.passenger_name}</span>
                               <span className="px-2 py-0.5 bg-[#d84e55]/10 text-[#d84e55] rounded text-xs font-bold">
                                 Seat {p.seat_number}
                               </span>
@@ -285,7 +293,7 @@ export default function ConductorVerifyPage() {
                       <p className="text-2xl font-bold text-gray-800">NPR {result.total_amount.toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      {!result.boarded && (
+                      {canAct && (
                         <>
                           <button
                             onClick={() => handleMarkBoarded(result.id)}
@@ -305,10 +313,16 @@ export default function ConductorVerifyPage() {
                           </button>
                         </>
                       )}
-                      {result.boarded && (
+                      {isBoarded && (
                         <span className="flex items-center gap-2 px-5 py-2.5 bg-green-100 text-green-700 rounded-lg font-medium">
                           <CheckCircle className="h-4 w-4" />
                           Boarded
+                        </span>
+                      )}
+                      {result.booking_status === 'NO_SHOW' && (
+                        <span className="flex items-center gap-2 px-5 py-2.5 bg-red-100 text-red-700 rounded-lg font-medium">
+                          <XCircle className="h-4 w-4" />
+                          No-Show
                         </span>
                       )}
                     </div>

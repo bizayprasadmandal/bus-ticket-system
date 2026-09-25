@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 import { LanguageProvider } from './i18n/LanguageContext';
@@ -80,9 +81,10 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (allowedRoles && user) {
@@ -97,6 +99,16 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 }
 
 function App() {
+  const loadUser = useAuthStore((s) => s.loadUser);
+
+  // Re-validate the stored session once at startup so dead/revoked tokens
+  // are cleared here instead of only failing on the first API call later.
+  useEffect(() => {
+    if (useAuthStore.getState().token) {
+      loadUser();
+    }
+  }, [loadUser]);
+
   return (
     <BrowserRouter>
       <LanguageProvider>

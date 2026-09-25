@@ -20,10 +20,19 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const url: string = error.config?.url || '';
+    // Failed credential/business checks on auth endpoints are normal form errors —
+    // don't wipe the session or reload the page (lets the form display the message).
+    const isCredentialFlow =
+      url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/change-password');
+    if (status === 401 && !isCredentialFlow) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        const next = window.location.pathname + window.location.search;
+        window.location.href = `/login?next=${encodeURIComponent(next)}`;
+      }
     }
     return Promise.reject(error);
   }
@@ -36,12 +45,7 @@ export const authAPI = {
     api.post('/auth/register', data),
   login: (data: { phone_number: string; password: string }) =>
     api.post('/auth/login', data),
-  sendOTP: (phone_number: string) =>
-    api.post('/auth/send-otp', { phone_number }),
-  verifyOTP: (phone_number: string, otp: string) =>
-    api.post('/auth/verify-otp', { phone_number, otp }),
   verifyToken: () => api.get('/auth/verify'),
-  refreshToken: () => api.post('/auth/refresh'),
   changePassword: (data: { current_password: string; new_password: string }) =>
     api.put('/auth/change-password', data),
 };

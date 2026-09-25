@@ -27,17 +27,25 @@ const authenticateToken = async (req, res, next) => {
       ],
     });
 
-    if (!user || user.status !== 'ACTIVE') {
-      return res.status(403).json({
+    if (!user) {
+      return res.status(401).json({
         success: false,
-        message: 'User account is not active',
+        message: 'Invalid or expired token',
+      });
+    }
+
+    if (user.status !== 'ACTIVE') {
+      return res.status(401).json({
+        success: false,
+        message: 'Account is not active',
       });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    return res.status(403).json({
+    // Invalid/expired JWT = dead session -> 401 (frontend contract); 403 is for authorization only
+    return res.status(401).json({
       success: false,
       message: 'Invalid or expired token',
     });

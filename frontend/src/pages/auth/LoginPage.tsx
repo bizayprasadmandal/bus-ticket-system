@@ -1,29 +1,54 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Bus, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getHomePath } from '../../utils/homePath';
+import { isValidNepalPhone, normalizeNepalPhone } from '../../utils/phone';
 
 export default function LoginPage() {
   const [phone_number, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading } = useAuthStore();
-  const navigate = useNavigate();
+  const { login, isLoading, isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await login(phone_number, password);
-      toast.success('Login successful!');
+    if (isLoading) return;
 
-      const user = useAuthStore.getState().user;
-      navigate(getHomePath(user));
+    const phone = normalizeNepalPhone(phone_number);
+    if (!isValidNepalPhone(phone)) {
+      toast.error('Enter a valid Nepali phone number (e.g. 9841123456)');
+      return;
+    }
+    if (!password) {
+      toast.error('Password is required');
+      return;
+    }
+
+    try {
+      await login(phone, password);
+      toast.success('Login successful!');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      toast.error(
+        error.response?.data?.errors?.[0]?.message ||
+          error.response?.data?.message ||
+          'Login failed'
+      );
     }
   };
+
+  // Already signed in (or just signed in) -> leave the auth pages.
+  // Deep link: ?next= (set by the API interceptor) > state.from (ProtectedRoute) > role home.
+  if (isAuthenticated) {
+    const state = location.state as { from?: { pathname?: string; search?: string } } | null;
+    const nextParam = new URLSearchParams(location.search).get('next');
+    const target = state?.from?.pathname
+      ? state.from.pathname + (state.from.search || '')
+      : nextParam || getHomePath(user);
+    return <Navigate to={target} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
@@ -45,6 +70,9 @@ export default function LoginPage() {
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="tel"
+                  name="phone_number"
+                  autoComplete="username"
+                  inputMode="tel"
                   value={phone_number}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="9841123456"
@@ -60,6 +88,8 @@ export default function LoginPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
@@ -69,6 +99,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

@@ -299,6 +299,7 @@ const seed = async () => {
         where: { phone_number: c.phone_number },
         defaults: { ...c, password: passwordHash, status: 'ACTIVE' },
       });
+      if (!user.password) await user.update({ password: passwordHash });
       await UserRole.findOrCreate({ where: { user_id: user.id, role: 'CUSTOMER' }, defaults: { user_id: user.id, role: 'CUSTOMER', is_active: true } });
       await UserWallet.findOrCreate({ where: { user_id: user.id }, defaults: { user_id: user.id, balance: Math.floor(Math.random() * 5000) + 500 } });
       customerIds.push(user.id);
@@ -310,6 +311,7 @@ const seed = async () => {
       where: { phone_number: '9800000001' },
       defaults: { full_name: 'Admin User', email: 'admin@gaditicket.com', password: passwordHash, status: 'ACTIVE' },
     });
+    if (!admin.password) await admin.update({ password: passwordHash });
     await UserRole.findOrCreate({ where: { user_id: admin.id, role: 'SUPER_ADMIN' }, defaults: { user_id: admin.id, role: 'SUPER_ADMIN', is_active: true } });
     await UserWallet.findOrCreate({ where: { user_id: admin.id }, defaults: { user_id: admin.id, balance: 0 } });
 
@@ -317,6 +319,7 @@ const seed = async () => {
       where: { phone_number: '9800000002' },
       defaults: { full_name: 'Operator User', email: 'operator@gaditicket.com', password: passwordHash, status: 'ACTIVE' },
     });
+    if (!operatorUser.password) await operatorUser.update({ password: passwordHash });
     const firstOp = await Operator.findOne();
     await UserRole.findOrCreate({ where: { user_id: operatorUser.id, role: 'OPERATOR' }, defaults: { user_id: operatorUser.id, role: 'OPERATOR', operator_id: firstOp?.id, is_active: true } });
     await UserWallet.findOrCreate({ where: { user_id: operatorUser.id }, defaults: { user_id: operatorUser.id, balance: 0 } });
@@ -333,6 +336,7 @@ const seed = async () => {
         where: { phone_number: s.phone_number },
         defaults: { full_name: s.full_name, email: s.email, password: passwordHash, status: 'ACTIVE' },
       });
+      if (!user.password) await user.update({ password: passwordHash });
       await UserRole.findOrCreate({
         where: { user_id: user.id, role: s.role },
         defaults: { user_id: user.id, role: s.role, operator_id: firstOp?.id, is_active: true },

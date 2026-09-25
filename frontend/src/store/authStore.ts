@@ -14,11 +14,24 @@ interface AuthState {
   setUser: (user: User) => void;
 }
 
+const readStoredUser = (): User | null => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const readStoredToken = (): string | null => {
+  const token = localStorage.getItem('token');
+  return token && token !== 'undefined' && token !== 'null' ? token : null;
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
-  token: localStorage.getItem('token'),
+  user: readStoredUser(),
+  token: readStoredToken(),
   isLoading: false,
-  isAuthenticated: !!localStorage.getItem('token'),
+  isAuthenticated: Boolean(readStoredToken()),
 
   login: async (phone_number, password) => {
     set({ isLoading: true });

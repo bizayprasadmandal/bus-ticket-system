@@ -19,6 +19,19 @@ const generateToken = (userId) => {
   });
 };
 
+// Normalize Nepali phone numbers to canonical 10-digit form (98xxxxxxxx / 97xxxxxxxx)
+const normalizePhone = (req, res, next) => {
+  if (typeof req.body.phone_number === 'string') {
+    req.body.phone_number = req.body.phone_number
+      .replace(/[\s\-()]/g, '')
+      .replace(/^\+977/, '')
+      .replace(/^0/, '');
+  }
+  next();
+};
+
+const isValidNepaliPhone = (phone) => /^9[6-8]\d{8}$/.test(phone);
+
 /**
  * @swagger
  * /api/auth/register:
@@ -55,7 +68,7 @@ const generateToken = (userId) => {
  *         description: User already exists
  */
 // Register new user
-router.post('/register', userValidation.register, handleValidationErrors, async (req, res) => {
+router.post('/register', normalizePhone, userValidation.register, handleValidationErrors, async (req, res) => {
   try {
     const { phone_number, email, full_name, full_name_nepali, gender, password } = req.body;
 
@@ -113,12 +126,25 @@ router.post('/register', userValidation.register, handleValidationErrors, async 
           phone_number: user.phone_number,
           email: user.email,
           full_name: user.full_name,
+          full_name_nepali: user.full_name_nepali,
+          gender: user.gender,
+          date_of_birth: user.date_of_birth,
+          profile_image_url: user.profile_image_url,
           status: user.status,
+          is_phone_verified: user.is_phone_verified,
+          is_email_verified: user.is_email_verified,
+          roles: [{ role: 'CUSTOMER', is_active: true }],
         },
         token,
       },
     });
   } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this phone number already exists',
+      });
+    }
     console.error('Registration error:', error);
     res.status(500).json({
       success: false,
@@ -169,7 +195,7 @@ router.post('/register', userValidation.register, handleValidationErrors, async 
  *         description: Invalid credentials
  */
 // Login user
-router.post('/login', async (req, res) => {
+router.post('/login', normalizePhone, async (req, res) => {
   try {
     const { phone_number, password, firebase_uid } = req.body;
 
@@ -177,6 +203,21 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Phone number or Firebase UID is required',
+      });
+    }
+
+    // Password is always required (no credential-less login paths)
+    if (typeof password !== 'string' || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required',
+      });
+    }
+
+    if (phone_number && !isValidNepaliPhone(phone_number)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid 10-digit Nepali phone number',
       });
     }
 
@@ -202,15 +243,20 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Verify password if provided (skip for Firebase UID login)
-    if (password && user.password) {
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials',
-        });
-      }
+    // Accounts without a password hash can never authenticate
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+      });
     }
 
     if (user.status !== 'ACTIVE') {
@@ -315,8 +361,6 @@ router.post('/send-otp', async (req, res) => {
       message: 'OTP sent successfully',
       data: {
         sms_sent: smsResult.success,
-        // Only return OTP in development for testing
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined,
       },
     });
   } catch (error) {

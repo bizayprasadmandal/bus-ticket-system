@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { Operator, Bus, Route, UserRole, User } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -332,10 +333,11 @@ router.post('/staff', authenticateToken, async (req, res) => {
     // Find or create user
     let user = await User.findOne({ where: { phone_number } });
     if (!user) {
+      // Same convention as seed users so staff accounts can actually sign in
       user = await User.create({
         phone_number,
         full_name: full_name || phone_number,
-        password: '$2b$10$default', // Will need password reset
+        password: await bcrypt.hash('password123', 10),
         status: 'ACTIVE',
         is_phone_verified: false,
       });

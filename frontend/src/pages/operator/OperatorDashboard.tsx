@@ -36,11 +36,11 @@ export default function OperatorDashboard() {
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(fetchData, 30000);
 
   const statCards = [
-    { label: 'Total Buses', value: stats.total_buses ?? 0, icon: Bus, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { label: 'Total Routes', value: stats.total_routes ?? 0, icon: Route, color: 'text-green-600', bgColor: 'bg-green-50' },
-    { label: "Today's Trips", value: stats.today_trips_count ?? 0, icon: Calendar, color: 'text-purple-600', bgColor: 'bg-purple-50' },
-    { label: 'Monthly Bookings', value: stats.monthly_bookings ?? 0, icon: Ticket, color: 'text-orange-600', bgColor: 'bg-orange-50' },
-    { label: 'Monthly Revenue', value: `NPR ${(stats.monthly_revenue || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    { label: 'Total Buses', value: stats.total_buses ?? 0, icon: Bus, color: 'text-blue-600', bgColor: 'bg-blue-50', to: '/operator/buses' },
+    { label: 'Total Routes', value: stats.total_routes ?? 0, icon: Route, color: 'text-green-600', bgColor: 'bg-green-50', to: '/operator/routes' },
+    { label: "Today's Trips", value: stats.today_trips_count ?? 0, icon: Calendar, color: 'text-purple-600', bgColor: 'bg-purple-50', to: '/operator/trips' },
+    { label: 'Monthly Bookings', value: stats.monthly_bookings ?? 0, icon: Ticket, color: 'text-orange-600', bgColor: 'bg-orange-50', to: '/operator/bookings' },
+    { label: 'Monthly Revenue', value: `NPR ${(stats.monthly_revenue || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-600', bgColor: 'bg-emerald-50', to: '/operator/revenue' },
   ];
 
   if (isLoading) {
@@ -77,7 +77,11 @@ export default function OperatorDashboard() {
         {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className={`bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow card-hover${index < 4 ? ` animate-stagger-in stagger-${index + 1}` : ''}`}>
+            <Link
+              key={card.label}
+              to={card.to}
+              className={`block bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all card-hover cursor-pointer${index < 4 ? ` animate-stagger-in stagger-${index + 1}` : ''}`}
+            >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 ${card.bgColor} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${card.color}`} />
@@ -87,7 +91,7 @@ export default function OperatorDashboard() {
                   <p className="text-lg font-bold text-gray-800">{card.value}</p>
                 </div>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -191,22 +195,22 @@ export default function OperatorDashboard() {
 
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white card-hover animate-gradient">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="text-center">
+          <Link to="/operator/buses" className="text-center hover:opacity-80 transition-opacity cursor-pointer">
             <p className="text-3xl font-bold">{stats.total_buses || 0}</p>
             <p className="text-blue-100 text-sm">Active Buses</p>
-          </div>
-          <div className="text-center">
+          </Link>
+          <Link to="/operator/routes" className="text-center hover:opacity-80 transition-opacity cursor-pointer">
             <p className="text-3xl font-bold">{stats.total_routes || 0}</p>
             <p className="text-blue-100 text-sm">Routes</p>
-          </div>
-          <div className="text-center">
+          </Link>
+          <Link to="/operator/trips" className="text-center hover:opacity-80 transition-opacity cursor-pointer">
             <p className="text-3xl font-bold">{stats.today_trips_count || 0}</p>
             <p className="text-blue-100 text-sm">Today's Trips</p>
-          </div>
-          <div className="text-center">
+          </Link>
+          <Link to="/operator/bookings" className="text-center hover:opacity-80 transition-opacity cursor-pointer">
             <p className="text-3xl font-bold">{stats.monthly_bookings || 0}</p>
             <p className="text-blue-100 text-sm">Monthly Bookings</p>
-          </div>
+          </Link>
         </div>
       </div>
     </div>

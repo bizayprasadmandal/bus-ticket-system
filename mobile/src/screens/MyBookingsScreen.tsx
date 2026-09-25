@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,10 +31,21 @@ export default function MyBookingsScreen({ navigation }: any) {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const response = await bookingAPI.getMyBookings();
-      setBookings(response.data.data?.bookings || response.data.bookings || []);
+      // Server paginates (default 10/page) — fetch every page like the web client.
+      const first = await bookingAPI.getMyBookings({ page: 1, limit: 100 });
+      let rows: Booking[] = first.data.data?.bookings || [];
+      const total: number = first.data.data?.pagination?.total_items ?? rows.length;
+      let page = 2;
+      while (rows.length < total && page <= 20) {
+        const res = await bookingAPI.getMyBookings({ page, limit: 100 });
+        const chunk: Booking[] = res.data.data?.bookings || [];
+        if (chunk.length === 0) break;
+        rows = rows.concat(chunk);
+        page += 1;
+      }
+      setBookings(rows);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to load bookings');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to load bookings');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,6 +60,21 @@ export default function MyBookingsScreen({ navigation }: any) {
         return colors.warning;
       case 'cancelled':
         return colors.error;
+      default:
+        return colors.muted;
+    }
+  };
+
+  const getPaymentColor = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return colors.success;
+      case 'PENDING':
+        return colors.warning;
+      case 'FAILED':
+        return colors.error;
+      case 'REFUNDED':
+        return colors.primary;
       default:
         return colors.muted;
     }
@@ -71,7 +97,7 @@ export default function MyBookingsScreen({ navigation }: any) {
       {item.trip && (
         <View style={styles.routeContainer}>
           <View style={styles.routePoint}>
-            <Ionicons name="circle" size={8} color={colors.primary} />
+            <Ionicons name="ellipse" size={8} color={colors.primary} />
             <Text style={styles.cityText}>{item.trip.route.origin_city}</Text>
           </View>
           <View style={styles.routeLine}>
@@ -99,8 +125,10 @@ export default function MyBookingsScreen({ navigation }: any) {
 
       <View style={styles.footerRow}>
         <Text style={styles.amountText}>NPR {item.total_amount}</Text>
-        <View style={styles.paymentBadge}>
-          <Text style={styles.paymentText}>{item.payment_status}</Text>
+        <View style={[styles.paymentBadge, { backgroundColor: getPaymentColor(item.payment_status) + '20' }]}>
+          <Text style={[styles.paymentText, { color: getPaymentColor(item.payment_status) }]}>
+            {item.payment_status}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -238,7 +266,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   paymentBadge: {
-    backgroundColor: colors.successLight,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
@@ -246,7 +273,6 @@ const styles = StyleSheet.create({
   paymentText: {
     ...typography.caption,
     fontWeight: '600',
-    color: colors.success,
     textTransform: 'uppercase',
   },
   emptyContainer: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,37 +8,68 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { walletAPI } from '../api';
 import { WalletBalance, WalletTransaction } from '../types';
 import { colors, typography, spacing, borderRadius } from '../utils/theme';
+import { formatDateNPT } from '../utils/date';
 
-export default function WalletScreen({ navigation }: any) {
+export default function WalletScreen() {
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topping, setTopping] = useState(false);
+  const [gatewayOpen, setGatewayOpen] = useState(false);
+  const appState = useRef(AppState.currentState);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [balanceRes, transactionsRes] = await Promise.all([
-        walletAPI.getBalance(),
-        walletAPI.getTransactions({ limit: 20 }),
-      ]);
+      // Sequential: balance first, then transactions — a failed balance fetch
+      // must not wipe out an already-known balance (Promise.all race).
+      const balanceRes = await walletAPI.getBalance();
       setBalance(balanceRes.data.data);
-      setTransactions(transactionsRes.data.data?.transactions || []);
-    } catch (error) {
+    } catch {
       // Wallet may not exist yet
+    }
+
+    try {
+      const first = await walletAPI.getTransactions({ page: 1, limit: 100 });
+      let rows: WalletTransaction[] = first.data.data?.transactions || [];
+      const total: number = first.data.data?.pagination?.total_items ?? rows.length;
+      let page = 2;
+      while (rows.length < total && page <= 3) {
+        const res = await walletAPI.getTransactions({ page, limit: 100 });
+        const chunk: WalletTransaction[] = res.data.data?.transactions || [];
+        if (chunk.length === 0) break;
+        rows = rows.concat(chunk);
+        page += 1;
+      }
+      setTransactions(rows);
+    } catch {
+      // leave whatever we have
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (appState.current.match(/inactive|background/) && next === 'active' && gatewayOpen) {
+        setGatewayOpen(false);
+        loadData();
+      }
+      appState.current = next;
+    });
+    return () => sub.remove();
+  }, [gatewayOpen, loadData]);
 
   const handleTopUp = async () => {
     const amount = parseFloat(topUpAmount);
@@ -48,10 +79,22 @@ export default function WalletScreen({ navigation }: any) {
     }
     setTopping(true);
     try {
-      await walletAPI.topUp(amount, 'ESEWA');
-      Alert.alert('Success', `NPR ${amount} added to wallet`);
-      setTopUpAmount('');
-      loadData();
+      const res = await walletAPI.topUp(amount, 'ESEWA');
+      const paymentUrl = res.data.data?.payment_url;
+      if (paymentUrl) {
+        // Server created a PENDING TOPUP payment — complete it in the gateway
+        await Linking.openURL(paymentUrl);
+        setGatewayOpen(true);
+        setTopUpAmount('');
+        Alert.alert(
+          'Complete payment',
+          'Finish the payment in the gateway, then return here — your balance will refresh automatically.'
+        );
+      } else {
+        Alert.alert('Success', `NPR ${amount} added to wallet`);
+        setTopUpAmount('');
+        loadData();
+      }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Top-up failed');
     } finally {
@@ -107,6 +150,12 @@ export default function WalletScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
         </View>
+        {gatewayOpen && (
+          <Text style={styles.gatewayHint}>
+            Waiting for the gateway — open the payment page again if you were interrupted. Balance
+            refreshes when you return.
+          </Text>
+        )}
       </View>
 
       <View style={styles.transactionsCard}>
@@ -124,7 +173,7 @@ export default function WalletScreen({ navigation }: any) {
                 />
                 <View style={{ marginLeft: spacing.md }}>
                   <Text style={styles.transactionDesc}>{t.description}</Text>
-                  <Text style={styles.transactionDate}>{new Date(t.created_at).toLocaleDateString()}</Text>
+                  <Text style={styles.transactionDate}>{formatDateNPT(t.created_at)}</Text>
                 </View>
               </View>
               <Text style={[styles.transactionAmount, { color: t.transaction_type === 'CREDIT' ? colors.success : colors.error }]}>
@@ -179,6 +228,7 @@ const styles = StyleSheet.create({
   topUpButtonDisabled: { opacity: 0.6 },
   topUpButtonText: { ...typography.button },
   emptyText: { ...typography.body, color: colors.muted, textAlign: 'center', paddingVertical: spacing.lg },
+  gatewayHint: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.sm },
   transactionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

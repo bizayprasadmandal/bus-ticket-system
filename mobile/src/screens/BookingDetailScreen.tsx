@@ -36,7 +36,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
         : await bookingAPI.getById(bookingId);
       setBooking(response.data.data?.booking || response.data.booking);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to load booking details');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to load booking details');
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -51,8 +51,13 @@ export default function BookingDetailScreen({ route, navigation }: any) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await bookingAPI.cancel(booking!.id, 'Cancelled by user');
-            Alert.alert('Success', 'Booking cancelled');
+            const res = await bookingAPI.cancel(booking!.id, 'Cancelled by user');
+            const data = res.data.data;
+            const refund =
+              data?.refund_amount != null
+                ? ` Refund: NPR ${data.refund_amount}${data.refund_percentage ? ` (${data.refund_percentage}%)` : ''}.`
+                : '';
+            Alert.alert('Success', `Booking cancelled.${refund}`);
             loadBooking();
           } catch (error: any) {
             Alert.alert('Error', error.response?.data?.message || 'Failed to cancel');
@@ -126,7 +131,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
         <Text style={styles.cardTitle}>Payment Summary</Text>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Base Fare</Text>
-          <Text style={styles.summaryValue}>NPR {booking.base_fare}</Text>
+          <Text style={styles.summaryValue}>NPR {booking.base_amount}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Tax (13%)</Text>

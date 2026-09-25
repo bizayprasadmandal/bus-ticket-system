@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types';
-import { authAPI } from '../api';
+import { authAPI, setUnauthorizedHandler } from '../api';
 
 interface AuthState {
   user: User | null;
@@ -20,6 +20,12 @@ interface AuthState {
   loadUser: () => Promise<void>;
 }
 
+const apiErrorMessage = (error: any, fallback: string): string =>
+  error?.response?.data?.errors?.[0]?.message ||
+  error?.response?.data?.message ||
+  error?.message ||
+  fallback;
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
@@ -35,8 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user, token, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
       set({ isLoading: false });
-      const message = error.response?.data?.message || 'Login failed. Please try again.';
-      throw new Error(message);
+      throw new Error(apiErrorMessage(error, 'Login failed. Please try again.'));
     }
   },
 
@@ -49,8 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user, token, isAuthenticated: true, isLoading: false });
     } catch (error: any) {
       set({ isLoading: false });
-      const message = error.response?.data?.message || 'Registration failed. Please try again.';
-      throw new Error(message);
+      throw new Error(apiErrorMessage(error, 'Registration failed. Please try again.'));
     }
   },
 
@@ -70,9 +74,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       const response = await authAPI.verifyToken();
       const user = response.data.data?.user || response.data.user;
       set({ user, token, isAuthenticated: true, isLoading: false });
-    } catch {
-      await AsyncStorage.removeItem('auth_token');
-      set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    } catch (error: any) {
+      // Only a rejected token ends the session — transient network/5xx errors keep it.
+      if (error?.response?.status === 401) {
+        await AsyncStorage.removeItem('auth_token');
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
     }
   },
 }));
+
+// Any 401 from a non-credential endpoint (see api/index.ts) clears the session,
+// which swaps the navigator back to the auth stack.
+setUnauthorizedHandler(() => {
+  useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
+});

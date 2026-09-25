@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
+import { normalizeNepalPhone, isValidNepalPhone } from '../utils/phone';
 import { colors, typography, spacing, borderRadius } from '../utils/theme';
 
 export default function LoginScreen({ navigation }: any) {
@@ -22,8 +23,13 @@ export default function LoginScreen({ navigation }: any) {
   const { login, isLoading } = useAuthStore();
 
   const handleLogin = async () => {
-    if (!phoneNumber.trim()) {
+    const phone = normalizeNepalPhone(phoneNumber);
+    if (!phone) {
       Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+    if (!isValidNepalPhone(phone)) {
+      Alert.alert('Error', 'Enter a valid Nepali mobile number (e.g. 98XXXXXXXX).');
       return;
     }
     if (!password.trim()) {
@@ -32,7 +38,7 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     try {
-      await login(phoneNumber.trim(), password);
+      await login(phone, password);
     } catch (error: any) {
       Alert.alert('Login Failed', error.message);
     }

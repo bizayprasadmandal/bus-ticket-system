@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
+import { normalizeNepalPhone, isValidNepalPhone } from '../utils/phone';
 import { colors, typography, spacing, borderRadius } from '../utils/theme';
 
 export default function RegisterScreen({ navigation }: any) {
@@ -25,8 +26,13 @@ export default function RegisterScreen({ navigation }: any) {
   const { register, isLoading } = useAuthStore();
 
   const handleRegister = async () => {
-    if (!phoneNumber.trim()) {
+    const phone = normalizeNepalPhone(phoneNumber);
+    if (!phone) {
       Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+    if (!isValidNepalPhone(phone)) {
+      Alert.alert('Error', 'Enter a valid Nepali mobile number (e.g. 98XXXXXXXX).');
       return;
     }
     if (!fullName.trim()) {
@@ -44,7 +50,7 @@ export default function RegisterScreen({ navigation }: any) {
 
     try {
       await register({
-        phone_number: phoneNumber.trim(),
+        phone_number: phone,
         full_name: fullName.trim(),
         password,
         email: email.trim() || undefined,

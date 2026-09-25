@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { tripAPI } from '../api';
@@ -17,25 +18,28 @@ export default function TripResultsScreen({ route, navigation }: any) {
   const { originCity, destinationCity, tripDate, passengers } = route.params;
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     searchTrips();
   }, []);
 
-  const searchTrips = async () => {
+  const searchTrips = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
       const response = await tripAPI.search({
         origin_city: originCity,
         destination_city: destinationCity,
         trip_date: tripDate,
         passengers,
       });
-      setTrips(response.data.trips);
+      setTrips(response.data.data?.trips ?? []);
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to search trips');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -86,7 +90,7 @@ export default function TripResultsScreen({ route, navigation }: any) {
           <Text style={styles.fareAmount}>NPR {item.current_fare}</Text>
         </View>
         <View style={styles.seatsBlock}>
-          <Ionicons name="seat" size={14} color={colors.muted} />
+          <Ionicons name="bed" size={14} color={colors.muted} />
           <Text style={styles.seatsText}>{item.available_seats} seats left</Text>
         </View>
       </View>
@@ -124,6 +128,13 @@ export default function TripResultsScreen({ route, navigation }: any) {
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderTrip}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => searchTrips(true)}
+            tintColor={colors.primary}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="bus-outline" size={64} color={colors.muted} />

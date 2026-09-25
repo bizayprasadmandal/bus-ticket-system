@@ -33,26 +33,27 @@ export default function SeatSelectionScreen({ route, navigation }: any) {
   const loadSeats = async () => {
     try {
       const response = await tripAPI.getSeats(trip.id);
-      const layout = response.data.seat_layout;
-      const availableSeats = response.data.available_seats;
+      const data = response.data.data || {};
+      // Server shape: { seat_layout: { layout: string[][] }, booked_seats: string[], ... }
+      const layoutRows: string[][] = data.seat_layout?.layout || [];
+      const occupiedSet = new Set<string>(data.booked_seats || []);
 
       const seats: Seat[] = [];
-      if (layout && layout.rows) {
-        layout.rows.forEach((row: any) => {
-          row.seats.forEach((seat: any) => {
-            seats.push({
-              id: seat.id || seat.number,
-              number: seat.number,
-              isAvailable: availableSeats.includes(seat.number),
-              isSelected: false,
-            });
+      layoutRows.forEach((row) => {
+        row.forEach((number) => {
+          if (!number) return;
+          seats.push({
+            id: number,
+            number,
+            isAvailable: !occupiedSet.has(number),
+            isSelected: false,
           });
         });
-      }
+      });
 
       setSeatLayout(seats);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to load seat layout');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to load seat layout');
     } finally {
       setLoading(false);
     }
@@ -152,8 +153,11 @@ export default function SeatSelectionScreen({ route, navigation }: any) {
           <Text style={styles.summaryValue}>NPR {trip.current_fare}</Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>NPR {totalFare}</Text>
+          <Text style={styles.totalLabel}>Fare total</Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.totalValue}>NPR {totalFare}</Text>
+            <Text style={styles.totalNote}>Tax &amp; service fee added at payment</Text>
+          </View>
         </View>
       </View>
 
@@ -283,6 +287,11 @@ const styles = StyleSheet.create({
   totalValue: {
     ...typography.h3,
     color: colors.primary,
+  },
+  totalNote: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: 2,
   },
   proceedButton: {
     backgroundColor: colors.primary,

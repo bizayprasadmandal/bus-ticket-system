@@ -68,16 +68,15 @@ export interface Booking {
   user_id: number;
   trip_id: number;
   total_passengers: number;
-  base_fare: number;
-  subtotal: number;
+  base_amount: number;
   tax_amount: number;
   service_fee: number;
-  discount_amount: number;
   total_amount: number;
   payment_status: string;
   booking_status: string;
   cancellation_reason?: string;
   refund_amount?: number;
+  refund_percentage?: number;
   booking_date: string;
   trip?: Trip;
   passengers?: BookingPassenger[];

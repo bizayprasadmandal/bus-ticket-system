@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuthStore } from '../store/authStore';
-import { colors, typography } from '../utils/theme';
+import { colors } from '../utils/theme';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -55,16 +54,6 @@ function HomeStack() {
         component={PaymentScreen}
         options={{ title: 'Payment', headerTintColor: colors.primary }}
       />
-      <Stack.Screen
-        name="BookingDetail"
-        component={BookingDetailScreen}
-        options={{ title: 'Booking Details', headerTintColor: colors.primary }}
-      />
-      <Stack.Screen
-        name="Wallet"
-        component={WalletScreen}
-        options={{ title: 'Wallet', headerTintColor: colors.primary }}
-      />
     </Stack.Navigator>
   );
 }
@@ -92,6 +81,27 @@ function MainTabs() {
   );
 }
 
+// BookingDetail and Wallet live at the ROOT stack (above the tabs) so every
+// screen — Home stack, Bookings tab, Profile tab — can navigate to them.
+function RootStack({ authenticated }: { authenticated: boolean }) {
+  if (!authenticated) return <AuthStack />;
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="BookingDetail"
+        component={BookingDetailScreen}
+        options={{ title: 'Booking Details', headerTintColor: colors.primary }}
+      />
+      <Stack.Screen
+        name="Wallet"
+        component={WalletScreen}
+        options={{ title: 'Wallet', headerTintColor: colors.primary }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
   const { isAuthenticated, isLoading, loadUser } = useAuthStore();
 
@@ -107,9 +117,6 @@ export default function AppNavigator() {
     );
   }
 
-  return (
-    <NavigationContainer>
-      {isAuthenticated ? <MainTabs /> : <AuthStack />}
-    </NavigationContainer>
-  );
+  // Single NavigationContainer lives in App.tsx — do not nest another here.
+  return <RootStack authenticated={isAuthenticated} />;
 }

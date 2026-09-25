@@ -31,18 +31,16 @@ export default function BookingConfirmScreen({ route, navigation }: any) {
   };
 
   const [passengers, setPassengers] = useState<PassengerForm[]>(
-    selectedSeats.map((seat: string) => ({
+    selectedSeats.map(() => ({
       passenger_name: '',
       age: '',
       gender: 'male',
-      id_type: 'citizenship',
+      id_type: 'CITIZENSHIP',
       id_number: '',
       phone_number: '',
     }))
   );
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [pnr, setPnr] = useState('');
 
   const updatePassenger = (index: number, field: keyof PassengerForm, value: string) => {
     const updated = [...passengers];
@@ -79,9 +77,10 @@ export default function BookingConfirmScreen({ route, navigation }: any) {
         passengers: passengers.map((p, i) => ({
           passenger_name: p.passenger_name.trim(),
           age: parseInt(p.age),
-          gender: p.gender,
+          // Server validators require MALE/FEMALE/OTHER and CITIZENSHIP/PASSPORT/DRIVING_LICENSE
+          gender: p.gender.toUpperCase(),
           seat_number: selectedSeats[i],
-          id_type: p.id_type,
+          id_type: p.id_type.toUpperCase(),
           id_number: p.id_number.trim(),
           phone_number: p.phone_number.trim() || undefined,
         })),
@@ -89,37 +88,21 @@ export default function BookingConfirmScreen({ route, navigation }: any) {
       const booking = response.data.data?.booking || response.data.booking;
       navigation.navigate('Payment', {
         bookingId: booking.id,
-        amount: totalFare,
+        // Server total includes 13% tax + per-seat service fee — payment must match it exactly
+        amount: Number(booking.total_amount),
         pnr: booking.pnr,
       });
     } catch (error: any) {
-      Alert.alert('Booking Failed', error.response?.data?.message || 'Please try again');
+      Alert.alert(
+        'Booking Failed',
+        error.response?.data?.errors?.[0]?.message ||
+          error.response?.data?.message ||
+          'Please try again'
+      );
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <View style={styles.successContainer}>
-        <View style={styles.successIcon}>
-          <Ionicons name="checkmark-circle" size={80} color={colors.success} />
-        </View>
-        <Text style={styles.successTitle}>Booking Confirmed!</Text>
-        <Text style={styles.successSubtitle}>Your PNR number is</Text>
-        <Text style={styles.pnrText}>{pnr}</Text>
-        <Text style={styles.successNote}>
-          Please save this PNR for future reference
-        </Text>
-        <TouchableOpacity
-          style={styles.doneButton}
-          onPress={() => navigation.navigate('HomeMain')}
-        >
-          <Text style={styles.doneButtonText}>Back to Home</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const formatTime = (time: string) => {
     if (!time) return '';
@@ -217,9 +200,31 @@ export default function BookingConfirmScreen({ route, navigation }: any) {
               </View>
             </View>
 
+            <View style={styles.idTypeRow}>
+              {['CITIZENSHIP', 'PASSPORT', 'DRIVING_LICENSE'].map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.genderButton,
+                    passenger.id_type === t && styles.genderActive,
+                  ]}
+                  onPress={() => updatePassenger(index, 'id_type', t)}
+                >
+                  <Text
+                    style={[
+                      styles.genderText,
+                      passenger.id_type === t && styles.genderTextActive,
+                    ]}
+                  >
+                    {t === 'DRIVING_LICENSE' ? 'License' : t.charAt(0) + t.slice(1).toLowerCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <TextInput
               style={styles.input}
-              placeholder="ID Number (Citizenship/Passport)"
+              placeholder="ID Number"
               placeholderTextColor={colors.muted}
               value={passenger.id_number}
               onChangeText={(v) => updatePassenger(index, 'id_number', v)}
@@ -239,7 +244,10 @@ export default function BookingConfirmScreen({ route, navigation }: any) {
 
       <View style={styles.totalSection}>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total Amount</Text>
+          <View>
+            <Text style={styles.totalLabel}>Fare total</Text>
+            <Text style={styles.totalNote}>Tax &amp; service fee added at payment</Text>
+          </View>
           <Text style={styles.totalValue}>NPR {totalFare}</Text>
         </View>
       </View>
@@ -344,6 +352,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  idTypeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   genderButton: {
     flex: 1,
     height: 44,
@@ -383,6 +396,11 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.primary,
   },
+  totalNote: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: 2,
+  },
   confirmButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
@@ -397,50 +415,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   confirmButtonText: {
-    ...typography.button,
-  },
-  successContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  successIcon: {
-    marginBottom: spacing.lg,
-  },
-  successTitle: {
-    ...typography.h1,
-    textAlign: 'center',
-  },
-  successSubtitle: {
-    ...typography.body,
-    color: colors.muted,
-    marginTop: spacing.sm,
-  },
-  pnrText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.primary,
-    marginTop: spacing.md,
-    letterSpacing: 2,
-  },
-  successNote: {
-    ...typography.bodySmall,
-    color: colors.muted,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  doneButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    height: 52,
-    paddingHorizontal: spacing.xxl,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.xxl,
-  },
-  doneButtonText: {
     ...typography.button,
   },
 });

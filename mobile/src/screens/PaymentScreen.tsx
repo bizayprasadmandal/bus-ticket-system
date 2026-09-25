@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../utils/theme';
-import { paymentAPI } from '../api';
+import { paymentAPI, bookingAPI } from '../api';
 
 const PAYMENT_METHODS = [
   { id: 'ESEWA', name: 'eSewa', icon: 'wallet' as const, color: '#10B981' },
@@ -19,12 +20,59 @@ const PAYMENT_METHODS = [
   { id: 'WALLET', name: 'Gadi Wallet', icon: 'card' as const, color: colors.primary },
 ];
 
+const POLL_INTERVAL_MS = 3000;
+const POLL_MAX_ATTEMPTS = 40; // ~2 minutes
+
 export default function PaymentScreen() {
   const route = useRoute<any>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { bookingId, amount, pnr } = route.params;
   const [selectedMethod, setSelectedMethod] = useState('ESEWA');
   const [loading, setLoading] = useState(false);
+  const [awaitingGateway, setAwaitingGateway] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attemptsRef = useRef(0);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    attemptsRef.current = 0;
+    setAwaitingGateway(false);
+  };
+
+  useEffect(() => () => stopPolling(), []);
+
+  const pollBookingPayment = () => {
+    stopPolling();
+    setAwaitingGateway(true);
+    attemptsRef.current = 0;
+    pollRef.current = setInterval(async () => {
+      attemptsRef.current += 1;
+      try {
+        const res = await bookingAPI.getById(bookingId);
+        const booking = res.data.data?.booking;
+        if (booking?.payment_status === 'COMPLETED') {
+          stopPolling();
+          Alert.alert('Success', 'Payment received!', [
+            { text: 'OK', onPress: () => navigation.navigate('Bookings') },
+          ]);
+        } else if (booking?.payment_status === 'FAILED') {
+          stopPolling();
+          Alert.alert('Error', 'Payment failed. Please try again.');
+        } else if (attemptsRef.current >= POLL_MAX_ATTEMPTS) {
+          stopPolling();
+          Alert.alert(
+            'Payment pending',
+            'We could not confirm your payment yet. Check My Bookings shortly.'
+          );
+        }
+      } catch {
+        if (attemptsRef.current >= POLL_MAX_ATTEMPTS) stopPolling();
+      }
+    }, POLL_INTERVAL_MS);
+  };
 
   const handlePayment = async () => {
     setLoading(true);
@@ -38,7 +86,8 @@ export default function PaymentScreen() {
       const { payment_id, payment_url } = response.data.data;
 
       if (payment_url) {
-        Alert.alert('Redirect', 'Opening payment gateway...', [{ text: 'OK' }]);
+        await Linking.openURL(payment_url);
+        pollBookingPayment();
         return;
       }
 
@@ -46,7 +95,7 @@ export default function PaymentScreen() {
         const verifyResponse = await paymentAPI.verify(payment_id);
         if (verifyResponse.data.success) {
           Alert.alert('Success', 'Payment successful!', [
-            { text: 'OK', onPress: () => navigation.navigate('MyBookings') },
+            { text: 'OK', onPress: () => navigation.navigate('Bookings') },
           ]);
         } else {
           Alert.alert('Error', 'Payment failed. Please try again.');
@@ -91,10 +140,19 @@ export default function PaymentScreen() {
         </TouchableOpacity>
       ))}
 
+      {awaitingGateway && (
+        <View style={styles.awaitingBox}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.awaitingText}>
+            Complete the payment in the gateway — we are checking for confirmation…
+          </Text>
+        </View>
+      )}
+
       <TouchableOpacity
-        style={[styles.payButton, loading && styles.payButtonDisabled]}
+        style={[styles.payButton, (loading || awaitingGateway) && styles.payButtonDisabled]}
         onPress={handlePayment}
-        disabled={loading}
+        disabled={loading || awaitingGateway}
       >
         {loading ? (
           <ActivityIndicator color={colors.white} />
@@ -143,4 +201,18 @@ const styles = StyleSheet.create({
   },
   payButtonDisabled: { opacity: 0.6 },
   payButtonText: { ...typography.button },
+  awaitingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  awaitingText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flex: 1,
+  },
 });

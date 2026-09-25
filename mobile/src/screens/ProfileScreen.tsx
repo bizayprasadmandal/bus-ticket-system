@@ -44,34 +44,13 @@ export default function ProfileScreen({ navigation }: any) {
           <Ionicons name="chevron-forward" size={20} color={colors.muted} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('Wallet')}
+        >
           <View style={styles.menuLeft}>
             <Ionicons name="wallet-outline" size={22} color={colors.primary} />
             <Text style={styles.menuText}>My Wallet</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <View style={styles.menuLeft}>
-            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-            <Text style={styles.menuText}>Notifications</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <View style={styles.menuLeft}>
-            <Ionicons name="help-circle-outline" size={22} color={colors.primary} />
-            <Text style={styles.menuText}>Help & Support</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <View style={styles.menuLeft}>
-            <Ionicons name="settings-outline" size={22} color={colors.primary} />
-            <Text style={styles.menuText}>Settings</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.muted} />
         </TouchableOpacity>

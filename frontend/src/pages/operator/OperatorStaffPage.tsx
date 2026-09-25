@@ -43,7 +43,7 @@ export default function OperatorStaffPage() {
   }, []);
 
   useEffect(() => { loadStaff(); }, [loadStaff]);
-  useAutoRefresh(loadStaff, 30000);
+  useAutoRefresh(loadStaff, 30000, true, false);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,8 +77,8 @@ export default function OperatorStaffPage() {
   };
 
   const filtered = staff.filter((s) => {
-    const name = s.user?.full_name || '';
-    const phone = s.user?.phone_number || '';
+    const name = s.full_name || '';
+    const phone = s.phone_number || '';
     const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || phone.includes(search);
     const matchesRole = !roleFilter || s.role === roleFilter;
     return matchesSearch && matchesRole;
@@ -169,13 +169,13 @@ export default function OperatorStaffPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                             <span className="text-gray-600 font-medium text-xs">
-                              {s.user?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
+                              {s.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
                             </span>
                           </div>
-                          <span className="font-medium text-gray-800">{s.user?.full_name || 'Unknown'}</span>
+                          <span className="font-medium text-gray-800">{s.full_name || 'Unknown'}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{s.user?.phone_number || '-'}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.phone_number || '-'}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${roleBadgeColor[s.role] || 'bg-gray-100 text-gray-600'}`}>
                           {s.role?.replace('_', ' ')}

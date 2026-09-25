@@ -619,11 +619,71 @@ router.get('/operator/my-trips', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Operator information not found' });
     }
 
+    const { page, limit, status, search } = req.query;
+    const dateFrom = req.query.date_from || req.query.start_date;
+    const dateTo = req.query.date_to || req.query.end_date;
+
+    const whereClause = {};
+    if (status) whereClause.status = status.toUpperCase();
+    if (dateFrom || dateTo) {
+      whereClause.trip_date = {};
+      if (dateFrom) whereClause.trip_date[Op.gte] = dateFrom;
+      if (dateTo) whereClause.trip_date[Op.lte] = dateTo;
+    }
+    if (search) {
+      whereClause[Op.or] = [
+        { departure_time: { [Op.like]: `%${search}%` } },
+        { trip_date: { [Op.like]: `%${search}%` } },
+        { '$route.origin_city$': { [Op.like]: `%${search}%` } },
+        { '$route.destination_city$': { [Op.like]: `%${search}%` } },
+        { '$bus.bus_number$': { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const include = [
+      { model: Bus, as: 'bus', where: { operator_id: operatorRole.operator_id }, required: true },
+      { model: Route, as: 'route', attributes: ['id', 'route_name', 'origin_city', 'destination_city'] },
+    ];
+
+    if (page !== undefined || limit !== undefined) {
+      const p = parseInt(page) || 1;
+      const l = parseInt(limit) || 20;
+      const { count, rows: trips } = await Trip.findAndCountAll({
+        where: whereClause,
+        include,
+        order: [['trip_date', 'DESC']],
+        limit: l,
+        offset: (p - 1) * l,
+        distinct: true,
+      });
+
+      const [totalAll, scheduled, boarding, arrived, cancelled] = await Promise.all([
+        Trip.count({ include }),
+        Trip.count({ where: { status: 'SCHEDULED' }, include }),
+        Trip.count({ where: { status: 'BOARDING' }, include }),
+        Trip.count({ where: { status: 'ARRIVED' }, include }),
+        Trip.count({ where: { status: 'CANCELLED' }, include }),
+      ]);
+
+      return res.json({
+        success: true,
+        message: 'Operator trips retrieved successfully',
+        data: {
+          trips,
+          summary: { total: totalAll, scheduled, boarding, arrived, cancelled },
+          pagination: {
+            current_page: p,
+            total_pages: Math.ceil(count / l),
+            total_items: count,
+            items_per_page: l,
+          },
+        },
+      });
+    }
+
     const trips = await Trip.findAll({
-      include: [
-        { model: Bus, as: 'bus', where: { operator_id: operatorRole.operator_id }, required: true },
-        { model: Route, as: 'route', attributes: ['origin_city', 'destination_city'] },
-      ],
+      where: whereClause,
+      include,
       order: [['trip_date', 'DESC']],
     });
 

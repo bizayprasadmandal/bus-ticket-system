@@ -5,7 +5,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 interface Notification {
-  id: number;
+  id: string | number;
   type: 'cancellation' | 'low_occupancy' | 'schedule_change';
   title: string;
   description: string;
@@ -42,7 +42,7 @@ export default function OperatorNotificationsPage() {
 
       (data.recent_cancellations || []).forEach((b: any) => {
         mapped.push({
-          id: `cancel-${b.id}` as any,
+          id: `cancel-${b.id}`,
           type: 'cancellation',
           title: 'Booking Cancelled',
           description: `Booking for ${b.user?.full_name || 'Customer'} on ${b.trip?.route?.origin_city || ''} → ${b.trip?.route?.destination_city || ''} (${b.trip?.trip_date || ''}) was cancelled. NPR ${b.total_amount} refund processed.`,
@@ -53,7 +53,7 @@ export default function OperatorNotificationsPage() {
 
       (data.low_occupancy_trips || []).forEach((t: any) => {
         mapped.push({
-          id: `low-${t.id}` as any,
+          id: `low-${t.id}`,
           type: 'low_occupancy',
           title: 'Low Occupancy Warning',
           description: `Trip #${t.id} (${t.route?.origin_city || ''} → ${t.route?.destination_city || ''}, ${t.trip_date}) has only ${t.occupancy_rate}% seats booked (${t.booked_seats}/${t.bus?.total_seats || t.total_seats}).`,
@@ -64,11 +64,11 @@ export default function OperatorNotificationsPage() {
 
       (data.schedule_changes || []).forEach((t: any) => {
         mapped.push({
-          id: `schedule-${t.id}` as any,
+          id: `schedule-${t.id}`,
           type: 'schedule_change',
           title: 'Schedule Updated',
           description: `Trip #${t.id} (${t.route?.origin_city || ''} → ${t.route?.destination_city || ''}) on ${t.trip_date} at ${t.departure_time} was updated. Status: ${t.status}.`,
-          timestamp: t.updated_at,
+          timestamp: t.created_at,
           read: false,
         });
       });
@@ -84,7 +84,7 @@ export default function OperatorNotificationsPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useAutoRefresh(fetchData, 30000);
+  useAutoRefresh(fetchData, 30000, true, false);
 
   const filteredNotifications = filter === 'all'
     ? notifications
@@ -92,7 +92,7 @@ export default function OperatorNotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAsRead = (id: number) => {
+  const markAsRead = (id: string | number) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
@@ -104,7 +104,7 @@ export default function OperatorNotificationsPage() {
     toast.success('All notifications marked as read');
   };
 
-  const deleteNotification = (id: number) => {
+  const deleteNotification = (id: string | number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     toast.success('Notification deleted');
   };

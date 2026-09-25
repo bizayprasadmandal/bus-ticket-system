@@ -16,7 +16,7 @@ interface Review {
     id: number;
     trip_date: string;
     departure_time: string;
-    route?: { origin_city: string; destination_city: string };
+    route?: { origin?: { name: string }; destination?: { name: string } };
   };
 }
 
@@ -40,17 +40,22 @@ export default function OperatorReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
-  const [, setOperatorId] = useState<number | null>(null);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
       const userRes = await api.get('/auth/verify');
-      const user = userRes.data.data;
-      const opId = user.operator_id || user.id;
-      setOperatorId(opId);
+      const u = userRes.data.data?.user;
+      const opRole = (u?.roles || []).find((r: any) => r.role === 'OPERATOR' && r.operator_id);
+      const opId = opRole?.operator_id;
+      if (!opId) {
+        setReviews([]);
+        return;
+      }
 
-      const res = await api.get(`/reviews/operator/${opId}`);
+      const res = await api.get(`/reviews/operator/${opId}`, { params: { limit: 500 } });
       setReviews(res.data.data || []);
+      setTotalReviews(res.data.pagination?.total ?? (res.data.data || []).length);
     } catch {
       toast.error('Failed to load reviews');
     } finally {
@@ -113,7 +118,7 @@ export default function OperatorReviewsPage() {
           <div className="flex flex-col items-center justify-center">
             <div className="text-5xl font-bold text-gray-800">{avgRating}</div>
             <StarRating rating={Math.round(parseFloat(avgRating))} />
-            <p className="text-sm text-gray-500 mt-2">{reviews.length} total reviews</p>
+            <p className="text-sm text-gray-500 mt-2">{totalReviews} total reviews</p>
           </div>
 
           {/* Right - Rating Breakdown */}
@@ -195,7 +200,7 @@ export default function OperatorReviewsPage() {
                     )}
                     {review.trip && (
                       <p className="text-xs text-gray-500 mt-1">
-                        {review.trip.route?.origin_city} → {review.trip.route?.destination_city} |{' '}
+                        {review.trip.route?.origin?.name} → {review.trip.route?.destination?.name} |{' '}
                         {new Date(review.trip.trip_date).toLocaleDateString()}
                       </p>
                     )}

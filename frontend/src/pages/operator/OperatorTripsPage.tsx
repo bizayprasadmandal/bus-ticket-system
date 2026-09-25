@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Calendar, X, Search, ChevronLeft, ChevronRight, Clock, Bus, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Calendar, X, Search, Clock, Bus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { operatorTripAPI, operatorBusAPI, operatorRouteAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { TableSkeleton } from '../../components/Skeleton';
+import ServerPagination from '../../components/ServerPagination';
 import Dropdown from '../../components/Dropdown';
 import DatePicker from '../../components/DatePicker';
 import toast from 'react-hot-toast';
@@ -28,42 +29,61 @@ export default function OperatorTripsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [summary, setSummary] = useState({ total: 0, scheduled: 0, boarding: 0, arrived: 0, cancelled: 0 });
   const [form, setForm] = useState({ bus_id: 0, route_id: 0, trip_date: '', departure_time: '', current_fare: 0, available_seats: 30 });
 
   const itemsPerPage = 10;
 
-  const loadData = useCallback(async () => {
+  const loadTrips = useCallback(async () => {
     try {
-      const [tripsRes, busesRes, routesRes] = await Promise.all([
-        operatorTripAPI.getMyTrips(),
+      const res = await operatorTripAPI.getMyTrips({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchQuery || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      });
+      const data = res.data.data || {};
+      const rows: TripItem[] = data.trips || [];
+      setTrips(rows);
+      if (data.pagination) {
+        setTotalPages(data.pagination.total_pages || 1);
+        setTotalItems(data.pagination.total_items ?? rows.length);
+      } else {
+        setTotalPages(1);
+        setTotalItems(rows.length);
+      }
+      if (data.summary) {
+        setSummary(data.summary);
+      } else {
+        setSummary({
+          total: rows.length,
+          scheduled: rows.filter(t => t.status === 'SCHEDULED').length,
+          boarding: rows.filter(t => t.status === 'BOARDING').length,
+          arrived: rows.filter(t => t.status === 'ARRIVED').length,
+          cancelled: rows.filter(t => t.status === 'CANCELLED').length,
+        });
+      }
+    } catch { toast.error('Failed to load trips'); } finally { setLoading(false); }
+  }, [currentPage, searchQuery, statusFilter]);
+
+  const loadFormOptions = useCallback(async () => {
+    try {
+      const [busesRes, routesRes] = await Promise.all([
         operatorBusAPI.getMyBuses(),
         operatorRouteAPI.getMyRoutes(),
       ]);
-      setTrips(tripsRes.data.data.trips || []);
       setBuses(busesRes.data.data.buses || []);
       setRoutes(routesRes.data.data.routes || []);
-    } catch { toast.error('Failed to load data'); } finally { setLoading(false); }
+    } catch { toast.error('Failed to load buses/routes'); }
   }, []);
 
-  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadData, 30000);
+  useEffect(() => { loadFormOptions(); }, [loadFormOptions]);
+  useEffect(() => { loadTrips(); }, [loadTrips]);
+  const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadTrips, 30000, true, false);
 
-  const filteredTrips = useMemo(() => {
-    return trips.filter((trip) => {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch =
-        trip.route?.origin_city?.toLowerCase().includes(query) ||
-        trip.route?.destination_city?.toLowerCase().includes(query) ||
-        trip.bus?.bus_number?.toLowerCase().includes(query) ||
-        trip.trip_date.includes(query);
-      const matchesStatus = statusFilter === 'ALL' || trip.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [trips, searchQuery, statusFilter]);
-
-  const totalPages = Math.ceil(filteredTrips.length / itemsPerPage);
-  const paginatedTrips = filteredTrips.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+  const resetPage = () => setCurrentPage(1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,12 +98,12 @@ export default function OperatorTripsPage() {
       setShowModal(false);
       setEditingTrip(null);
       setForm({ bus_id: 0, route_id: 0, trip_date: '', departure_time: '', current_fare: 0, available_seats: 30 });
-      loadData();
+      loadTrips();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
 
   const handleStatusUpdate = async (id: number, status: string) => {
-    try { await operatorTripAPI.updateStatus(id, status); toast.success('Status updated'); loadData(); }
+    try { await operatorTripAPI.updateStatus(id, status); toast.success('Status updated'); loadTrips(); }
     catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
 
@@ -92,7 +112,7 @@ export default function OperatorTripsPage() {
     try {
       await operatorTripAPI.delete(id);
       toast.success('Trip deleted');
-      loadData();
+      loadTrips();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
 
@@ -118,12 +138,11 @@ export default function OperatorTripsPage() {
   };
 
   const stats = {
-    total: trips.length,
-    scheduled: trips.filter(t => t.status === 'SCHEDULED').length,
-    boarding: trips.filter(t => t.status === 'BOARDING').length,
-    completed: trips.filter(t => t.status === 'ARRIVED').length,
-    cancelled: trips.filter(t => t.status === 'CANCELLED').length,
-    totalRevenue: trips.reduce((sum, t) => sum + (t.current_fare * (t.bus?.bus_number ? 1 : 0)), 0),
+    total: summary.total,
+    scheduled: summary.scheduled,
+    boarding: summary.boarding,
+    completed: summary.arrived,
+    cancelled: summary.cancelled,
   };
 
   if (loading) return <TableSkeleton rows={5} cols={6} />;
@@ -189,13 +208,13 @@ export default function OperatorTripsPage() {
               type="text"
               placeholder="Search by route, bus, or date..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); resetPage(); }}
             className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="ALL">All Status</option>
@@ -224,7 +243,7 @@ export default function OperatorTripsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedTrips.map((trip) => (
+              {trips.map((trip) => (
                 <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div>
@@ -284,7 +303,7 @@ export default function OperatorTripsPage() {
                   </td>
                 </tr>
               ))}
-              {paginatedTrips.length === 0 && (
+              {trips.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -296,33 +315,13 @@ export default function OperatorTripsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTrips.length)} of {filteredTrips.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <button key={page} onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                    {page}
-                  </button>
-                );
-              })}
-              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ServerPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Modal */}

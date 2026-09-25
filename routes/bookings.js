@@ -870,15 +870,95 @@ router.get('/operator/my-bookings', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Operator information not found' });
     }
 
-    const bookings = await Booking.findAll({
-      include: [
-        {
-          model: Trip,
-          as: 'trip',
-          include: [{ model: Bus, as: 'bus', where: { operator_id: operatorRole.operator_id }, required: true }],
+    const { page, limit, search, booking_status, payment_status } = req.query;
+
+    const whereClause = {};
+    if (booking_status) whereClause.booking_status = booking_status.toUpperCase();
+    if (payment_status) whereClause.payment_status = payment_status.toUpperCase();
+    if (search) {
+      const matchingUsers = await User.findAll({
+        where: {
+          [Op.or]: [
+            { full_name: { [Op.like]: `%${search}%` } },
+            { phone_number: { [Op.like]: `%${search}%` } },
+          ],
         },
-        { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
-      ],
+        attributes: ['id'],
+        raw: true,
+      });
+      const matchingUserIds = matchingUsers.map(u => u.id);
+      whereClause[Op.or] = [
+        { pnr: { [Op.like]: `%${search}%` } },
+        { '$trip.route.origin_city$': { [Op.like]: `%${search}%` } },
+        { '$trip.route.destination_city$': { [Op.like]: `%${search}%` } },
+        ...(matchingUserIds.length > 0 ? [{ user_id: { [Op.in]: matchingUserIds } }] : []),
+      ];
+    }
+
+    const baseInclude = [
+      {
+        model: Trip,
+        as: 'trip',
+        include: [
+          { model: Bus, as: 'bus', where: { operator_id: operatorRole.operator_id }, required: true },
+          { model: Route, as: 'route', attributes: ['id', 'route_name', 'origin_city', 'destination_city'] },
+        ],
+      },
+      { model: User, as: 'user', attributes: ['id', 'full_name', 'phone_number', 'email'] },
+    ];
+    const include = [...baseInclude, { model: BookingPassenger, as: 'passengers' }];
+
+    if (page !== undefined || limit !== undefined) {
+      const p = parseInt(page) || 1;
+      const l = parseInt(limit) || 20;
+      const { count, rows: bookings } = await Booking.findAndCountAll({
+        where: whereClause,
+        include,
+        order: [['booking_date', 'DESC']],
+        limit: l,
+        offset: (p - 1) * l,
+        distinct: true,
+      });
+
+      const summaryWhere = { ...whereClause };
+      delete summaryWhere.booking_status;
+      delete summaryWhere.payment_status;
+      const [totalAll, confirmed, pending, cancelled, revenue] = await Promise.all([
+        Booking.count({ where: summaryWhere, include: baseInclude, distinct: true }),
+        Booking.count({ where: { ...summaryWhere, booking_status: 'CONFIRMED' }, include: baseInclude, distinct: true }),
+        Booking.count({ where: { ...summaryWhere, booking_status: 'PENDING' }, include: baseInclude, distinct: true }),
+        Booking.count({ where: { ...summaryWhere, booking_status: 'CANCELLED' }, include: baseInclude, distinct: true }),
+        Booking.sum('total_amount', {
+          where: { ...summaryWhere, booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] } },
+          include: baseInclude,
+        }),
+      ]);
+
+      return res.json({
+        success: true,
+        message: 'Operator bookings retrieved successfully',
+        data: {
+          bookings,
+          summary: {
+            total: totalAll,
+            confirmed,
+            pending,
+            cancelled,
+            revenue: parseFloat(revenue || 0),
+          },
+          pagination: {
+            current_page: p,
+            total_pages: Math.ceil(count / l),
+            total_items: count,
+            items_per_page: l,
+          },
+        },
+      });
+    }
+
+    const bookings = await Booking.findAll({
+      where: whereClause,
+      include,
       order: [['booking_date', 'DESC']],
     });
 

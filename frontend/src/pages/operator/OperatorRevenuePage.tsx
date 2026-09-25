@@ -29,13 +29,15 @@ export default function OperatorRevenuePage() {
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(fetchData, 30000);
 
-  const dailyRevenue = revenueData?.revenue_by_operator?.flatMap((op: any) =>
-    (op.daily_revenue || []).map((d: any) => ({ date: d.date, revenue: d.revenue }))
-  ) || [];
+  const dailyRevenue = revenueData?.revenue_data?.map((d: any) => ({
+    date: d.period,
+    revenue: d.revenue,
+  })) || [];
 
-  const revenueByRoute = revenueData?.revenue_by_operator?.flatMap((op: any) =>
-    (op.routes || []).map((r: any) => ({ route: `${r.origin} → ${r.destination}`, revenue: r.revenue }))
-  ) || [];
+  const revenueByOperator = (revenueData?.revenue_by_operator || []).map((op: any) => ({
+    route: op.company_name,
+    revenue: op.total_revenue,
+  }));
 
   const bookingStatusData = (() => {
     const statusCounts: Record<string, number> = {};
@@ -95,8 +97,8 @@ export default function OperatorRevenuePage() {
               <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">This Month</p>
-              <p className="text-xl font-bold text-gray-800">NPR {(revenueData?.this_month || 0).toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Total Bookings</p>
+              <p className="text-xl font-bold text-gray-800">{(revenueData?.total_bookings || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -106,8 +108,8 @@ export default function OperatorRevenuePage() {
               <Calendar className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Last Month</p>
-              <p className="text-xl font-bold text-gray-800">NPR {(revenueData?.last_month || 0).toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Service Fees</p>
+              <p className="text-xl font-bold text-gray-800">NPR {(revenueData?.summary?.total_service_fee || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -145,12 +147,12 @@ export default function OperatorRevenuePage() {
           )}
         </div>
 
-        {/* Revenue by Route Bar Chart */}
+        {/* Revenue by Operator Bar Chart */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Route</h3>
-          {revenueByRoute.length > 0 ? (
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Operator</h3>
+          {revenueByOperator.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueByRoute}>
+              <BarChart data={revenueByOperator}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="route" tick={{ fontSize: 11 }} />
                 <YAxis />

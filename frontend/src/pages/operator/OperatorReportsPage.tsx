@@ -35,6 +35,7 @@ export default function OperatorReportsPage() {
           res = await api.get('/trips/operator/my-trips', { params });
           break;
         default:
+          setData(null);
           return;
       }
       setData(res.data.data);
@@ -85,6 +86,18 @@ export default function OperatorReportsPage() {
         break;
     }
   };
+
+  const bookingTrend = (() => {
+    const byDate: Record<string, { date: string; bookings: number; revenue: number }> = {};
+    (data?.bookings || []).forEach((b: any) => {
+      const key = String(b.booking_date || '').slice(0, 10);
+      if (!key) return;
+      if (!byDate[key]) byDate[key] = { date: key, bookings: 0, revenue: 0 };
+      byDate[key].bookings += 1;
+      byDate[key].revenue += Number(b.total_amount || 0);
+    });
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  })();
 
   return (
     <div className="space-y-6">
@@ -178,11 +191,11 @@ export default function OperatorReportsPage() {
                 </div>
               </div>
 
-              {data.bookings?.length > 0 && (
+              {bookingTrend.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Bookings Trend</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data.bookings}>
+                    <BarChart data={bookingTrend}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                       <YAxis />
@@ -193,7 +206,7 @@ export default function OperatorReportsPage() {
                 </div>
               )}
 
-              {data.bookings?.length > 0 && (
+              {bookingTrend.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -205,7 +218,7 @@ export default function OperatorReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
-                        {data.bookings.map((b: any, i: number) => (
+                        {bookingTrend.map((b, i) => (
                           <tr key={i} className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3 text-gray-800">{b.date}</td>
                             <td className="px-4 py-3 text-right font-medium text-gray-800">{b.bookings}</td>
@@ -321,7 +334,7 @@ export default function OperatorReportsPage() {
                             <td className="px-4 py-3 text-gray-600">{trip.bus?.bus_number}</td>
                             <td className="px-4 py-3 text-gray-600">{trip.departure_time}</td>
                             <td className="px-4 py-3 text-right text-gray-600">
-                              {trip.booked_seats}/{trip.total_seats}
+                              {trip.available_seats ?? '-'}
                             </td>
                             <td className="px-4 py-3">
                               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${

@@ -24,7 +24,8 @@ export default function OperatorDashboard() {
   const fetchData = useCallback(async () => {
     try {
       const res = await dashboardAPI.getOperator();
-      setStats(res.data.data);
+      const d = res.data.data || {};
+      setStats({ ...d.stats, today_trips: d.today_trips, recent_bookings: d.recent_bookings });
     } catch {
       toast.error('Failed to load dashboard');
     } finally {

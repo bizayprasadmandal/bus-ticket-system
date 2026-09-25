@@ -12,7 +12,6 @@ interface RouteItem {
   distance_km: number;
   estimated_duration: string;
   base_fare: number;
-  status: string;
   created_at: string;
 }
 
@@ -51,6 +50,9 @@ export default function OperatorRoutesPage() {
   const paginatedRoutes = filteredRoutes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,7 +228,9 @@ export default function OperatorRoutesPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
+                const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+                const page = start + i;
+                if (page > totalPages) return null;
                 return (
                   <button key={page} onClick={() => setCurrentPage(page)}
                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>

@@ -72,7 +72,7 @@ export default function OperatorFareRulesPage() {
   }, []);
 
   useEffect(() => { loadRules(); }, [loadRules]);
-  useAutoRefresh(loadRules, 30000);
+  useAutoRefresh(loadRules, 30000, true, false);
 
   const openCreate = () => {
     setEditingId(null);

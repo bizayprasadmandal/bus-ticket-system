@@ -9,10 +9,9 @@ interface TripItem {
   trip_date: string;
   departure_time: string;
   status: string;
-  total_seats: number;
-  booked_seats: number;
+  available_seats: number;
   route?: { origin_city: string; destination_city: string };
-  bus?: { bus_number: string; bus_type: string };
+  bus?: { bus_number: string; bus_type: string; total_seats?: number };
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -22,7 +21,7 @@ const statusColors: Record<string, string> = {
   SCHEDULED: 'bg-blue-500',
   BOARDING: 'bg-amber-500',
   DEPARTED: 'bg-purple-500',
-  COMPLETED: 'bg-green-500',
+  ARRIVED: 'bg-green-500',
   CANCELLED: 'bg-red-500',
 };
 
@@ -233,6 +232,7 @@ export default function OperatorSchedulePage() {
                       trip.status === 'BOARDING' ? 'bg-amber-100 text-amber-700' :
                       trip.status === 'DEPARTED' ? 'bg-purple-100 text-purple-700' :
                       trip.status === 'ARRIVED' ? 'bg-green-100 text-green-700' :
+                      trip.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {trip.status}
@@ -249,11 +249,19 @@ export default function OperatorSchedulePage() {
                     <span>{trip.bus?.bus_number} ({trip.bus?.bus_type})</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Seats: {trip.booked_seats}/{trip.total_seats}</span>
+                    <span>
+                      Seats: {(trip.bus?.total_seats ?? 0) - (trip.available_seats ?? 0)}/{trip.bus?.total_seats ?? 0}
+                    </span>
                     <div className="w-16 bg-gray-200 rounded-full h-1.5">
                       <div
                         className="bg-[#d84e55] h-1.5 rounded-full"
-                        style={{ width: `${trip.total_seats ? (trip.booked_seats / trip.total_seats) * 100 : 0}%` }}
+                        style={{
+                          width: `${
+                            trip.bus?.total_seats
+                              ? (((trip.bus.total_seats - (trip.available_seats ?? 0)) / trip.bus.total_seats) * 100)
+                              : 0
+                          }%`,
+                        }}
                       />
                     </div>
                   </div>

@@ -53,6 +53,9 @@ export default function OperatorBusesPage() {
   const paginatedBuses = filteredBuses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, typeFilter, statusFilter]);
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

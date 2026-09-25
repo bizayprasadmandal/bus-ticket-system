@@ -22,6 +22,10 @@ services:
         value: local
       - key: JWT_EXPIRES_IN
         value: 7d
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "600"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "600000"
       - key: JWT_SECRET
         generateValue: true
       - key: DB_HOST

@@ -20,6 +20,7 @@ const statusBadge: Record<string, string> = {
   APPROVED: 'bg-green-100 text-green-700',
   PENDING: 'bg-yellow-100 text-yellow-700',
   SUSPENDED: 'bg-red-100 text-red-700',
+  REJECTED: 'bg-gray-200 text-gray-700',
 };
 
 export default function OperatorProfilePage() {
@@ -34,7 +35,7 @@ export default function OperatorProfilePage() {
   const loadProfile = async () => {
     try {
       const res = await api.get('/operators/profile');
-      setProfile(res.data.data);
+      setProfile(res.data.data.operator);
     } catch {
       toast.error('Failed to load profile');
     } finally {
@@ -51,7 +52,15 @@ export default function OperatorProfilePage() {
     if (!profile) return;
     try {
       setSaving(true);
-      await api.put('/operators/profile', profile);
+      await api.put('/operators/profile', {
+        company_name: profile.company_name,
+        contact_person: profile.contact_person,
+        phone_number: profile.phone_number,
+        email: profile.email,
+        address: profile.address,
+        pan_number: profile.pan_number,
+        vat_number: profile.vat_number,
+      });
       toast.success('Profile updated successfully');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to update profile');
@@ -133,12 +142,12 @@ export default function OperatorProfilePage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">License Number (managed by admin)</label>
               <input
                 type="text"
-                value={profile.license_number}
-                onChange={(e) => handleChange('license_number', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
+                value={profile.license_number || ''}
+                disabled
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
               />
             </div>
             <div>
@@ -163,17 +172,14 @@ export default function OperatorProfilePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <div className="flex items-center gap-1">
                   <Percent className="h-3.5 w-3.5" />
-                  Commission Rate (%)
+                  Commission Rate (%) (managed by admin)
                 </div>
               </label>
               <input
                 type="number"
-                value={profile.commission_rate}
-                onChange={(e) => handleChange('commission_rate', parseFloat(e.target.value) || 0)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55] focus:border-[#d84e55] outline-none"
-                min="0"
-                max="100"
-                step="0.1"
+                value={profile.commission_rate ?? 0}
+                disabled
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
               />
             </div>
           </div>

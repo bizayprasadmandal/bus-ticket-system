@@ -1,17 +1,18 @@
 const { Op } = require('sequelize');
 const { Booking, Trip, Payment, sequelize } = require('../models');
-
-const PENDING_TIMEOUT_MINUTES = 30;
+const { getSystemSettings } = require('./settings');
 
 /**
- * Expire stale PENDING bookings older than the timeout.
+ * Expire stale PENDING bookings older than the configured timeout.
  * - Cancels the booking
  * - Releases seats back to the trip
  * - Marks any pending payment as FAILED
  * Returns the number of bookings expired.
  */
 async function expireStalePendingBookings() {
-  const cutoff = new Date(Date.now() - PENDING_TIMEOUT_MINUTES * 60 * 1000);
+  const settings = await getSystemSettings();
+  const timeoutMinutes = Number(settings.auto_cancel_timeout) || 30;
+  const cutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
 
   const staleBookings = await Booking.findAll({
     where: {
@@ -30,7 +31,7 @@ async function expireStalePendingBookings() {
       await booking.update(
         {
           booking_status: 'CANCELLED',
-          cancellation_reason: 'Payment timeout (expired after 30 minutes)',
+          cancellation_reason: `Payment timeout (expired after ${timeoutMinutes} minutes)`,
         },
         { transaction }
       );
@@ -62,4 +63,4 @@ async function expireStalePendingBookings() {
   return expired;
 }
 
-module.exports = { expireStalePendingBookings, PENDING_TIMEOUT_MINUTES };
+module.exports = { expireStalePendingBookings };

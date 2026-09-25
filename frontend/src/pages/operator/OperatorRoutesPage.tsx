@@ -7,13 +7,31 @@ import toast from 'react-hot-toast';
 
 interface RouteItem {
   id: number;
+  route_name?: string;
   origin_city: string;
   destination_city: string;
   distance_km: number;
-  estimated_duration: string;
+  estimated_duration_minutes?: number | null;
   base_fare: number;
+  stops?: string[] | null;
+  is_active?: boolean;
   created_at: string;
 }
+
+// MySQL DECIMAL columns come back as strings ("365.00") — coerce so
+// reduce-based averages don't string-concatenate into NaN.
+const toNum = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatDuration = (minutes?: number | null): string => {
+  const m = toNum(minutes);
+  if (!m) return '-';
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return h > 0 ? `${h}h${min ? ` ${min}m` : ''}` : `${min}m`;
+};
 
 export default function OperatorRoutesPage() {
   const [routes, setRoutes] = useState<RouteItem[]>([]);
@@ -22,14 +40,23 @@ export default function OperatorRoutesPage() {
   const [editingRoute, setEditingRoute] = useState<RouteItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [form, setForm] = useState({ origin_city: '', destination_city: '', distance_km: 0, estimated_duration: '', base_fare: 0 });
+  const [form, setForm] = useState({ route_name: '', origin_city: '', destination_city: '', distance_km: 0, estimated_duration_minutes: '', base_fare: 0 });
 
   const itemsPerPage = 10;
+
+  const emptyForm = { route_name: '', origin_city: '', destination_city: '', distance_km: 0, estimated_duration_minutes: '', base_fare: 0 };
 
   const loadRoutes = useCallback(async () => {
     try {
       const res = await operatorRouteAPI.getMyRoutes();
-      setRoutes(res.data.data.routes || []);
+      const rows: RouteItem[] = (res.data.data.routes || []).map((r: any) => ({
+        ...r,
+        distance_km: toNum(r.distance_km),
+        base_fare: toNum(r.base_fare),
+        estimated_duration_minutes:
+          r.estimated_duration_minutes != null ? toNum(r.estimated_duration_minutes) : null,
+      }));
+      setRoutes(rows);
     } catch { toast.error('Failed to load routes'); } finally { setLoading(false); }
   }, []);
 
@@ -57,18 +84,27 @@ export default function OperatorRoutesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Backend validates route_name (2-100) and only reads estimated_duration_minutes
+      const payload = {
+        route_name: form.route_name.trim() || `${form.origin_city.trim()} → ${form.destination_city.trim()}`,
+        origin_city: form.origin_city.trim(),
+        destination_city: form.destination_city.trim(),
+        distance_km: toNum(form.distance_km),
+        estimated_duration_minutes: form.estimated_duration_minutes === '' ? null : toNum(form.estimated_duration_minutes),
+        base_fare: toNum(form.base_fare),
+      };
       if (editingRoute) {
-        await operatorRouteAPI.update(editingRoute.id, form);
+        await operatorRouteAPI.update(editingRoute.id, payload);
         toast.success('Route updated');
       } else {
-        await operatorRouteAPI.create(form);
+        await operatorRouteAPI.create(payload);
         toast.success('Route created');
       }
       setShowModal(false);
       setEditingRoute(null);
-      setForm({ origin_city: '', destination_city: '', distance_km: 0, estimated_duration: '', base_fare: 0 });
+      setForm(emptyForm);
       loadRoutes();
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Operation failed'); }
+    } catch (err: any) { toast.error(err.response?.data?.errors?.[0]?.message || err.response?.data?.message || 'Operation failed'); }
   };
 
   const handleDelete = async (id: number) => {
@@ -79,7 +115,14 @@ export default function OperatorRoutesPage() {
 
   const openEdit = (route: RouteItem) => {
     setEditingRoute(route);
-    setForm({ origin_city: route.origin_city, destination_city: route.destination_city, distance_km: route.distance_km, estimated_duration: route.estimated_duration, base_fare: route.base_fare });
+    setForm({
+      route_name: route.route_name || '',
+      origin_city: route.origin_city,
+      destination_city: route.destination_city,
+      distance_km: route.distance_km,
+      estimated_duration_minutes: route.estimated_duration_minutes != null ? String(route.estimated_duration_minutes) : '',
+      base_fare: route.base_fare,
+    });
     setShowModal(true);
   };
 
@@ -105,7 +148,7 @@ export default function OperatorRoutesPage() {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => { setEditingRoute(null); setForm({ origin_city: '', destination_city: '', distance_km: 0, estimated_duration: '', base_fare: 0 }); setShowModal(true); }}
+            onClick={() => { setEditingRoute(null); setForm(emptyForm); setShowModal(true); }}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" /> Add Route
@@ -188,7 +231,7 @@ export default function OperatorRoutesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-gray-600">
                       <Clock className="h-3.5 w-3.5 text-gray-400" />
-                      {route.estimated_duration}
+                      {formatDuration(route.estimated_duration_minutes)}
                     </div>
                   </td>
                   <td className="px-4 py-3 font-medium text-green-600">NPR {route.base_fare.toLocaleString()}</td>
@@ -259,6 +302,11 @@ export default function OperatorRoutesPage() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Route Name *</label>
+                <input placeholder="e.g. Kathmandu - Pokhara Express" value={form.route_name} onChange={(e) => setForm({ ...form, route_name: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Origin City *</label>
                 <input placeholder="e.g. Kathmandu" value={form.origin_city} onChange={(e) => setForm({ ...form, origin_city: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required />
@@ -274,9 +322,9 @@ export default function OperatorRoutesPage() {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Estimated Duration *</label>
-                <input placeholder="e.g. 6h 30m" value={form.estimated_duration} onChange={(e) => setForm({ ...form, estimated_duration: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Estimated Duration (minutes)</label>
+                <input type="number" placeholder="e.g. 390 for 6h 30m" value={form.estimated_duration_minutes} onChange={(e) => setForm({ ...form, estimated_duration_minutes: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Base Fare (NPR) *</label>

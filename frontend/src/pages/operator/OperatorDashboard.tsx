@@ -104,7 +104,7 @@ export default function OperatorDashboard() {
           {stats.today_trips && stats.today_trips.length > 0 ? (
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {stats.today_trips.map((trip: any, i: number) => (
-                <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                <Link key={i} to="/operator/trips" className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                     <Calendar className="h-5 w-5 text-blue-600" />
                   </div>
@@ -126,11 +126,13 @@ export default function OperatorDashboard() {
                     trip.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700' :
                     trip.status === 'BOARDING' ? 'bg-amber-100 text-amber-700' :
                     trip.status === 'DEPARTED' ? 'bg-purple-100 text-purple-700' :
+                    trip.status === 'ARRIVED' ? 'bg-green-100 text-green-700' :
+                    trip.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
                     {trip.status}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -152,7 +154,7 @@ export default function OperatorDashboard() {
           {stats.recent_bookings && stats.recent_bookings.length > 0 ? (
             <div className="space-y-3 max-h-80 overflow-y-auto">
               {stats.recent_bookings.slice(0, 10).map((booking: any, i: number) => (
-                <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                <Link key={i} to="/operator/bookings" className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                     <Ticket className="h-5 w-5 text-orange-600" />
                   </div>
@@ -165,7 +167,7 @@ export default function OperatorDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-800">NPR {booking.total_amount?.toLocaleString()}</p>
+                    <p className="text-sm font-medium text-gray-800">NPR {Number(booking.total_amount || 0).toLocaleString()}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       booking.booking_status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
                       booking.booking_status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
@@ -175,7 +177,7 @@ export default function OperatorDashboard() {
                       {bookingStatusLabel(booking.booking_status)}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (

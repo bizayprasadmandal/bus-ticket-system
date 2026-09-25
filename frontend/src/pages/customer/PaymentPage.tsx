@@ -2,17 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { bookingAPI, paymentAPI } from '../../api';
 import type { Booking } from '../../types';
-import { CreditCard, CheckCircle, XCircle, ArrowLeft, Bus, Ticket, Shield, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, Bus, Ticket, Shield, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
 import { getBookAnotherPath, getMyBookingsPath } from '../../utils/homePath';
-
-const PAYMENT_TABS = [
-  { id: 'upi', label: 'UPI' },
-  { id: 'card', label: 'Credit/Debit Card' },
-  { id: 'wallet', label: 'Wallet' },
-  { id: 'netbanking', label: 'Net Banking' },
-] as const;
 
 const WALLET_OPTIONS = [
   { id: 'ESEWA', name: 'eSewa', icon: 'eS', desc: 'Pay instantly with eSewa', color: '#10b981' },
@@ -29,7 +22,6 @@ export default function PaymentPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('wallet');
   const [paymentMethod, setPaymentMethod] = useState<string>('ESEWA');
   const [paymentComplete, setPaymentComplete] = useState(false);
 
@@ -107,7 +99,7 @@ export default function PaymentPage() {
     );
   }
 
-  if (paymentComplete) {
+  if (paymentComplete || booking.payment_status === 'COMPLETED') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ backgroundColor: '#f5f5f5' }}>
         <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center">
@@ -156,120 +148,39 @@ export default function PaymentPage() {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 order-2 lg:order-1">
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="flex border-b border-gray-100">
-                {PAYMENT_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className="flex-1 py-4 text-sm font-semibold text-center transition-colors relative"
-                    style={{ color: activeTab === tab.id ? '#d84e55' : '#6b7280' }}
-                  >
-                    {tab.label}
-                    {activeTab === tab.id && (
-                      <div className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full" style={{ backgroundColor: '#d84e55' }} />
-                    )}
-                  </button>
-                ))}
-              </div>
-
               <div className="p-6">
-                {activeTab === 'upi' && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border-2 p-5 transition-all" style={{ borderColor: '#d84e55', backgroundColor: '#fef3f3' }}>
+                <p className="text-sm font-medium text-gray-600 mb-4">Select a payment method</p>
+                <div className="space-y-3">
+                  {WALLET_OPTIONS.map((wallet) => (
+                    <button
+                      key={wallet.id}
+                      onClick={() => setPaymentMethod(wallet.id)}
+                      className="w-full rounded-xl border-2 p-4 transition-all text-left"
+                      style={{
+                        borderColor: paymentMethod === wallet.id ? '#d84e55' : '#e5e7eb',
+                        backgroundColor: paymentMethod === wallet.id ? '#fef3f3' : 'white',
+                      }}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm">
-                          <CreditCard className="w-6 h-6" style={{ color: '#d84e55' }} />
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: wallet.color }}>
+                          {wallet.icon}
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-800">UPI Payment</p>
-                          <p className="text-sm text-gray-500">Pay using any UPI app (Google Pay, PhonePe, etc.)</p>
+                        <div className="flex-1">
+                          <p className="font-bold text-gray-800">{wallet.name}</p>
+                          <p className="text-sm text-gray-500">{wallet.desc}</p>
                         </div>
-                        <div className="ml-auto">
-                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: '#d84e55' }}>
+                        <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: paymentMethod === wallet.id ? '#d84e55' : '#d1d5db' }}>
+                          {paymentMethod === wallet.id && (
                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#d84e55' }} />
-                          </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    <p className="text-xs text-gray-400 text-center">You will be redirected to your UPI app to complete payment</p>
-                  </div>
-                )}
-
-                {activeTab === 'card' && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border-2 p-5 transition-all" style={{ borderColor: '#d84e55', backgroundColor: '#fef3f3' }}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm">
-                          <CreditCard className="w-6 h-6" style={{ color: '#d84e55' }} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-800">Credit / Debit Card</p>
-                          <p className="text-sm text-gray-500">Visa, Mastercard, Rupay accepted</p>
-                        </div>
-                        <div className="ml-auto">
-                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: '#d84e55' }}>
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#d84e55' }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 text-center">You will be redirected to a secure payment gateway</p>
-                  </div>
-                )}
-
-                {activeTab === 'wallet' && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-gray-600 mb-4">Select your wallet</p>
-                    {WALLET_OPTIONS.map((wallet) => (
-                      <button
-                        key={wallet.id}
-                        onClick={() => setPaymentMethod(wallet.id)}
-                        className="w-full rounded-xl border-2 p-4 transition-all text-left"
-                        style={{
-                          borderColor: paymentMethod === wallet.id ? '#d84e55' : '#e5e7eb',
-                          backgroundColor: paymentMethod === wallet.id ? '#fef3f3' : 'white',
-                        }}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: wallet.color }}>
-                            {wallet.icon}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-bold text-gray-800">{wallet.name}</p>
-                            <p className="text-sm text-gray-500">{wallet.desc}</p>
-                          </div>
-                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: paymentMethod === wallet.id ? '#d84e55' : '#d1d5db' }}>
-                            {paymentMethod === wallet.id && (
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#d84e55' }} />
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {activeTab === 'netbanking' && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border-2 p-5 transition-all" style={{ borderColor: '#d84e55', backgroundColor: '#fef3f3' }}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm">
-                          <Shield className="w-6 h-6" style={{ color: '#d84e55' }} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-800">Net Banking</p>
-                          <p className="text-sm text-gray-500">Pay directly from your bank account</p>
-                        </div>
-                        <div className="ml-auto">
-                          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: '#d84e55' }}>
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#d84e55' }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 text-center">You will be redirected to your bank's net banking page</p>
-                  </div>
-                )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 text-center mt-4">
+                  You will be redirected to complete the payment
+                </p>
               </div>
             </div>
 
@@ -344,7 +255,9 @@ export default function PaymentPage() {
                     <p className="text-xs text-gray-400 uppercase tracking-wider">Price Details</p>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Base fare x {booking.total_passengers}</span>
-                      <span className="font-medium text-gray-700">NPR {booking.base_amount}</span>
+                      <span className="font-medium text-gray-700">
+                        NPR {booking.base_amount * booking.total_passengers}
+                      </span>
                     </div>
                     {booking.tax_amount > 0 && (
                       <div className="flex justify-between text-sm">

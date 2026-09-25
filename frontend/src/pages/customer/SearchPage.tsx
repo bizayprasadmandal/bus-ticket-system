@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, ArrowLeftRight, ChevronRight, ChevronDown, Bus, Shield, CreditCard, Headphones, Star, Clock } from 'lucide-react';
+import { Search, MapPin, ArrowLeftRight, ChevronRight, ChevronDown, Bus, Shield, CreditCard, Headphones, Clock } from 'lucide-react';
 import { tripAPI, cityAPI } from '../../api';
 import type { City, Trip } from '../../types';
 import DatePicker from '../../components/DatePicker';
 import AmenityBadge from '../../components/AmenityBadge';
 import toast from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 const RECENT_SEARCHES_KEY = 'recentSearches';
 
@@ -26,9 +26,12 @@ function saveRecentSearch(from: string, to: string, date: string) {
 }
 
 export default function SearchPage() {
+  const [searchParams] = useSearchParams();
+  const initialFrom = searchParams.get('from') || '';
+  const initialTo = searchParams.get('to') || '';
   const [cities, setCities] = useState<City[]>([]);
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
+  const [origin, setOrigin] = useState(initialFrom);
+  const [destination, setDestination] = useState(initialTo);
   const [tripDate, setTripDate] = useState('');
   const [results, setResults] = useState<Trip[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -38,8 +41,8 @@ export default function SearchPage() {
 
   const [originOpen, setOriginOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
-  const [originFilter, setOriginFilter] = useState('');
-  const [destFilter, setDestFilter] = useState('');
+  const [originFilter, setOriginFilter] = useState(initialFrom);
+  const [destFilter, setDestFilter] = useState(initialTo);
 
   const originRef = useRef<HTMLDivElement>(null);
   const destRef = useRef<HTMLDivElement>(null);
@@ -49,8 +52,14 @@ export default function SearchPage() {
     setTripDate(today);
     cityAPI
       .getAll()
-      .then((res) => setCities(res.data.data.cities || res.data.data))
+      .then((res) => {
+        setCities(res.data.data.cities || res.data.data);
+        if (initialFrom && initialTo && initialFrom !== initialTo) {
+          runSearch(initialFrom, initialTo, today);
+        }
+      })
       .catch(() => toast.error('Failed to load cities'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -71,25 +80,24 @@ export default function SearchPage() {
     setDestFilter(origin);
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (origin === destination) {
-      toast.error('Origin and destination must be different');
+  const runSearch = async (from = origin, to = destination, date = tripDate) => {
+    if (!from || !to) {
+      toast.error('Please select both cities');
       return;
     }
-    if (!origin || !destination) {
-      toast.error('Please select both cities');
+    if (from === to) {
+      toast.error('Origin and destination must be different');
       return;
     }
     setIsSearching(true);
     setHasSearched(true);
-    saveRecentSearch(origin, destination, tripDate);
+    saveRecentSearch(from, to, date);
     setRecentSearches(getRecentSearches());
     try {
       const res = await tripAPI.search({
-        origin_city: origin,
-        destination_city: destination,
-        trip_date: tripDate,
+        origin_city: from,
+        destination_city: to,
+        trip_date: date,
       });
       setResults(res.data.data.trips || res.data.data);
     } catch (error: any) {
@@ -97,6 +105,11 @@ export default function SearchPage() {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch();
   };
 
   const setQuickDate = (days: number) => {
@@ -140,33 +153,6 @@ export default function SearchPage() {
       year: 'numeric',
     });
   };
-
-  const offers = [
-    {
-      title: 'Flat 15% OFF',
-      desc: 'On all AC bus bookings',
-      code: 'AC15',
-      bg: 'from-red-500 to-red-600',
-    },
-    {
-      title: 'First Ride Free',
-      desc: 'New users get NPR 200 off',
-      code: 'NEW200',
-      bg: 'from-rose-400 to-rose-500',
-    },
-    {
-      title: 'Weekend Deal',
-      desc: 'Save up to NPR 300 on Fri-Sun',
-      code: 'WEEKEND',
-      bg: 'from-red-600 to-red-700',
-    },
-    {
-      title: 'Group Booking',
-      desc: '10% off for 4+ passengers',
-      code: 'GROUP10',
-      bg: 'from-red-500 to-rose-500',
-    },
-  ];
 
   const popularRoutes = [
     { from: 'Kathmandu', to: 'Pokhara', price: 1200, duration: '6h 30m' },
@@ -576,8 +562,12 @@ export default function SearchPage() {
                               </div>
                               <Link
                                 to={`/book/${trip.id}`}
-                                className="text-white px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center gap-1 whitespace-nowrap shadow-md"
-                                style={{ backgroundColor: '#d84e55' }}
+                                className={`text-white px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-1 whitespace-nowrap shadow-md ${
+                                  trip.status === 'SCHEDULED'
+                                    ? 'hover:opacity-90'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none pointer-events-none'
+                                }`}
+                                style={trip.status === 'SCHEDULED' ? { backgroundColor: '#d84e55' } : undefined}
                               >
                                 BOOK
                                 <ChevronRight className="h-4 w-4" />
@@ -609,39 +599,6 @@ export default function SearchPage() {
         {/* Sections below search (always visible when not showing results) */}
         {!hasSearched && (
           <>
-            {/* Offers Section */}
-            <div className="mb-10">
-              <h2
-                className="text-xl font-bold text-gray-800 mb-4"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
-              >
-                Exclusive Offers
-              </h2>
-              <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
-                {offers.map((offer, i) => (
-                  <div
-                    key={i}
-                    className={`flex-shrink-0 w-[260px] bg-gradient-to-r ${offer.bg} rounded-xl p-5 text-white relative overflow-hidden cursor-pointer hover:shadow-lg transition-all`}
-                  >
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-6 -mt-6" />
-                    <div className="absolute bottom-0 left-0 w-12 h-12 bg-white/10 rounded-full -ml-4 -mb-4" />
-                    <p className="text-lg font-bold relative z-10">
-                      {offer.title}
-                    </p>
-                    <p className="text-sm text-white/80 mt-1 relative z-10">
-                      {offer.desc}
-                    </p>
-                    <div className="mt-3 flex items-center gap-2 relative z-10">
-                      <span className="bg-white/20 px-2.5 py-1 rounded text-xs font-bold tracking-wide">
-                        {offer.code}
-                      </span>
-                      <Star className="h-3 w-3" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Top Routes Section */}
             <div className="mb-10">
               <h2

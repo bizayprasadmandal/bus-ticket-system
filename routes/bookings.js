@@ -576,13 +576,14 @@ router.get('/', authenticateToken, commonValidation.pagination, handleValidation
         {
           model: Payment,
           as: 'payments',
-          order: [['booking_date', 'DESC']],
+          order: [['created_at', 'DESC']],
           limit: 1,
         },
       ],
       order: [['booking_date', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
 
     res.json({
@@ -644,7 +645,7 @@ router.get('/:id', authenticateToken, commonValidation.idParam, handleValidation
         {
           model: Payment,
           as: 'payments',
-          order: [['booking_date', 'DESC']],
+          order: [['created_at', 'DESC']],
         },
       ],
     });
@@ -718,23 +719,27 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
     }
 
     // Calculate refund (80% if cancelled 24+ hours before departure, 50% if <24 hours, 0% if departed)
+    // Refunds only apply to bookings that were actually paid
+    const isPaid = booking.payment_status === 'COMPLETED';
     const tripDate = new Date(booking.trip.trip_date);
     const departureTime = booking.trip.departure_time ? booking.trip.departure_time.split(':').slice(0, 2).join(':') : '00:00';
     const departureDateTime = new Date(`${tripDate.toISOString().split('T')[0]}T${departureTime}:00`);
     const hoursUntilDeparture = (departureDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
     
     let refundPercentage = 0;
-    if (hoursUntilDeparture >= 24) refundPercentage = 0.80;
-    else if (hoursUntilDeparture > 0) refundPercentage = 0.50;
+    if (isPaid) {
+      if (hoursUntilDeparture >= 24) refundPercentage = 0.80;
+      else if (hoursUntilDeparture > 0) refundPercentage = 0.50;
+    }
     
-    const refundAmount = parseFloat(booking.total_amount) * refundPercentage;
+    const refundAmount = isPaid ? parseFloat(booking.total_amount) * refundPercentage : 0;
 
     // Update booking
     await booking.update({
       booking_status: 'CANCELLED',
       cancellation_reason: reason || 'Customer request',
       refund_amount: refundAmount,
-      payment_status: refundAmount > 0 ? 'REFUNDED' : 'FAILED',
+      payment_status: isPaid && refundAmount > 0 ? 'REFUNDED' : booking.payment_status,
     }, { transaction });
 
     // Release seats

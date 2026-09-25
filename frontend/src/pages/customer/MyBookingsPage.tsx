@@ -15,6 +15,7 @@ import {
   XCircle,
   RefreshCw,
   CreditCard,
+  MapPin,
 } from 'lucide-react';
 import { bookingAPI } from '../../api';
 import type { Booking } from '../../types';
@@ -28,6 +29,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> =
   PENDING: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
   CANCELLED: { bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
   COMPLETED: { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+  NO_SHOW: { bg: 'bg-rose-50', text: 'text-rose-600', dot: 'bg-rose-500' },
 };
 
 const STRIP_COLORS: Record<string, string> = {
@@ -35,9 +37,18 @@ const STRIP_COLORS: Record<string, string> = {
   PENDING: 'bg-amber-500',
   CANCELLED: 'bg-red-500',
   COMPLETED: 'bg-gray-400',
+  NO_SHOW: 'bg-rose-500',
 };
 
-const FILTER_TABS = ['ALL', 'UPCOMING', 'COMPLETED', 'CANCELLED'] as const;
+const FILTER_TABS = ['ALL', 'UPCOMING', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
+
+const TAB_LABELS: Record<string, string> = {
+  ALL: 'All',
+  UPCOMING: 'Upcoming',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  NO_SHOW: 'No Show',
+};
 
 function mapStatus(filter: string, booking: Booking): boolean {
   if (filter === 'ALL') return true;
@@ -58,8 +69,19 @@ export default function MyBookingsPage() {
 
   const fetchBookings = useCallback(async () => {
     try {
-      const res = await bookingAPI.getAll();
-      setBookings(res.data.data.bookings || res.data.data);
+      const first = await bookingAPI.getAll({ page: 1, limit: 100 });
+      let rows: Booking[] = first.data.data.bookings || [];
+      const total: number = first.data.data.pagination?.total_items ?? rows.length;
+      // load any remaining bookings (cap: 20 pages / 2000 bookings)
+      let page = 2;
+      while (rows.length < total && page <= 20) {
+        const res = await bookingAPI.getAll({ page, limit: 100 });
+        const chunk: Booking[] = res.data.data.bookings || [];
+        if (chunk.length === 0) break;
+        rows = rows.concat(chunk);
+        page += 1;
+      }
+      setBookings(rows);
     } catch {
       toast.error('Failed to load bookings');
     } finally {
@@ -67,7 +89,7 @@ export default function MyBookingsPage() {
     }
   }, []);
 
-  const { isRefreshing, lastUpdated } = useAutoRefresh(fetchBookings, 30000);
+  const { isRefreshing, lastUpdated } = useAutoRefresh(fetchBookings, 30000, true, false);
 
   useEffect(() => {
     fetchBookings();
@@ -88,6 +110,7 @@ export default function MyBookingsPage() {
     ).length,
     COMPLETED: bookings.filter((b) => b.booking_status === 'COMPLETED').length,
     CANCELLED: bookings.filter((b) => b.booking_status === 'CANCELLED').length,
+    NO_SHOW: bookings.filter((b) => b.booking_status === 'NO_SHOW').length,
   };
 
   const totalPages = Math.ceil(filtered.length / pageSize);
@@ -137,8 +160,8 @@ export default function MyBookingsPage() {
                   : {}
               }
             >
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
-              <span className="ml-1.5 text-[10px] opacity-80">({counts[tab]})</span>
+              {TAB_LABELS[tab] || tab}
+              <span className="ml-1.5 text-[10px] opacity-80">({counts[tab] ?? 0})</span>
             </button>
           ))}
         </div>
@@ -173,7 +196,7 @@ export default function MyBookingsPage() {
             <button
               className="mt-5 px-6 py-2.5 text-white text-sm font-bold rounded-full transition-all"
               style={{ backgroundColor: '#d84e55' }}
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/')}
             >
               <span className="flex items-center gap-2">
                 <Search className="h-4 w-4" />
@@ -322,6 +345,16 @@ export default function MyBookingsPage() {
                           >
                             <XCircle className="h-3.5 w-3.5" />
                             Cancel Booking
+                          </button>
+                        )}
+                        {status === 'CONFIRMED' && booking.trip_id &&
+                          (booking.trip as any)?.status === 'DEPARTED' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/tracking/${booking.trip_id}`); }}
+                            className="mt-3 ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
+                            Track Trip
                           </button>
                         )}
                       </div>

@@ -112,6 +112,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<SearchPage />} />
+            <Route path="search" element={<SearchPage />} />
             <Route path="book/:tripId" element={<BookingPage />} />
             <Route path="payment/:bookingId" element={<PaymentPage />} />
             <Route path="payment/callback/:paymentId" element={<PaymentCallbackPage />} />

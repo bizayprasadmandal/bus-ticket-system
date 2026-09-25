@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bus, Route, Calendar, Ticket, LogOut, Menu, X, ChevronRight, ExternalLink, Users, DollarSign, TrendingUp, Clock, Bell, BarChart3, Star, User } from 'lucide-react';
+import { LayoutDashboard, Bus, Route, Calendar, Ticket, LogOut, Menu, X, ChevronRight, ExternalLink, Users, DollarSign, TrendingUp, Clock, Bell, BarChart3, Star, User, UserCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useCompanyBrand } from '../../hooks/useCompanyBrand';
 import Avatar from '../../components/Avatar';
@@ -20,6 +20,7 @@ const navItems = [
   { to: '/operator/fare-rules', label: 'Fare Rules', icon: DollarSign },
   { to: '/operator/notifications', label: 'Notifications', icon: Bell },
   { to: '/operator/profile', label: 'Company Profile', icon: User },
+  { to: '/operator/account', label: 'My Account', icon: UserCircle },
 ];
 
 export default function OperatorLayout() {

@@ -432,8 +432,11 @@ router.post('/:id/verify', authenticateToken, commonValidation.idParam, handleVa
       case 'ESEWA':
         try {
           const esewa = PaymentGatewayFactory.getGateway('ESEWA');
-          const { amt, rid, pid } = req.query;
-          if (amt && rid && pid) {
+          const { amt, rid, pid, data } = req.query;
+          if (data) {
+            // eSewa ePay v2: base64-encoded signed response in the data param
+            verificationResult = await esewa.verifyV2Response(data);
+          } else if (amt && rid && pid) {
             verificationResult = await esewa.verifyPayment({ amt, rid, pid });
           } else {
             verificationResult = { success: false, message: 'Missing eSewa verification parameters' };

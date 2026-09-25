@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { reviewAPI } from '../../api';
+import { reviewAPI, bookingAPI } from '../../api';
+import type { Booking } from '../../types';
 import toast from 'react-hot-toast';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
@@ -17,6 +18,9 @@ interface Review {
     trip_date: string;
     departure_time: string;
     route?: {
+      id?: number;
+      origin_city?: string;
+      destination_city?: string;
       origin?: { name: string };
       destination?: { name: string };
     };
@@ -57,11 +61,12 @@ export default function ReviewsPage() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [tripId, setTripId] = useState('');
   const [activeTab, setActiveTab] = useState<'write' | 'my'>('write');
+  const [completedBookings, setCompletedBookings] = useState<Booking[]>([]);
 
-  const loadMyReviews = useCallback(async () => {
+  const loadMyReviews = useCallback(async (initial = false) => {
     try {
-      setLoading(true);
-      const res = await reviewAPI.getMyReviews();
+      if (initial) setLoading(true);
+      const res = await reviewAPI.getMyReviews({ page: 1, limit: 100 });
       setReviews(res.data.data || []);
     } catch (err: any) {
       toast.error('Failed to load reviews');
@@ -70,16 +75,37 @@ export default function ReviewsPage() {
     }
   }, []);
 
-  const { isRefreshing, lastUpdated } = useAutoRefresh(loadMyReviews, 30000);
+  const { isRefreshing, lastUpdated } = useAutoRefresh(loadMyReviews, 30000, true, false);
 
   useEffect(() => {
-    loadMyReviews();
+    loadMyReviews(true);
+    bookingAPI
+      .getAll({ page: 1, limit: 100 })
+      .then((res) => setCompletedBookings(res.data.data.bookings || []))
+      .catch(() => {});
   }, [loadMyReviews]);
+
+  const reviewedTripIds = new Set(reviews.map((r) => r.trip?.id).filter(Boolean));
+  const eligibleTrips = (() => {
+    const seen = new Set<number>();
+    const list: { id: number; label: string }[] = [];
+    completedBookings.forEach((b) => {
+      if (b.booking_status !== 'COMPLETED' || !b.trip_id) return;
+      if (seen.has(b.trip_id) || reviewedTripIds.has(b.trip_id)) return;
+      seen.add(b.trip_id);
+      const r = b.trip?.route;
+      const label = r
+        ? `${r.origin_city} → ${r.destination_city} • ${b.trip?.trip_date || ''}`
+        : `Trip #${b.trip_id}`;
+      list.push({ id: b.trip_id, label });
+    });
+    return list;
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tripId) {
-      toast.error('Please enter a Trip ID');
+      toast.error('Please select a trip');
       return;
     }
     if (rating === 0) {
@@ -154,15 +180,26 @@ export default function ReviewsPage() {
       {activeTab === 'write' && (
         <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trip ID</label>
-            <input
-              type="number"
-              value={tripId}
-              onChange={(e) => setTripId(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Enter the Trip ID you want to review"
-              required
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Trip</label>
+            {eligibleTrips.length > 0 ? (
+              <select
+                value={tripId}
+                onChange={(e) => setTripId(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              >
+                <option value="">Select a completed trip</option>
+                {eligibleTrips.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm text-gray-500 bg-gray-50 border rounded-lg px-3 py-2">
+                Complete a trip (with a confirmed booking) to review it here.
+              </p>
+            )}
           </div>
 
           <div>
@@ -230,7 +267,9 @@ export default function ReviewsPage() {
                       {review.title && <h3 className="font-medium mt-1">{review.title}</h3>}
                       {review.trip && (
                         <p className="text-sm text-gray-500">
-                          {review.trip.route?.origin?.name} → {review.trip.route?.destination?.name} | {new Date(review.trip.trip_date).toLocaleDateString()}
+                          {review.trip.route?.origin_city || review.trip.route?.origin?.name} →{' '}
+                          {review.trip.route?.destination_city || review.trip.route?.destination?.name}
+                          {review.trip.trip_date ? ` | ${new Date(review.trip.trip_date).toLocaleDateString()}` : ''}
                         </p>
                       )}
                     </div>

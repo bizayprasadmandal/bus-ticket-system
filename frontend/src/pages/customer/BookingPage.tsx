@@ -10,9 +10,9 @@ import {
   Plug,
   Snowflake,
   Phone,
-  Mail,
   CreditCard,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { tripAPI, bookingAPI } from '../../api';
 import type { Trip } from '../../types';
@@ -31,6 +31,14 @@ const ID_TYPE_MAP: Record<string, string> = {
   citizenship: 'CITIZENSHIP',
   passport: 'PASSPORT',
   license: 'DRIVING_LICENSE',
+};
+
+const EMPTY_PASSENGER: Passenger = {
+  name: '',
+  age: '',
+  gender: '',
+  id_type: 'citizenship',
+  id_number: '',
 };
 
 const AMENITY_ICONS: Record<string, typeof Wifi> = {
@@ -52,7 +60,6 @@ export default function BookingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
 
   useEffect(() => {
     if (!tripId) return;
@@ -74,21 +81,16 @@ export default function BookingPage() {
   }, [tripId]);
 
   const toggleSeat = (seat: string) => {
-    setSelectedSeats((prev) => {
-      const next = prev.includes(seat)
-        ? prev.filter((s) => s !== seat)
-        : [...prev, seat];
-      setPassengers(
-        next.map(() => ({
-          name: '',
-          age: '',
-          gender: '',
-          id_type: 'citizenship',
-          id_number: '',
-        }))
-      );
-      return next;
+    const next = selectedSeats.includes(seat)
+      ? selectedSeats.filter((s) => s !== seat)
+      : [...selectedSeats, seat];
+    // preserve already-typed passenger details for seats that stay selected
+    const bySeat: Record<string, Passenger> = {};
+    selectedSeats.forEach((s, idx) => {
+      if (passengers[idx]) bySeat[s] = passengers[idx];
     });
+    setSelectedSeats(next);
+    setPassengers(next.map((s) => bySeat[s] || { ...EMPTY_PASSENGER }));
   };
 
   const updatePassenger = (
@@ -105,10 +107,15 @@ export default function BookingPage() {
 
   const canSubmit = () => {
     if (selectedSeats.length === 0) return false;
+    if (trip && trip.status !== 'SCHEDULED') return false;
     return passengers.every((p) => p.name && p.age && p.gender && p.id_number);
   };
 
   const handleSubmit = async () => {
+    if (trip && trip.status !== 'SCHEDULED') {
+      toast.error('Trip is not available for booking');
+      return;
+    }
     if (selectedSeats.length === 0) {
       toast.error('Please select at least one seat');
       return;
@@ -129,6 +136,7 @@ export default function BookingPage() {
         gender: p.gender.toUpperCase(),
         id_type: ID_TYPE_MAP[p.id_type] || p.id_type.toUpperCase(),
         id_number: p.id_number,
+        ...(i === 0 && phone ? { phone_number: phone } : {}),
       }));
       const response = await bookingAPI.create({
         trip_id: Number(tripId),
@@ -228,6 +236,25 @@ export default function BookingPage() {
       >
         {/* ==================== LEFT SIDE ==================== */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {trip.status !== 'SCHEDULED' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px 16px',
+                background: '#fef3c7',
+                border: '1px solid #fcd34d',
+                borderRadius: '10px',
+                fontSize: '14px',
+                color: '#92400e',
+                fontWeight: 600,
+              }}
+            >
+              <AlertTriangle size={18} />
+              This trip is not available for booking (status: {trip.status}).
+            </div>
+          )}
 
           {/* ---- SEAT SELECTION ---- */}
           <div
@@ -510,7 +537,7 @@ export default function BookingPage() {
                   Contact Details
                 </h3>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                  <div style={{ position: 'relative', flex: '1 1 100%' }}>
                     <Phone
                       size={16}
                       style={{
@@ -523,37 +550,9 @@ export default function BookingPage() {
                     />
                     <input
                       type="tel"
-                      placeholder="Phone number"
+                      placeholder="Contact phone number"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px 10px 36px',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                        fontFamily: 'Inter',
-                      }}
-                    />
-                  </div>
-                  <div style={{ position: 'relative', flex: '1 1 200px' }}>
-                    <Mail
-                      size={16}
-                      style={{
-                        position: 'absolute',
-                        left: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#9ca3af',
-                      }}
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
                       style={{
                         width: '100%',
                         padding: '10px 12px 10px 36px',
@@ -887,11 +886,17 @@ export default function BookingPage() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Clock size={14} /> {trip.trip_date}
                 </span>
-                {trip.route?.estimated_duration && (
+                {trip.route?.estimated_duration_minutes ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <MapPin size={14} />{' '}
+                    {Math.floor(trip.route.estimated_duration_minutes / 60)}h{' '}
+                    {trip.route.estimated_duration_minutes % 60}m
+                  </span>
+                ) : trip.route?.estimated_duration ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <MapPin size={14} /> {trip.route.estimated_duration}
                   </span>
-                )}
+                ) : null}
               </div>
 
               {/* Amenities */}
@@ -981,7 +986,7 @@ export default function BookingPage() {
                     marginBottom: '8px',
                   }}
                 >
-                  <span>GST (13%)</span>
+                  <span>GST (est. 13%)</span>
                   <span style={{ fontWeight: 600, color: '#374151' }}>
                     NPR {gst}
                   </span>

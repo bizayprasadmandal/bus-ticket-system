@@ -1,5 +1,6 @@
 export function bookingStatusLabel(status: string): string {
   if (status === 'PENDING') return 'Awaiting Payment';
+  if (status === 'NO_SHOW') return 'No Show';
   return status;
 }
 

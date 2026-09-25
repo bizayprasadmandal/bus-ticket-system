@@ -28,6 +28,7 @@ export default function WalletPage() {
   const [paymentMethod, setPaymentMethod] = useState('ESEWA');
   const [loading, setLoading] = useState(true);
   const [toppingUp, setToppingUp] = useState(false);
+  const [txLimit, setTxLimit] = useState(20);
 
   const fetchBalance = useCallback(async () => {
     try {
@@ -38,9 +39,9 @@ export default function WalletPage() {
     }
   }, []);
 
-  const fetchTransactions = useCallback(async () => {
+  const fetchTransactions = useCallback(async (limit = 20) => {
     try {
-      const res = await walletAPI.getTransactions({ limit: 20 });
+      const res = await walletAPI.getTransactions({ limit });
       setTransactions(res.data.data?.transactions || res.data.transactions || []);
     } catch {
       toast.error('Failed to load transactions');
@@ -51,7 +52,7 @@ export default function WalletPage() {
     await Promise.all([fetchBalance(), fetchTransactions()]);
   }, [fetchBalance, fetchTransactions]);
 
-  const { isRefreshing, lastUpdated } = useAutoRefresh(fetchAll, 30000);
+  const { isRefreshing, lastUpdated } = useAutoRefresh(fetchAll, 30000, true, false);
 
   useEffect(() => {
     const load = async () => {
@@ -62,6 +63,12 @@ export default function WalletPage() {
     load();
   }, [fetchAll]);
 
+  const handleLoadMore = () => {
+    const next = txLimit + 20;
+    setTxLimit(next);
+    fetchTransactions(next);
+  };
+
   const handleTopUp = async () => {
     const amount = topUpAmount || Number(customAmount);
     if (!amount || amount <= 0) {
@@ -70,6 +77,10 @@ export default function WalletPage() {
     }
     if (amount < 10) {
       toast.error('Minimum top-up amount is NPR 10');
+      return;
+    }
+    if (amount > 100000) {
+      toast.error('Maximum top-up amount is NPR 100,000');
       return;
     }
     setToppingUp(true);
@@ -242,6 +253,14 @@ export default function WalletPage() {
               </div>
             ))}
           </div>
+        )}
+        {transactions.length >= txLimit && (
+          <button
+            onClick={handleLoadMore}
+            className="mt-4 w-full py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Load more
+          </button>
         )}
       </div>
     </div>

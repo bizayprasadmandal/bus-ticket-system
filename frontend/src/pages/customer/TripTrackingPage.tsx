@@ -26,19 +26,62 @@ interface Location {
   lng: number;
 }
 
-interface TripLocation {
-  location: Location;
-  speed: number | null;
-  updated_at: string;
+interface RawLocation {
+  latitude: number;
+  longitude: number;
+  speed: number;
+  timestamp: string;
+}
+
+interface StopPoint {
+  name?: string;
+  lat?: number;
+  lng?: number;
 }
 
 interface TripInfo {
-  id: string;
   origin: string;
   destination: string;
   departure_time: string;
   status: string;
-  route_stops: { lat: number; lng: number; name: string }[];
+  stops: StopPoint[];
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  SCHEDULED: 'Scheduled',
+  BOARDING: 'Boarding',
+  DEPARTED: 'On the way',
+  ARRIVED: 'Arrived',
+  CANCELLED: 'Cancelled',
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  SCHEDULED: 'bg-gray-100 text-gray-700',
+  BOARDING: 'bg-amber-100 text-amber-700',
+  DEPARTED: 'bg-green-100 text-green-700',
+  ARRIVED: 'bg-blue-100 text-blue-700',
+  CANCELLED: 'bg-red-100 text-red-700',
+};
+
+function normalizeStops(raw: unknown): StopPoint[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((s): StopPoint | null => {
+      if (typeof s === 'string') return { name: s };
+      if (s && typeof s === 'object') {
+        const o = s as Record<string, unknown>;
+        const name = (o.name ?? o.stop ?? o.title) as string | undefined;
+        const lat = Number(o.lat ?? o.latitude);
+        const lng = Number(o.lng ?? o.longitude);
+        return {
+          name,
+          lat: Number.isFinite(lat) ? lat : undefined,
+          lng: Number.isFinite(lng) ? lng : undefined,
+        };
+      }
+      return null;
+    })
+    .filter((s): s is StopPoint => s !== null);
 }
 
 function FlyToBus({ position }: { position: Location }) {
@@ -70,23 +113,41 @@ export default function TripTrackingPage() {
   useEffect(() => {
     if (!tripId) return;
 
+    const applyLocation = (raw: RawLocation | undefined | null) => {
+      if (!raw) return;
+      const lat = Number(raw.latitude);
+      const lng = Number(raw.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      setLocation({ lat, lng });
+      setSpeed(typeof raw.speed === 'number' ? raw.speed : null);
+      setLastUpdated(raw.timestamp || '');
+    };
+
     const fetchTripData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const [locationRes, tripRes] = await Promise.all([
-          api.get(`/trips/${tripId}/location`),
-          api.get(`/trips/${tripId}`),
-        ]);
+        const tripRes = await api.get(`/trips/${tripId}`);
+        const trip = tripRes.data?.data?.trip;
+        if (!trip) throw new Error('Trip not found');
 
-        const locData: TripLocation = locationRes.data;
-        setLocation(locData.location);
-        setSpeed(locData.speed);
-        setLastUpdated(locData.updated_at);
-        setTripInfo(tripRes.data);
+        setTripInfo({
+          origin: trip.route?.origin_city || '',
+          destination: trip.route?.destination_city || '',
+          departure_time: trip.departure_time || '',
+          status: trip.status || '',
+          stops: normalizeStops(trip.route?.stops),
+        });
+
+        try {
+          const locationRes = await api.get(`/trips/${tripId}/location`);
+          applyLocation(locationRes.data?.data?.location);
+        } catch {
+          // no location yet (404) or transient error — page still works without a marker
+        }
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to load trip data');
+        setError(err.response?.data?.message || err.message || 'Failed to load trip data');
       } finally {
         setLoading(false);
       }
@@ -107,10 +168,8 @@ export default function TripTrackingPage() {
         socketRef.current.emit('subscribe_trip', { trip_id: tripId });
       });
 
-      socketRef.current.on('bus_location_update', (data: TripLocation) => {
-        setLocation(data.location);
-        setSpeed(data.speed);
-        setLastUpdated(data.updated_at);
+      socketRef.current.on('bus_location_updated', (data: { location?: RawLocation }) => {
+        applyLocation(data?.location);
       });
 
       socketRef.current.on('connect_error', () => {
@@ -119,6 +178,8 @@ export default function TripTrackingPage() {
     } catch {
       startPolling();
     }
+
+    startPolling();
 
     return () => {
       if (socketRef.current) {
@@ -136,10 +197,14 @@ export default function TripTrackingPage() {
       if (!tripId) return;
       try {
         const res = await api.get(`/trips/${tripId}/location`);
-        const data: TripLocation = res.data;
-        setLocation(data.location);
-        setSpeed(data.speed);
-        setLastUpdated(data.updated_at);
+        const raw: RawLocation | undefined = res.data?.data?.location;
+        if (!raw) return;
+        const lat = Number(raw.latitude);
+        const lng = Number(raw.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        setLocation({ lat, lng });
+        setSpeed(typeof raw.speed === 'number' ? raw.speed : null);
+        setLastUpdated(raw.timestamp || '');
       } catch {
         // silently retry
       }
@@ -194,11 +259,9 @@ export default function TripTrackingPage() {
     ? [location.lat, location.lng]
     : [27.7, 85.3];
 
-  const routePoints: [number, number][] = tripInfo?.route_stops
-    ? tripInfo.route_stops.map((s) => [s.lat, s.lng])
-    : location
-    ? [[location.lat, location.lng]]
-    : [];
+  const routePoints: [number, number][] = (tripInfo?.stops || [])
+    .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number')
+    .map((s) => [s.lat as number, s.lng as number]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -222,14 +285,10 @@ export default function TripTrackingPage() {
             {tripInfo && (
               <span
                 className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  tripInfo.status === 'in_transit'
-                    ? 'bg-green-100 text-green-700'
-                    : tripInfo.status === 'delayed'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-700'
+                  STATUS_STYLES[tripInfo.status] || 'bg-gray-100 text-gray-700'
                 }`}
               >
-                {tripInfo.status?.replace('_', ' ')}
+                {STATUS_LABELS[tripInfo.status] || tripInfo.status}
               </span>
             )}
           </div>
@@ -285,22 +344,28 @@ export default function TripTrackingPage() {
               Departure
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              {tripInfo?.departure_time ? formatTime(tripInfo.departure_time) : '--'}
+              {tripInfo?.departure_time
+                ? /^\d{2}:\d{2}/.test(tripInfo.departure_time)
+                  ? tripInfo.departure_time.slice(0, 5)
+                  : formatTime(tripInfo.departure_time)
+                : '--'}
             </p>
           </div>
         </div>
 
         {/* Route Stops */}
-        {tripInfo?.route_stops && tripInfo.route_stops.length > 0 && (
+        {(tripInfo?.stops || []).some((s) => s.name) && (
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-semibold text-gray-900 mb-3">Route Stops</h3>
             <div className="space-y-2">
-              {tripInfo.route_stops.map((stop, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">{stop.name}</span>
-                </div>
-              ))}
+              {tripInfo!.stops
+                .filter((stop) => stop.name)
+                .map((stop, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-blue-600 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">{stop.name}</span>
+                  </div>
+                ))}
             </div>
           </div>
         )}

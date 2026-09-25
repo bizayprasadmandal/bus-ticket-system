@@ -23,12 +23,12 @@ export default function PaymentCallbackPage() {
 
     // If gateway already verified via the GET callback endpoint, just fetch payment details
     if (queryStatus === 'success' || queryStatus === 'already_processed') {
-      loadPaymentDetails('success');
+      loadPaymentDetails();
       return;
     }
 
     if (queryStatus === 'failed' || queryError) {
-      loadPaymentDetails('failed');
+      loadPaymentDetails();
       return;
     }
 
@@ -39,7 +39,14 @@ export default function PaymentCallbackPage() {
       return;
     }
 
-    // For eSewa: amt, rid, pid are passed as query params
+    // For eSewa ePay v2: signed base64 data param, verify via POST
+    const esewaData = searchParams.get('data');
+    if (esewaData) {
+      verifyEsewaV2Payment(esewaData);
+      return;
+    }
+
+    // For eSewa v1: amt, rid, pid are passed as query params
     const amt = searchParams.get('amt');
     const rid = searchParams.get('rid');
     const pid = searchParams.get('pid');
@@ -48,22 +55,22 @@ export default function PaymentCallbackPage() {
       return;
     }
 
-    // No gateway params - check if payment was already verified
-    loadPaymentDetails('unknown');
+    // No gateway params - check the payment's real status
+    loadPaymentDetails();
   }, [paymentId, searchParams]);
 
-  const loadPaymentDetails = async (resultStatus: string) => {
+  const loadPaymentDetails = async () => {
     try {
       const response = await paymentAPI.getDetails(Number(paymentId));
       const payment = response.data.data.payment;
       setPaymentDetails(payment);
-      const isSuccess = payment.status === 'SUCCESS' || (payment.status === 'PENDING' && resultStatus === 'success');
+      const isSuccess = payment.status === 'SUCCESS';
       setStatus(isSuccess ? 'success' : 'failed');
       if (payment.status === 'SUCCESS') {
         toast.success(payment.payment_type === 'TOPUP' ? 'Wallet top-up confirmed!' : 'Payment confirmed!');
       }
     } catch {
-      setStatus(resultStatus === 'success' ? 'success' : 'error');
+      setStatus('error');
     }
   };
 
@@ -71,13 +78,26 @@ export default function PaymentCallbackPage() {
     try {
       const response = await paymentAPI.verify(Number(paymentId), { pidx });
       if (response.data.success) {
-        setStatus('success');
         toast.success('Payment confirmed!');
-        loadPaymentDetails('success');
       } else {
-        setStatus('failed');
         toast.error('Payment verification failed');
       }
+      await loadPaymentDetails();
+    } catch {
+      setStatus('error');
+      toast.error('Payment verification failed');
+    }
+  };
+
+  const verifyEsewaV2Payment = async (data: string) => {
+    try {
+      const response = await paymentAPI.verify(Number(paymentId), { data });
+      if (response.data.success) {
+        toast.success('Payment confirmed!');
+      } else {
+        toast.error('Payment verification failed');
+      }
+      await loadPaymentDetails();
     } catch {
       setStatus('error');
       toast.error('Payment verification failed');
@@ -88,13 +108,11 @@ export default function PaymentCallbackPage() {
     try {
       const response = await paymentAPI.verify(Number(paymentId), { amt, rid, pid });
       if (response.data.success) {
-        setStatus('success');
         toast.success('Payment confirmed!');
-        loadPaymentDetails('success');
       } else {
-        setStatus('failed');
         toast.error('Payment verification failed');
       }
+      await loadPaymentDetails();
     } catch {
       setStatus('error');
       toast.error('Payment verification failed');
@@ -163,7 +181,11 @@ export default function PaymentCallbackPage() {
         <p className="text-gray-500 mb-6">
           {status === 'error' ? 'Something went wrong while verifying your payment.' : 'Your payment could not be processed.'}
         </p>
-        <p className="text-sm text-gray-400 mb-6">No money has been deducted. Please try again.</p>
+        <p className="text-sm text-gray-400 mb-6">
+          {status === 'error'
+            ? 'If an amount was deducted, it will be reflected after verification. Please check your bookings or contact support.'
+            : 'No money has been deducted. Please try again.'}
+        </p>
         <div className="flex gap-3">
           <Link to={isTopupFail ? '/wallet' : myBookingsPath} className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-all text-center">
             {isTopupFail ? 'Back to Wallet' : 'View Bookings'}

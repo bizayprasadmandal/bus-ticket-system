@@ -25,6 +25,8 @@ const statusColors: Record<string, string> = {
   CANCELLED: 'bg-red-500',
 };
 
+const TODAY_NPT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
+
 export default function OperatorSchedulePage() {
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,14 +35,19 @@ export default function OperatorSchedulePage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await api.get('/trips/operator/my-trips');
+      // Scope the query to the visible month (backend supports date_from/date_to)
+      const y = currentDate.getFullYear();
+      const m = currentDate.getMonth();
+      const monthStart = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      const monthEnd = `${y}-${String(m + 1).padStart(2, '0')}-${String(new Date(y, m + 1, 0).getDate()).padStart(2, '0')}`;
+      const res = await api.get('/trips/operator/my-trips', { params: { date_from: monthStart, date_to: monthEnd } });
       setTrips(res.data.data?.trips || res.data.data || []);
     } catch {
       toast.error('Failed to load trips');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentDate]);
 
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(fetchData, 30000);
 
@@ -48,7 +55,6 @@ export default function OperatorSchedulePage() {
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date();
 
   const tripsByDate = useMemo(() => {
     const map: Record<string, TripItem[]> = {};
@@ -144,7 +150,7 @@ export default function OperatorSchedulePage() {
 
               const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const dayTrips = tripsByDate[dateKey] || [];
-              const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+              const isToday = dateKey === TODAY_NPT;
               const isSelected = selectedDay === day;
               const tripCount = dayTrips.length;
 

@@ -50,20 +50,35 @@ export default function OperatorProfilePage() {
 
   const handleSave = async () => {
     if (!profile) return;
+    const name = (profile.company_name || '').trim();
+    if (name.length < 2) {
+      toast.error('Company name must be at least 2 characters');
+      return;
+    }
+    const email = (profile.email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    const phoneDigits = (profile.phone_number || '').replace(/\D/g, '');
+    if (phoneDigits && (phoneDigits.length < 7 || phoneDigits.length > 15)) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
     try {
       setSaving(true);
       await api.put('/operators/profile', {
-        company_name: profile.company_name,
-        contact_person: profile.contact_person,
-        phone_number: profile.phone_number,
-        email: profile.email,
-        address: profile.address,
-        pan_number: profile.pan_number,
-        vat_number: profile.vat_number,
+        company_name: name,
+        contact_person: (profile.contact_person || '').trim(),
+        phone_number: (profile.phone_number || '').trim(),
+        email,
+        address: (profile.address || '').trim(),
+        pan_number: (profile.pan_number || '').trim(),
+        vat_number: (profile.vat_number || '').trim(),
       });
       toast.success('Profile updated successfully');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update profile');
+      toast.error(err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }

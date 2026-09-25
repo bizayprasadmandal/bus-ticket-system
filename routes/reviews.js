@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { Review, User, Trip, Booking, Bus, Route, Operator, City } = require('../models');
+const { Review, User, Trip, Booking, Bus, Route, Operator } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 
 // POST / - Create review (authenticated, only COMPLETED bookings, one per user per trip)
@@ -77,12 +77,7 @@ router.get('/trip/:tripId', async (req, res) => {
         { model: User, as: 'user', attributes: ['id', 'full_name'] },
         { model: Trip, as: 'trip', attributes: ['id', 'trip_date', 'departure_time'],
           include: [
-            { model: Route, as: 'route', attributes: ['id'],
-              include: [
-                { model: City, as: 'origin', attributes: ['id', 'name'] },
-                { model: City, as: 'destination', attributes: ['id', 'name'] },
-              ]
-            }
+            { model: Route, as: 'route', attributes: ['id', 'origin_city', 'destination_city'] },
           ]
         },
       ],
@@ -129,12 +124,7 @@ router.get('/operator/:operatorId', async (req, res) => {
         { model: User, as: 'user', attributes: ['id', 'full_name'] },
         { model: Trip, as: 'trip', attributes: ['id', 'trip_date', 'departure_time'],
           include: [
-            { model: Route, as: 'route', attributes: ['id'],
-              include: [
-                { model: City, as: 'origin', attributes: ['id', 'name'] },
-                { model: City, as: 'destination', attributes: ['id', 'name'] },
-              ]
-            }
+            { model: Route, as: 'route', attributes: ['id', 'origin_city', 'destination_city'] },
           ]
         },
       ],

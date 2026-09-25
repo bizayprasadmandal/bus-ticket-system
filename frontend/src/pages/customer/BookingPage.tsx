@@ -13,8 +13,10 @@ import {
   CreditCard,
   ChevronRight,
   AlertTriangle,
+  Tag,
+  CheckCircle2,
 } from 'lucide-react';
-import { tripAPI, bookingAPI } from '../../api';
+import { tripAPI, bookingAPI, promoAPI } from '../../api';
 import type { Trip } from '../../types';
 import Dropdown from '../../components/Dropdown';
 import toast from 'react-hot-toast';
@@ -25,6 +27,17 @@ interface Passenger {
   gender: string;
   id_type: string;
   id_number: string;
+}
+
+interface Promo {
+  id: number;
+  code: string;
+  description: string | null;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: string | number;
+  min_amount: string | number;
+  valid_from: string;
+  valid_until: string;
 }
 
 const ID_TYPE_MAP: Record<string, string> = {
@@ -60,6 +73,65 @@ export default function BookingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phone, setPhone] = useState('');
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<Promo | null>(null);
+  const [promos, setPromos] = useState<Promo[]>([]);
+  const [showOffers, setShowOffers] = useState(false);
+
+  useEffect(() => {
+    // Offers are non-critical: fail silently.
+    promoAPI
+      .getActive()
+      .then((res) => setPromos(res.data.data.promos || []))
+      .catch(() => {});
+  }, []);
+
+  // Drop the code if seat changes push the fare below its minimum spend.
+  useEffect(() => {
+    if (!appliedPromo || !trip || selectedSeats.length === 0) return;
+    const subtotal = (trip.current_fare || 0) * selectedSeats.length;
+    if (subtotal < Number(appliedPromo.min_amount)) {
+      const code = appliedPromo.code;
+      setAppliedPromo(null);
+      setPromoInput('');
+      toast.error(`${code} removed — minimum spend not met`);
+    }
+  }, [appliedPromo, trip, selectedSeats.length]);
+
+  // Mirrors services/promos.js computeDiscount so the preview matches the server.
+  const promoDiscountFor = (promo: Promo, seats: number) => {
+    const subtotal = Math.round(((trip?.current_fare || 0) * seats) * 100) / 100;
+    const value = Number(promo.discount_value);
+    const raw = promo.discount_type === 'percentage' ? (subtotal * value) / 100 : value;
+    return Math.round(Math.min(Math.max(raw, 0), subtotal) * 100) / 100;
+  };
+
+  const applyPromo = (rawCode: string) => {
+    const code = rawCode.toUpperCase().trim();
+    if (!code) {
+      toast.error('Enter a promo code');
+      return;
+    }
+    const promo = promos.find((p) => p.code.toUpperCase() === code);
+    if (!promo) {
+      toast.error('Invalid, expired or fully redeemed code');
+      return;
+    }
+    const subtotal = (trip?.current_fare || 0) * selectedSeats.length;
+    if (subtotal < Number(promo.min_amount)) {
+      toast.error(`This code needs a minimum spend of NPR ${Number(promo.min_amount).toLocaleString()}`);
+      return;
+    }
+    setAppliedPromo(promo);
+    setPromoInput(promo.code);
+    setShowOffers(false);
+    toast.success(`${promo.code} applied!`);
+  };
+
+  const removePromo = () => {
+    setAppliedPromo(null);
+    setPromoInput('');
+  };
 
   useEffect(() => {
     if (!tripId) return;
@@ -141,6 +213,7 @@ export default function BookingPage() {
       const response = await bookingAPI.create({
         trip_id: Number(tripId),
         passengers: passengerData,
+        ...(appliedPromo ? { promo_code: appliedPromo.code } : {}),
       });
       const bookingId = response.data.data.booking.id;
       toast.success('Booking created! Proceed to payment.');
@@ -205,7 +278,11 @@ export default function BookingPage() {
   const baseTotal = fare * selectedSeats.length;
   const gst = Math.round(baseTotal * 0.13 * 100) / 100;
   const serviceFee = 50 * selectedSeats.length;
-  const totalAmount = Math.round((baseTotal + gst + serviceFee) * 100) / 100;
+  const discountAmount = appliedPromo ? promoDiscountFor(appliedPromo, selectedSeats.length) : 0;
+  const totalAmount = Math.max(
+    0,
+    Math.round((baseTotal + gst + serviceFee - discountAmount) * 100) / 100
+  );
 
   const rawAmenities = trip.bus?.amenities;
   const amenities: string[] = Array.isArray(rawAmenities)
@@ -937,6 +1014,197 @@ export default function BookingPage() {
             </div>
           </div>
 
+          {/* Promo Code Card */}
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '12px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+              padding: '20px',
+              marginTop: '16px',
+            }}
+          >
+            <h3
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                color: '#1a1a2e',
+                marginBottom: '12px',
+                fontFamily: 'Poppins',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Tag size={15} style={{ color: '#d84e55' }} />
+              Offers
+            </h3>
+
+            {appliedPromo ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle2 size={16} style={{ color: '#16a34a' }} />
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: 700, color: '#166534', margin: 0 }}>
+                      {appliedPromo.code} applied
+                    </p>
+                    {discountAmount > 0 && (
+                      <p style={{ fontSize: '11px', color: '#4d7c0f', margin: 0 }}>
+                        You save NPR {discountAmount.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={removePromo}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#dc2626',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="Enter promo code"
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '13px',
+                      outline: 'none',
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.5px',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => applyPromo(promoInput)}
+                    style={{
+                      background: '#d84e55',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px 16px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: 'Poppins',
+                    }}
+                  >
+                    APPLY
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOffers((v) => !v)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#d84e55',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '8px 0 0',
+                  }}
+                >
+                  {showOffers ? 'Hide offers' : `View all offers (${promos.length})`}
+                </button>
+                {showOffers && (
+                  <div
+                    style={{
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      marginTop: '8px',
+                    }}
+                  >
+                    {promos.length === 0 && (
+                      <p style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        No offers available right now
+                      </p>
+                    )}
+                    {promos.map((p) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          border: '1px solid #f3f4f6',
+                          borderRadius: '10px',
+                          padding: '8px 10px',
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: '13px', fontWeight: 700, color: '#d84e55', margin: 0 }}>
+                            {p.discount_type === 'percentage'
+                              ? `${Number(p.discount_value)}% OFF`
+                              : `NPR ${Number(p.discount_value).toLocaleString()} OFF`}
+                          </p>
+                          <p
+                            style={{
+                              fontSize: '11px',
+                              color: '#6b7280',
+                              margin: 0,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {p.description || p.code} · min NPR {Number(p.min_amount).toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => applyPromo(p.code)}
+                          style={{
+                            flexShrink: 0,
+                            background: '#fff',
+                            color: '#d84e55',
+                            border: '1px solid #f2c4c6',
+                            borderRadius: '8px',
+                            padding: '5px 10px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          APPLY
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Fare Summary Card */}
           <div
             style={{
@@ -1005,6 +1273,20 @@ export default function BookingPage() {
                     NPR {serviceFee}
                   </span>
                 </div>
+                {appliedPromo && discountAmount > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '13px',
+                      color: '#16a34a',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <span>Promo ({appliedPromo.code})</span>
+                    <span style={{ fontWeight: 600 }}>- NPR {discountAmount}</span>
+                  </div>
+                )}
                 <div
                   style={{
                     borderTop: '2px solid #f3f4f6',

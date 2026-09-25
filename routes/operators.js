@@ -132,6 +132,81 @@ router.post('/register', authenticateToken, operatorValidation.register, handleV
 });
 
 // Update operator (Operator themselves or Admin)
+router.put('/profile', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
+  try {
+    const userRoles = req.user.roles || [];
+    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
+
+    if (!operatorRole || !operatorRole.operator_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operator information not found',
+      });
+    }
+
+    const operator = await Operator.findByPk(operatorRole.operator_id);
+
+    if (!operator) {
+      return res.status(404).json({
+        success: false,
+        message: 'Operator profile not found',
+      });
+    }
+
+    const {
+      company_name,
+      company_name_nepali,
+      contact_person,
+      phone_number,
+      email,
+      address,
+      logo_url,
+      pan_number,
+      vat_number,
+    } = req.body;
+
+    if (company_name !== undefined && String(company_name).trim().length < 2) {
+      return res.status(400).json({ success: false, message: 'Company name must be at least 2 characters' });
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+    }
+    if (phone_number && String(phone_number).trim()) {
+      const digits = String(phone_number).replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        return res.status(400).json({ success: false, message: 'Please provide a valid phone number' });
+      }
+    }
+
+    await operator.update({
+      company_name: company_name !== undefined ? String(company_name).trim() : undefined,
+      company_name_nepali,
+      contact_person: contact_person !== undefined ? String(contact_person).trim() : undefined,
+      phone_number: phone_number !== undefined ? String(phone_number).trim() : undefined,
+      email: email !== undefined ? String(email).trim() : undefined,
+      address: address !== undefined ? String(address).trim() : undefined,
+      logo_url,
+      pan_number: pan_number !== undefined ? String(pan_number).trim() : undefined,
+      vat_number: vat_number !== undefined ? String(vat_number).trim() : undefined,
+    });
+
+    res.json({
+      success: true,
+      message: 'Operator profile updated successfully',
+      data: { operator },
+    });
+  } catch (error) {
+    console.error('Update operator profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update operator profile',
+      error: error.message,
+    });
+  }
+});
+
+// NOTE: /profile must be registered BEFORE /:id, otherwise Express matches
+// PUT /profile against PUT /:id and idParam rejects 'profile' with a 400.
 router.put('/:id', authenticateToken, commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {
     const { id } = req.params;
@@ -330,22 +405,35 @@ router.post('/staff', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid role' });
     }
 
+    // Same normalization as login so the new staff member can actually sign in
+    const phone = String(phone_number).trim().replace(/[\s\-()]/g, '').replace(/^\+977/, '').replace(/^0/, '');
+    if (!/^9[6-8]\d{8}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: 'Enter a valid Nepali mobile number (e.g. 9800000000)' });
+    }
+
     // Find or create user
-    let user = await User.findOne({ where: { phone_number } });
+    let user = await User.findOne({ where: { phone_number: phone } });
+    let createdUser = false;
     if (!user) {
       // Same convention as seed users so staff accounts can actually sign in
       user = await User.create({
-        phone_number,
-        full_name: full_name || phone_number,
+        phone_number: phone,
+        full_name: full_name || phone,
         password: await bcrypt.hash('password123', 10),
         status: 'ACTIVE',
         is_phone_verified: false,
       });
+      createdUser = true;
     }
 
     // Check if role already assigned
     const existing = await UserRole.findOne({ where: { user_id: user.id, role, operator_id: operatorRole.operator_id } });
     if (existing) {
+      if (!existing.is_active) {
+        // Restore a previously removed staff member instead of erroring
+        await existing.update({ is_active: true });
+        return res.json({ success: true, message: 'Staff member restored', data: { staff: existing, user } });
+      }
       return res.status(400).json({ success: false, message: 'Staff member already has this role' });
     }
 
@@ -356,7 +444,10 @@ router.post('/staff', authenticateToken, async (req, res) => {
       is_active: true,
     });
 
-    res.json({ success: true, data: { staff: staffRole, user } });
+    const message = createdUser
+      ? `Staff member added. They can sign in with phone ${phone} and password password123.`
+      : 'Staff member added to the existing user account.';
+    res.json({ success: true, message, data: { staff: staffRole, user } });
   } catch (error) {
     console.error('Add staff error:', error);
     res.status(500).json({ success: false, message: 'Failed to add staff' });
@@ -468,66 +559,6 @@ router.get('/profile', authenticateToken, requireRole(['OPERATOR']), async (req,
 });
 
 // PUT /profile - Update operator profile
-router.put('/profile', authenticateToken, requireRole(['OPERATOR']), async (req, res) => {
-  try {
-    const userRoles = req.user.roles || [];
-    const operatorRole = userRoles.find(role => role.role === 'OPERATOR' && role.is_active);
-
-    if (!operatorRole || !operatorRole.operator_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Operator information not found',
-      });
-    }
-
-    const operator = await Operator.findByPk(operatorRole.operator_id);
-
-    if (!operator) {
-      return res.status(404).json({
-        success: false,
-        message: 'Operator profile not found',
-      });
-    }
-
-    const {
-      company_name,
-      company_name_nepali,
-      contact_person,
-      phone_number,
-      email,
-      address,
-      logo_url,
-      pan_number,
-      vat_number,
-    } = req.body;
-
-    await operator.update({
-      company_name,
-      company_name_nepali,
-      contact_person,
-      phone_number,
-      email,
-      address,
-      logo_url,
-      pan_number,
-      vat_number,
-    });
-
-    res.json({
-      success: true,
-      message: 'Operator profile updated successfully',
-      data: { operator },
-    });
-  } catch (error) {
-    console.error('Update operator profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update operator profile',
-      error: error.message,
-    });
-  }
-});
-
 // Get operator details (MUST be after all named routes to avoid conflicts)
 router.get('/:id', commonValidation.idParam, handleValidationErrors, async (req, res) => {
   try {

@@ -3,6 +3,7 @@ import { Users, Plus, Search, Trash2, X, RefreshCw } from 'lucide-react';
 import { operatorStaffAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { normalizeNepalPhone, isValidNepalPhone } from '../../utils/phone';
 import toast from 'react-hot-toast';
 
 const ROLE_OPTIONS = [
@@ -30,7 +31,6 @@ export default function OperatorStaffPage() {
   const [lastUpdated, setLastUpdated] = useState('');
 
   const loadStaff = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await operatorStaffAPI.getMyStaff();
       setStaff(res.data.data.staff || []);
@@ -51,15 +51,34 @@ export default function OperatorStaffPage() {
       toast.error('Phone and role are required');
       return;
     }
+    if (!isValidNepalPhone(form.phone_number)) {
+      toast.error('Enter a valid Nepali mobile number (e.g. 9800000000)');
+      return;
+    }
     setSubmitting(true);
     try {
-      await operatorStaffAPI.addStaff(form);
-      toast.success('Staff member added');
+      const res = await operatorStaffAPI.addStaff({ ...form, phone_number: normalizeNepalPhone(form.phone_number) });
+      // Backend message includes the sign-in password for newly created accounts
+      toast.success(res.data.message || 'Staff member added', { duration: 10000 });
       setShowAddModal(false);
       setForm({ phone_number: '', full_name: '', role: 'DRIVER' });
       loadStaff();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to add staff');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRestore = async (s: any) => {
+    setSubmitting(true);
+    try {
+      // Re-adding the same phone + role reactivates the removed assignment
+      const res = await operatorStaffAPI.addStaff({ phone_number: s.phone_number, full_name: s.full_name, role: s.role });
+      toast.success(res.data.message || 'Staff member restored', { duration: 10000 });
+      loadStaff();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to restore staff');
     } finally {
       setSubmitting(false);
     }
@@ -71,8 +90,8 @@ export default function OperatorStaffPage() {
       await operatorStaffAPI.removeStaff(id);
       toast.success('Staff member removed');
       loadStaff();
-    } catch {
-      toast.error('Failed to remove staff');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to remove staff');
     }
   };
 
@@ -187,12 +206,21 @@ export default function OperatorStaffPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {s.is_active && (
+                        {s.is_active ? (
                           <button
                             onClick={() => handleRemove(s.id)}
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Remove"
                           >
                             <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRestore(s)}
+                            disabled={submitting}
+                            className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Restore
                           </button>
                         )}
                       </td>
@@ -219,11 +247,12 @@ export default function OperatorStaffPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
                 <input
-                  type="text"
+                  type="tel"
                   value={form.phone_number}
                   onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55]/20 focus:border-[#d84e55] outline-none"
                   placeholder="e.g. 9800000000"
+                  maxLength={16}
                   required
                 />
               </div>

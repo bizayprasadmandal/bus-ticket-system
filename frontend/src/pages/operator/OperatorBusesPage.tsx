@@ -24,7 +24,9 @@ export default function OperatorBusesPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [form, setForm] = useState({ bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30 });
+  const [form, setForm] = useState({ bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30, status: 'ACTIVE' });
+
+  const EMPTY_FORM = { bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30, status: 'ACTIVE' };
 
   const itemsPerPage = 10;
 
@@ -75,7 +77,7 @@ export default function OperatorBusesPage() {
       }
       setShowModal(false);
       setEditingBus(null);
-      setForm({ bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30 });
+      setForm(EMPTY_FORM);
       loadBuses();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Operation failed');
@@ -95,7 +97,7 @@ export default function OperatorBusesPage() {
 
   const openEdit = (bus: BusItem) => {
     setEditingBus(bus);
-    setForm({ bus_number: bus.bus_number, bus_model: bus.bus_model || '', bus_type: bus.bus_type, total_seats: bus.total_seats });
+    setForm({ bus_number: bus.bus_number, bus_model: bus.bus_model || '', bus_type: bus.bus_type, total_seats: bus.total_seats, status: bus.status });
     setShowModal(true);
   };
 
@@ -134,7 +136,7 @@ export default function OperatorBusesPage() {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => { setEditingBus(null); setForm({ bus_number: '', bus_model: '', bus_type: 'AC', total_seats: 30 }); setShowModal(true); }}
+            onClick={() => { setEditingBus(null); setForm(EMPTY_FORM); setShowModal(true); }}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" /> Add Bus
@@ -218,7 +220,7 @@ export default function OperatorBusesPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {paginatedBuses.map((bus) => (
-                <tr key={bus.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={bus.id} onClick={() => openEdit(bus)} className="hover:bg-gray-50 transition-colors cursor-pointer">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -250,10 +252,10 @@ export default function OperatorBusesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEdit(bus)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                      <button onClick={(e) => { e.stopPropagation(); openEdit(bus); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button onClick={() => handleDelete(bus.id, bus.bus_number)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Retire">
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(bus.id, bus.bus_number); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Retire">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -317,7 +319,7 @@ export default function OperatorBusesPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Bus Number *</label>
                 <input placeholder="e.g. NA-1234" value={form.bus_number} onChange={(e) => setForm({ ...form, bus_number: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required />
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" maxLength={20} required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Bus Model *</label>
@@ -346,6 +348,21 @@ export default function OperatorBusesPage() {
                 <input type="number" placeholder="Number of seats" value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: Number(e.target.value) })}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} max={100} required />
               </div>
+              {editingBus && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Status *</label>
+                  <Dropdown
+                    value={form.status}
+                    onChange={(val) => setForm({ ...form, status: val })}
+                    options={[
+                      { value: 'ACTIVE', label: 'Active' },
+                      { value: 'MAINTENANCE', label: 'Maintenance' },
+                      { value: 'RETIRED', label: 'Retired' },
+                    ]}
+                    placeholder="Select status"
+                  />
+                </div>
+              )}
               <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                 {editingBus ? 'Update Bus' : 'Create Bus'}
               </button>

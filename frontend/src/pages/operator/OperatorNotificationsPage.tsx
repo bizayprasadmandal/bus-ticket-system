@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, AlertTriangle, Calendar, CheckCircle, Clock, Trash2, Filter, Loader2 } from 'lucide-react';
 import api from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -11,7 +12,24 @@ interface Notification {
   description: string;
   timestamp: string;
   read: boolean;
+  link: string;
 }
+
+const READ_KEY = 'op_notifications_read';
+const DELETED_KEY = 'op_notifications_deleted';
+
+const loadIds = (key: string): string[] => {
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
+};
+const saveIds = (key: string, ids: string[]) => {
+  try { localStorage.setItem(key, JSON.stringify([...new Set(ids)])); } catch { /* ignore quota errors */ }
+};
+
+const typeLinks: Record<string, string> = {
+  cancellation: '/operator/bookings',
+  low_occupancy: '/operator/trips',
+  schedule_change: '/operator/schedule',
+};
 
 const typeConfig: Record<string, { icon: any; color: string; bgColor: string }> = {
   cancellation: { icon: AlertTriangle, color: 'text-red-600', bgColor: 'bg-red-50' },
@@ -31,23 +49,26 @@ export default function OperatorNotificationsPage() {
   const [filter, setFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [readIds, setReadIds] = useState<string[]>(() => loadIds(READ_KEY));
+  const [deletedIds, setDeletedIds] = useState<string[]>(() => loadIds(DELETED_KEY));
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await api.get('/dashboard/operator/notifications');
       const data = res.data.data;
 
       const mapped: Notification[] = [];
 
       (data.recent_cancellations || []).forEach((b: any) => {
+        const refund = Number(b.refund_amount || 0);
         mapped.push({
           id: `cancel-${b.id}`,
           type: 'cancellation',
           title: 'Booking Cancelled',
-          description: `Booking for ${b.user?.full_name || 'Customer'} on ${b.trip?.route?.origin_city || ''} → ${b.trip?.route?.destination_city || ''} (${b.trip?.trip_date || ''}) was cancelled. NPR ${b.total_amount} refund processed.`,
+          description: `Booking for ${b.user?.full_name || 'Customer'} on ${b.trip?.route?.origin_city || ''} → ${b.trip?.route?.destination_city || ''} (${b.trip?.trip_date || ''}) was cancelled.${refund > 0 ? ` Refund of NPR ${refund.toLocaleString()} processed.` : ''}`,
           timestamp: b.booking_date,
           read: false,
+          link: typeLinks.cancellation,
         });
       });
 
@@ -59,6 +80,7 @@ export default function OperatorNotificationsPage() {
           description: `Trip #${t.id} (${t.route?.origin_city || ''} → ${t.route?.destination_city || ''}, ${t.trip_date}) has only ${t.occupancy_rate}% seats booked (${t.booked_seats}/${t.bus?.total_seats || t.total_seats}).`,
           timestamp: t.trip_date,
           read: false,
+          link: typeLinks.low_occupancy,
         });
       });
 
@@ -70,18 +92,22 @@ export default function OperatorNotificationsPage() {
           description: `Trip #${t.id} (${t.route?.origin_city || ''} → ${t.route?.destination_city || ''}) on ${t.trip_date} at ${t.departure_time} was updated. Status: ${t.status}.`,
           timestamp: t.created_at,
           read: false,
+          link: typeLinks.schedule_change,
         });
       });
 
-      mapped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setNotifications(mapped);
+      const visible = mapped
+        .filter((n) => !deletedIds.includes(String(n.id)))
+        .map((n) => ({ ...n, read: readIds.includes(String(n.id)) }));
+      visible.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setNotifications(visible);
       setLastUpdated(new Date().toLocaleTimeString());
     } catch {
       toast.error('Failed to load notifications');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [readIds, deletedIds]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useAutoRefresh(fetchData, 30000, true, false);
@@ -93,20 +119,24 @@ export default function OperatorNotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAsRead = (id: string | number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    const next = [...readIds, String(id)];
+    setReadIds(next);
+    saveIds(READ_KEY, next);
     toast.success('Marked as read');
   };
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const next = notifications.map((n) => String(n.id));
+    setReadIds(next);
+    saveIds(READ_KEY, next);
     toast.success('All notifications marked as read');
   };
 
   const deleteNotification = (id: string | number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    toast.success('Notification deleted');
+    const next = [...deletedIds, String(id)];
+    setDeletedIds(next);
+    saveIds(DELETED_KEY, next);
+    toast.success('Notification removed');
   };
 
   const formatTimestamp = (ts: string) => {
@@ -116,6 +146,10 @@ export default function OperatorNotificationsPage() {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
+    // Future timestamps (e.g. upcoming trip dates) are not "Just now"
+    if (diffMs < 0) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(ts) ? ts : date.toLocaleDateString();
+    }
     if (diffHours < 1) return 'Just now';
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -188,9 +222,11 @@ export default function OperatorNotificationsPage() {
               const config = typeConfig[notification.type];
               const Icon = config.icon;
               return (
-                <div
+                <Link
                   key={notification.id}
-                  className={`bg-white rounded-xl shadow-sm border p-4 transition-all hover:shadow-md ${
+                  to={notification.link}
+                  onClick={() => { if (!notification.read) markAsRead(notification.id); }}
+                  className={`block bg-white rounded-xl shadow-sm border p-4 transition-all hover:shadow-md ${
                     notification.read ? 'border-gray-100' : 'border-[#d84e55]/30 bg-[#d84e55]/[0.02]'
                   }`}
                 >
@@ -218,14 +254,14 @@ export default function OperatorNotificationsPage() {
                       <div className="flex items-center gap-2 mt-3">
                         {!notification.read && (
                           <button
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsRead(notification.id); }}
                             className="text-xs text-[#d84e55] hover:underline font-medium"
                           >
                             Mark as read
                           </button>
                         )}
                         <button
-                          onClick={() => deleteNotification(notification.id)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteNotification(notification.id); }}
                           className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -234,7 +270,7 @@ export default function OperatorNotificationsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })
           )}

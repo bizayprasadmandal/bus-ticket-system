@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DollarSign, Plus, Edit2, Trash2, X, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react';
-import { fareRuleAPI } from '../../api';
+import { fareRuleAPI, operatorRouteAPI } from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
@@ -26,8 +26,8 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 interface FareRuleForm {
   name: string;
   type: string;
-  multiplier: number;
-  discount_percent: number;
+  multiplier: string;
+  discount_percent: string;
   start_date: string;
   end_date: string;
   start_time: string;
@@ -39,8 +39,8 @@ interface FareRuleForm {
 const emptyForm: FareRuleForm = {
   name: '',
   type: 'PEAK_HOURS',
-  multiplier: 1.0,
-  discount_percent: 0,
+  multiplier: '1',
+  discount_percent: '0',
   start_date: '',
   end_date: '',
   start_time: '',
@@ -51,6 +51,7 @@ const emptyForm: FareRuleForm = {
 
 export default function OperatorFareRulesPage() {
   const [rules, setRules] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -59,7 +60,6 @@ export default function OperatorFareRulesPage() {
   const [lastUpdated, setLastUpdated] = useState('');
 
   const loadRules = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fareRuleAPI.getAll();
       setRules(res.data.data.fare_rules || []);
@@ -74,6 +74,12 @@ export default function OperatorFareRulesPage() {
   useEffect(() => { loadRules(); }, [loadRules]);
   useAutoRefresh(loadRules, 30000, true, false);
 
+  useEffect(() => {
+    operatorRouteAPI.getMyRoutes()
+      .then((res) => setRoutes(res.data.data?.routes || []))
+      .catch(() => { /* selector falls back to global-only */ });
+  }, []);
+
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -85,28 +91,67 @@ export default function OperatorFareRulesPage() {
     setForm({
       name: rule.name || '',
       type: rule.type || 'PEAK_HOURS',
-      multiplier: parseFloat(rule.multiplier) || 1.0,
-      discount_percent: parseFloat(rule.discount_percent) || 0,
+      multiplier: rule.multiplier != null ? String(parseFloat(rule.multiplier)) : '1',
+      discount_percent: rule.discount_percent != null ? String(parseFloat(rule.discount_percent)) : '0',
       start_date: rule.start_date || '',
       end_date: rule.end_date || '',
       start_time: rule.start_time || '',
       end_time: rule.end_time || '',
       days_of_week: rule.days_of_week || [],
-      route_id: rule.route_id || '',
+      route_id: rule.route_id != null ? String(rule.route_id) : '',
     });
     setShowModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.type) {
-      toast.error('Name and type are required');
+    const name = form.name.trim();
+    if (!name) {
+      toast.error('Rule name is required');
+      return;
+    }
+    const multiplier = Number(form.multiplier);
+    if (!(multiplier >= 0.01 && multiplier <= 10)) {
+      toast.error('Multiplier must be between 0.01 and 10');
+      return;
+    }
+    const discount = Number(form.discount_percent === '' ? 0 : form.discount_percent);
+    if (!(discount >= 0 && discount <= 100)) {
+      toast.error('Discount must be between 0 and 100');
+      return;
+    }
+    if (form.start_date && form.end_date && form.start_date > form.end_date) {
+      toast.error('End date must be after start date');
+      return;
+    }
+    if (form.start_time && form.end_time && form.start_time >= form.end_time) {
+      toast.error('End time must be after start time');
+      return;
+    }
+    // Fields the backend needs for each rule type to ever apply
+    if (form.type === 'PEAK_HOURS' && (!form.start_time || !form.end_time)) {
+      toast.error('Peak Hours rules require start and end time');
+      return;
+    }
+    if (form.type === 'WEEKEND' && form.days_of_week.length === 0) {
+      toast.error('Weekend rules require at least one day of the week');
+      return;
+    }
+    if ((form.type === 'HOLIDAY' || form.type === 'SEASONAL') && (!form.start_date || !form.end_date)) {
+      toast.error(`${form.type === 'HOLIDAY' ? 'Holiday' : 'Seasonal'} rules require a start and end date`);
+      return;
+    }
+    if (form.type === 'DISCOUNT' && discount <= 0) {
+      toast.error('Discount rules require a discount percent above 0');
       return;
     }
     setSubmitting(true);
     try {
       const payload = {
         ...form,
+        name,
+        multiplier,
+        discount_percent: discount,
         route_id: form.route_id ? parseInt(form.route_id) : null,
       };
       if (editingId) {
@@ -185,7 +230,7 @@ export default function OperatorFareRulesPage() {
       </div>
 
       {loading ? (
-        <TableSkeleton rows={5} cols={5} />
+        <TableSkeleton rows={5} cols={8} />
       ) : rules.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
           <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -304,10 +349,10 @@ export default function OperatorFareRulesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    min="0"
+                    min="0.01"
                     max="10"
                     value={form.multiplier}
-                    onChange={(e) => setForm({ ...form, multiplier: parseFloat(e.target.value) || 1 })}
+                    onChange={(e) => setForm({ ...form, multiplier: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55]/20 focus:border-[#d84e55] outline-none"
                   />
                 </div>
@@ -319,10 +364,23 @@ export default function OperatorFareRulesPage() {
                     min="0"
                     max="100"
                     value={form.discount_percent}
-                    onChange={(e) => setForm({ ...form, discount_percent: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setForm({ ...form, discount_percent: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55]/20 focus:border-[#d84e55] outline-none"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Apply To Route</label>
+                <select
+                  value={form.route_id}
+                  onChange={(e) => setForm({ ...form, route_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#d84e55]/20 focus:border-[#d84e55] outline-none"
+                >
+                  <option value="">All routes</option>
+                  {routes.map((r) => (
+                    <option key={r.id} value={String(r.id)}>{r.origin_city} → {r.destination_city}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

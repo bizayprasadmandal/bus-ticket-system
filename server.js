@@ -36,6 +36,7 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const reviewRoutes = require('./routes/reviews');
 const fareRuleRoutes = require('./routes/fare-rules');
+const promoRoutes = require('./routes/promos');
 
 const app = express();
 
@@ -125,6 +126,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/fare-rules', fareRuleRoutes);
+app.use('/api/promos', promoRoutes);
 
 const PORT = process.env.PORT || 3000;
 
@@ -172,6 +174,29 @@ const startServer = async () => {
       }
     } catch (migrateErr) {
       console.error('⚠️ payments table migration warning:', migrateErr.message);
+    }
+
+    // Ensure bookings table has promo columns (safe to re-run; sync() does not alter existing tables)
+    try {
+      const qi = sequelize.getQueryInterface();
+      const bookingCols = await qi.describeTable('bookings');
+      if (!bookingCols.promo_code) {
+        await qi.addColumn('bookings', 'promo_code', {
+          type: DataTypes.STRING(32),
+          allowNull: true,
+        });
+        console.log('✅ Added bookings.promo_code column');
+      }
+      if (!bookingCols.discount_amount) {
+        await qi.addColumn('bookings', 'discount_amount', {
+          type: DataTypes.DECIMAL(10, 2),
+          allowNull: false,
+          defaultValue: 0,
+        });
+        console.log('✅ Added bookings.discount_amount column');
+      }
+    } catch (migrateErr) {
+      console.error('⚠️ bookings table migration warning:', migrateErr.message);
     }
 
     // Setup automated seat lock cleanup cron (every 2 minutes)

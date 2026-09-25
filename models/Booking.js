@@ -68,6 +68,15 @@ const Booking = sequelize.define('Booking', {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
   },
+  promo_code: {
+    type: DataTypes.STRING(32),
+    allowNull: true,
+  },
+  discount_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+  },
 }, {
   tableName: 'bookings',
   timestamps: false,

@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown, Phone, Mail, MapPin, Wallet, Star } from 'lucide-react';
+import { Bus, Home, Ticket, UserCircle, LogOut, ChevronDown, Phone, Mail, MapPin, Wallet, Star, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 import LanguageToggle from '../../components/LanguageToggle';
 import Avatar from '../../components/Avatar';
 import { PLATFORM_NAME, PLATFORM_EMAIL } from '../../constants/brand';
+import { getHomePath } from '../../utils/homePath';
+
+const PANEL_LABELS: Record<string, string> = {
+  '/admin': 'Admin Panel',
+  '/operator': 'Operator Panel',
+  '/dispatcher': 'Dispatcher Panel',
+  '/driver': 'Driver Panel',
+  '/conductor': 'Conductor Panel',
+  '/counter': 'Counter Panel',
+};
 
 export default function CustomerLayout() {
   const { logout, user } = useAuthStore();
@@ -19,7 +29,12 @@ export default function CustomerLayout() {
     navigate('/login');
   };
 
+  // Staff users landing here (search/book as a customer) need a way back to their panel.
+  const roleHome = getHomePath(user);
+  const panelLabel = PANEL_LABELS[roleHome];
+
   const navLinks = [
+    ...(panelLabel ? [{ to: roleHome, icon: LayoutDashboard, label: panelLabel }] : []),
     { to: '/', icon: Home, label: 'Home' },
     { to: '/my-bookings', icon: Ticket, label: 'My Bookings' },
     { to: '/wallet', icon: Wallet, label: 'Wallet' },
@@ -95,6 +110,16 @@ export default function CustomerLayout() {
                       <UserCircle className="h-4 w-4 text-gray-400" />
                       My Profile
                     </Link>
+                    {panelLabel && (
+                      <Link
+                        to={roleHome}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#d84e55] hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowProfileMenu(false)}
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        {panelLabel}
+                      </Link>
+                    )}
                     <Link
                       to="/my-bookings"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

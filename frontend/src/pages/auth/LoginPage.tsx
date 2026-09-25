@@ -44,9 +44,11 @@ export default function LoginPage() {
   if (isAuthenticated) {
     const state = location.state as { from?: { pathname?: string; search?: string } } | null;
     const nextParam = new URLSearchParams(location.search).get('next');
-    const target = state?.from?.pathname
-      ? state.from.pathname + (state.from.search || '')
-      : nextParam || getHomePath(user);
+    const from = state?.from?.pathname ? state.from.pathname + (state.from.search || '') : null;
+    // Opening the site logged-out sends everyone through '/' -> /login, so a bare '/'
+    // deep link must not strand staff users on the customer site: role home wins for it.
+    // Specific deep links (and ?next=) are still honored.
+    const target = from && from !== '/' ? from : nextParam || getHomePath(user);
     return <Navigate to={target} replace />;
   }
 

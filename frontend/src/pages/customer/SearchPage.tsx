@@ -1,11 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, ArrowLeftRight, ChevronRight, ChevronDown, Bus, Shield, CreditCard, Headphones, Clock } from 'lucide-react';
-import { tripAPI, cityAPI } from '../../api';
+import { Search, MapPin, ArrowLeftRight, ChevronRight, ChevronDown, Bus, Shield, CreditCard, Headphones, Clock, Copy, Check } from 'lucide-react';
+import { tripAPI, cityAPI, promoAPI } from '../../api';
 import type { City, Trip } from '../../types';
 import DatePicker from '../../components/DatePicker';
 import AmenityBadge from '../../components/AmenityBadge';
 import toast from 'react-hot-toast';
 import { Link, useSearchParams } from 'react-router-dom';
+
+interface Promo {
+  id: number;
+  code: string;
+  description: string | null;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: string | number;
+  min_amount: string | number;
+  valid_from: string;
+  valid_until: string;
+}
 
 const RECENT_SEARCHES_KEY = 'recentSearches';
 
@@ -38,6 +49,8 @@ export default function SearchPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [recentSearches, setRecentSearches] = useState(getRecentSearches());
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [promos, setPromos] = useState<Promo[]>([]);
+  const [copiedCode, setCopiedCode] = useState('');
 
   const [originOpen, setOriginOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -60,6 +73,14 @@ export default function SearchPage() {
       })
       .catch(() => toast.error('Failed to load cities'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Offers are non-critical: fail silently, the rest of the page still works.
+    promoAPI
+      .getActive()
+      .then((res) => setPromos(res.data.data.promos || []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -122,6 +143,27 @@ export default function SearchPage() {
     setSelectedAmenities((prev) =>
       prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
     );
+  };
+
+  const copyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      toast.success(`Code ${code} copied`);
+      setTimeout(() => setCopiedCode(''), 2000);
+    } catch {
+      toast.error('Could not copy code');
+    }
+  };
+
+  // DATEONLY strings are 'YYYY-MM-DD'; build a local Date so the day doesn't
+  // shift back one day in timezones west of UTC.
+  const formatValidUntil = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+    });
   };
 
   const allAmenities = Array.from(
@@ -599,6 +641,73 @@ export default function SearchPage() {
         {/* Sections below search (always visible when not showing results) */}
         {!hasSearched && (
           <>
+            {/* Best Offers For You */}
+            {promos.length > 0 && (
+              <div className="mb-10">
+                <div className="flex items-baseline justify-between mb-4">
+                  <h2
+                    className="text-xl font-bold text-gray-800"
+                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                  >
+                    Best Offers For You
+                  </h2>
+                  <span className="text-xs text-gray-400">
+                    Apply these at checkout
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {promos.map((p) => (
+                    <div
+                      key={p.id}
+                      className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-lg hover:border-red-100 transition-all flex flex-col"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className="inline-block px-2.5 py-1 rounded-lg text-xs font-extrabold text-white shadow-sm"
+                          style={{ background: 'linear-gradient(135deg, #d84e55, #f07b81)' }}
+                        >
+                          {p.discount_type === 'percentage'
+                            ? `${Number(p.discount_value)}% OFF`
+                            : `NPR ${Number(p.discount_value).toLocaleString()} OFF`}
+                        </span>
+                        <span className="text-[10px] text-gray-400 mt-0.5">
+                          Till {formatValidUntil(p.valid_until)}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 mt-2.5 flex-1">
+                        {p.description || 'Special offer'}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Min. spend NPR {Number(p.min_amount).toLocaleString()}
+                      </p>
+                      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
+                        <span className="font-mono font-bold text-sm tracking-wider" style={{ color: '#d84e55' }}>
+                          {p.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyCode(p.code)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                          style={{
+                            border: '1px solid #f2c4c6',
+                            color: copiedCode === p.code ? '#16a34a' : '#d84e55',
+                            background: '#fff',
+                          }}
+                        >
+                          {copiedCode === p.code ? (
+                            <Check className="h-3.5 w-3.5 text-green-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                          {copiedCode === p.code ? 'COPIED' : 'COPY CODE'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Top Routes Section */}
             <div className="mb-10">
               <h2

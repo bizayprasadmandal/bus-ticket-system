@@ -1,25 +1,31 @@
 import { useState, useCallback } from 'react';
 import { DollarSign, TrendingUp, Calendar, RefreshCw, Loader2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import api from '../../api';
+import api, { operatorRevenueAPI } from '../../api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import toast from 'react-hot-toast';
 
 const PIE_COLORS = ['#d84e55', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'];
 
+const nptFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' });
+const THIRTY_DAYS = { start_date: nptFmt.format(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)), end_date: nptFmt.format(new Date()) };
+
 export default function OperatorRevenuePage() {
   const [revenueData, setRevenueData] = useState<any>(null);
   const [bookingData, setBookingData] = useState<any>(null);
+  const [opAnalytics, setOpAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [revRes, bookRes] = await Promise.all([
-        api.get('/reports/revenue'),
-        api.get('/reports/bookings'),
+      const [revRes, bookRes, opRes] = await Promise.all([
+        api.get('/reports/revenue', { params: THIRTY_DAYS }),
+        api.get('/reports/bookings', { params: THIRTY_DAYS }),
+        operatorRevenueAPI.get(),
       ]);
       setRevenueData(revRes.data.data);
       setBookingData(bookRes.data.data);
+      setOpAnalytics(opRes.data.data);
     } catch {
       toast.error('Failed to load revenue data');
     } finally {
@@ -34,10 +40,13 @@ export default function OperatorRevenuePage() {
     revenue: d.revenue,
   })) || [];
 
-  const revenueByOperator = (revenueData?.revenue_by_operator || []).map((op: any) => ({
-    route: op.company_name,
-    revenue: op.total_revenue,
-  }));
+  const revenueByRoute = (opAnalytics?.revenue_by_route || []).map((r: any) => {
+    const rt = r.trip?.route;
+    return {
+      route: rt ? (rt.route_name || `${rt.origin_city} → ${rt.destination_city}`) : 'Unknown',
+      revenue: Number(r.revenue || 0),
+    };
+  });
 
   const bookingStatusData = (() => {
     const statusCounts: Record<string, number> = {};
@@ -61,7 +70,7 @@ export default function OperatorRevenuePage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Revenue Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Track your earnings and booking statistics</p>
+          <p className="text-sm text-gray-500 mt-1">Track your earnings and booking statistics (last 30 days)</p>
         </div>
         <div className="flex items-center gap-3">
           {lastUpdated && (
@@ -87,7 +96,7 @@ export default function OperatorRevenuePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Total Revenue</p>
-              <p className="text-xl font-bold text-gray-800">NPR {(revenueData?.total_revenue || 0).toLocaleString()}</p>
+              <p className="text-xl font-bold text-gray-800">NPR {Number(revenueData?.total_revenue || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -109,7 +118,7 @@ export default function OperatorRevenuePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Service Fees</p>
-              <p className="text-xl font-bold text-gray-800">NPR {(revenueData?.summary?.total_service_fee || 0).toLocaleString()}</p>
+              <p className="text-xl font-bold text-gray-800">NPR {Number(revenueData?.summary?.total_service_fee || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -120,7 +129,7 @@ export default function OperatorRevenuePage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Avg per Trip</p>
-              <p className="text-xl font-bold text-gray-800">NPR {(revenueData?.average_fare || 0).toLocaleString()}</p>
+              <p className="text-xl font-bold text-gray-800">NPR {Number(revenueData?.average_fare || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -147,12 +156,12 @@ export default function OperatorRevenuePage() {
           )}
         </div>
 
-        {/* Revenue by Operator Bar Chart */}
+        {/* Revenue by Route Bar Chart */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Operator</h3>
-          {revenueByOperator.length > 0 ? (
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Route (Last 30 Days)</h3>
+          {revenueByRoute.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueByOperator}>
+              <BarChart data={revenueByRoute}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="route" tick={{ fontSize: 11 }} />
                 <YAxis />

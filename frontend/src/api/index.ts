@@ -321,3 +321,7 @@ export const operatorRevenueAPI = {
 export const operatorNotificationsAPI = {
   get: () => api.get('/dashboard/operator/notifications'),
 };
+
+export const promoAPI = {
+  getActive: () => api.get('/promos'),
+};

@@ -52,10 +52,13 @@ export default function ProfilePage() {
 
   const displayUser = profile || user;
   const photoUrl = photoPreview || displayUser?.profile_image_url || user?.profile_image_url;
+  // /wallet renders the customer layout — hide the card for staff-only roles
+  const canUseWallet = !(user?.roles?.length) || (user?.roles || []).some((r) => r.role === 'CUSTOMER' && r.is_active !== false);
 
   useEffect(() => {
     loadProfile();
-    loadWallet();
+    if (canUseWallet) loadWallet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const applyUserToStore = (next: UserProfile) => {
@@ -95,8 +98,10 @@ export default function ProfilePage() {
   const loadWallet = async () => {
     try {
       const res = await walletAPI.getBalance();
-      setWalletBalance(res.data.data.balance || 0);
-    } catch {}
+      setWalletBalance(Number(res.data.data.balance || 0));
+    } catch {
+      // Non-customer sessions have no wallet — leave at 0
+    }
   };
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +152,7 @@ export default function ProfilePage() {
       setIsEditingProfile(false);
       toast.success('Profile updated successfully');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update profile');
+      toast.error(err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || 'Failed to update profile');
     } finally {
       setSavingProfile(false);
     }
@@ -173,7 +178,7 @@ export default function ProfilePage() {
       setPasswords({ current_password: '', new_password: '', confirm_password: '' });
       setIsChangingPassword(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to change password');
+      toast.error(err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || 'Failed to change password');
     } finally {
       setChangingPassword(false);
     }
@@ -490,6 +495,7 @@ export default function ProfilePage() {
           )}
         </div>
 
+        {canUseWallet && (
         <div
           className="rounded-xl overflow-hidden mb-4"
           style={{
@@ -519,6 +525,7 @@ export default function ProfilePage() {
             <p className="text-xs text-white/60 mt-1">Available for bookings</p>
           </div>
         </div>
+        )}
 
         <div
           className="bg-white rounded-xl border border-gray-100"

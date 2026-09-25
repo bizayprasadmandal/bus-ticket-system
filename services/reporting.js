@@ -13,6 +13,24 @@ const {
   WalletTransaction,
 } = require('../models');
 
+const nptDateFmt = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kathmandu',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const nptToday = () => nptDateFmt.format(new Date());
+
+// Inclusive date-time range; null when neither bound is given (all-time).
+// Missing side defaults: start -> epoch, end -> today (NPT).
+const bookingDateBetween = (start_date, end_date) => {
+  if (!start_date && !end_date) return null;
+  const start = String(start_date || '1970-01-01').slice(0, 10);
+  const end = String(end_date || nptToday()).slice(0, 10);
+  return { [Op.between]: [start, `${end} 23:59:59`] };
+};
+
 class ReportingService {
   // Generate booking report
   async generateBookingReport(filters = {}) {
@@ -58,10 +76,9 @@ class ReportingService {
       ];
 
       // Apply filters
-      if (start_date && end_date) {
-        whereClause.booking_date = {
-          [Op.between]: [start_date, end_date],
-        };
+      const bookingDateRange = bookingDateBetween(start_date, end_date);
+      if (bookingDateRange) {
+        whereClause.booking_date = bookingDateRange;
       }
 
       if (booking_status) {
@@ -143,10 +160,9 @@ class ReportingService {
         payment_status: 'COMPLETED',
       };
 
-      if (start_date && end_date) {
-        whereClause.booking_date = {
-          [Op.between]: [start_date, end_date],
-        };
+      const bookingDateRange = bookingDateBetween(start_date, end_date);
+      if (bookingDateRange) {
+        whereClause.booking_date = bookingDateRange;
       }
 
       let includeClause = [
@@ -230,10 +246,9 @@ class ReportingService {
       } = filters;
 
       let bookingWhereClause = {};
-      if (start_date && end_date) {
-        bookingWhereClause.booking_date = {
-          [Op.between]: [start_date, end_date],
-        };
+      const bookingDateRange = bookingDateBetween(start_date, end_date);
+      if (bookingDateRange) {
+        bookingWhereClause.booking_date = bookingDateRange;
       }
 
       let operatorWhereClause = { status: 'APPROVED' };
@@ -350,10 +365,9 @@ class ReportingService {
       }
 
       let bookingWhereClause = {};
-      if (start_date && end_date) {
-        bookingWhereClause.booking_date = {
-          [Op.between]: [start_date, end_date],
-        };
+      const bookingDateRange = bookingDateBetween(start_date, end_date);
+      if (bookingDateRange) {
+        bookingWhereClause.booking_date = bookingDateRange;
       }
 
       const users = await User.findAll({
@@ -495,22 +509,25 @@ class ReportingService {
 
     bookings.forEach(booking => {
       let key;
-      const date = new Date(booking.booking_date);
+      // Bucket by calendar date in Asia/Kathmandu (server host TZ is UTC)
+      const nptDate = nptDateFmt.format(new Date(booking.booking_date));
+      const [ny, nm, nd] = nptDate.split('-').map(Number);
 
       switch (groupBy) {
         case 'day':
-          key = date.toISOString().split('T')[0];
+          key = nptDate;
           break;
-        case 'week':
-          const weekStart = new Date(date);
-          weekStart.setDate(date.getDate() - date.getDay());
+        case 'week': {
+          const weekStart = new Date(Date.UTC(ny, nm - 1, nd, 12));
+          weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
           key = weekStart.toISOString().split('T')[0];
           break;
+        }
         case 'month':
-          key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          key = nptDate.slice(0, 7);
           break;
         default:
-          key = date.toISOString().split('T')[0];
+          key = nptDate;
       }
 
       if (!grouped[key]) {

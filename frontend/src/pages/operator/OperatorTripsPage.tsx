@@ -8,6 +8,17 @@ import Dropdown from '../../components/Dropdown';
 import DatePicker from '../../components/DatePicker';
 import toast from 'react-hot-toast';
 
+const TODAY_NPT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
+
+// Mirrors VALID_STATUS_TRANSITIONS in routes/trips.js
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  SCHEDULED: ['BOARDING', 'CANCELLED'],
+  BOARDING: ['DEPARTED', 'CANCELLED'],
+  DEPARTED: ['ARRIVED'],
+  ARRIVED: [],
+  CANCELLED: [],
+};
+
 interface TripItem {
   id: number;
   trip_date: string;
@@ -27,6 +38,7 @@ export default function OperatorTripsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState<TripItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -81,15 +93,34 @@ export default function OperatorTripsPage() {
 
   useEffect(() => { loadFormOptions(); }, [loadFormOptions]);
   useEffect(() => { loadTrips(); }, [loadTrips]);
+  // Debounce server-side search so typing doesn't fire a request per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadTrips, 30000, true, false);
 
   const resetPage = () => setCurrentPage(1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingTrip) {
+      if (!form.bus_id) return toast.error('Select a bus.');
+      if (!form.route_id) return toast.error('Select a route.');
+      if (form.available_seats < 1) return toast.error('Available seats must be at least 1.');
+    }
+    if (!form.trip_date) return toast.error('Select a trip date.');
+    if (!form.departure_time) return toast.error('Select a departure time.');
+    if (!(form.current_fare >= 1)) return toast.error('Fare must be at least 1.');
     try {
       if (editingTrip) {
-        await operatorTripAPI.update(editingTrip.id, form);
+        // Backend PUT only accepts these fields; bus/route/seats are not
+        // editable after creation (sending seats would reset sold tickets).
+        await operatorTripAPI.update(editingTrip.id, {
+          trip_date: form.trip_date,
+          departure_time: form.departure_time,
+          current_fare: form.current_fare,
+        });
         toast.success('Trip updated');
       } else {
         await operatorTripAPI.create(form);
@@ -108,10 +139,10 @@ export default function OperatorTripsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this trip?')) return;
+    if (!confirm('Cancel this trip? This cannot be undone.')) return;
     try {
       await operatorTripAPI.delete(id);
-      toast.success('Trip deleted');
+      toast.success('Trip cancelled');
       loadTrips();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
   };
@@ -207,8 +238,8 @@ export default function OperatorTripsPage() {
             <input
               type="text"
               placeholder="Search by route, bus, or date..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
+              value={searchInput}
+              onChange={(e) => { setSearchInput(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
@@ -271,7 +302,7 @@ export default function OperatorTripsPage() {
                       <span className="text-xs text-gray-500">({trip.bus?.bus_type})</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium text-green-600">NPR {trip.current_fare.toLocaleString()}</td>
+                  <td className="px-4 py-3 font-medium text-green-600">NPR {Number(trip.current_fare ?? 0).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`text-sm font-medium ${trip.available_seats < 5 ? 'text-red-600' : 'text-gray-800'}`}>
                       {trip.available_seats}
@@ -284,21 +315,30 @@ export default function OperatorTripsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <select
-                        value={trip.status}
-                        onChange={(e) => handleStatusUpdate(trip.id, e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      >
-                        {Object.keys(statusColors).map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                      {STATUS_TRANSITIONS[trip.status]?.length ? (
+                        <select
+                          value={trip.status}
+                          onChange={(e) => handleStatusUpdate(trip.id, e.target.value)}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        >
+                          <option value={trip.status} disabled>{trip.status}</option>
+                          {STATUS_TRANSITIONS[trip.status].map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[trip.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {trip.status}
+                        </span>
+                      )}
                       <button onClick={() => openEdit(trip)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button onClick={() => handleDelete(trip.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {trip.status === 'SCHEDULED' && (
+                        <button onClick={() => handleDelete(trip.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Cancel trip">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -337,34 +377,49 @@ export default function OperatorTripsPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Select Bus *</label>
-                <Dropdown
-                  value={form.bus_id ? String(form.bus_id) : ''}
-                  onChange={(val) => setForm({ ...form, bus_id: Number(val) })}
-                  options={buses.map((b) => ({
-                    value: String(b.id),
-                    label: `${b.bus_number} - ${b.bus_type}`,
-                  }))}
-                  placeholder="Select Bus"
-                />
+                {editingTrip ? (
+                  <div className="w-full px-3 py-2.5 border border-dashed border-gray-200 rounded-lg text-sm text-gray-500 bg-gray-50">
+                    {editingTrip.bus?.bus_number} ({editingTrip.bus?.bus_type}) — fixed after creation
+                  </div>
+                ) : (
+                  <Dropdown
+                    value={form.bus_id ? String(form.bus_id) : ''}
+                    onChange={(val) => {
+                      const bus = buses.find((b) => String(b.id) === val);
+                      setForm({ ...form, bus_id: Number(val), available_seats: bus?.total_seats ?? form.available_seats });
+                    }}
+                    options={buses.map((b) => ({
+                      value: String(b.id),
+                      label: `${b.bus_number} - ${b.bus_type}`,
+                    }))}
+                    placeholder="Select Bus"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Select Route *</label>
-                <Dropdown
-                  value={form.route_id ? String(form.route_id) : ''}
-                  onChange={(val) => setForm({ ...form, route_id: Number(val) })}
-                  options={routes.map((r) => ({
-                    value: String(r.id),
-                    label: `${r.origin_city} → ${r.destination_city}`,
-                  }))}
-                  placeholder="Select Route"
-                />
+                {editingTrip ? (
+                  <div className="w-full px-3 py-2.5 border border-dashed border-gray-200 rounded-lg text-sm text-gray-500 bg-gray-50">
+                    {editingTrip.route?.origin_city} → {editingTrip.route?.destination_city} — fixed after creation
+                  </div>
+                ) : (
+                  <Dropdown
+                    value={form.route_id ? String(form.route_id) : ''}
+                    onChange={(val) => setForm({ ...form, route_id: Number(val) })}
+                    options={routes.map((r) => ({
+                      value: String(r.id),
+                      label: `${r.origin_city} → ${r.destination_city}`,
+                    }))}
+                    placeholder="Select Route"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Trip Date *</label>
                 <DatePicker
                   value={form.trip_date}
                   onChange={(val) => setForm({ ...form, trip_date: val })}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={editingTrip ? undefined : TODAY_NPT}
                   placeholder="Select trip date"
                 />
               </div>
@@ -376,13 +431,15 @@ export default function OperatorTripsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Fare (NPR) *</label>
                 <input type="number" placeholder="Fare in NPR" value={form.current_fare || ''} onChange={(e) => setForm({ ...form, current_fare: Number(e.target.value) })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={0} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Seats *</label>
-                <input type="number" placeholder="Number of seats" value={form.available_seats} onChange={(e) => setForm({ ...form, available_seats: Number(e.target.value) })}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} required />
               </div>
+              {!editingTrip && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Available Seats *</label>
+                  <input type="number" placeholder="Number of seats" value={form.available_seats} onChange={(e) => setForm({ ...form, available_seats: Number(e.target.value) })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min={1} required />
+                </div>
+              )}
               <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                 {editingTrip ? 'Update Trip' : 'Create Trip'}
               </button>

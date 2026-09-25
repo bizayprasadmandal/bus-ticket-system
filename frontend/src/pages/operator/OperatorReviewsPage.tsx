@@ -16,7 +16,7 @@ interface Review {
     id: number;
     trip_date: string;
     departure_time: string;
-    route?: { origin?: { name: string }; destination?: { name: string } };
+    route?: { origin_city?: string; destination_city?: string };
   };
 }
 
@@ -53,9 +53,20 @@ export default function OperatorReviewsPage() {
         return;
       }
 
-      const res = await api.get(`/reviews/operator/${opId}`, { params: { limit: 500 } });
-      setReviews(res.data.data || []);
-      setTotalReviews(res.data.pagination?.total ?? (res.data.data || []).length);
+      const res = await api.get(`/reviews/operator/${opId}`, { params: { limit: 500, page: 1 } });
+      let all: Review[] = res.data.data || [];
+      const total = res.data.pagination?.total ?? all.length;
+      // Fetch remaining pages so stats reflect every review
+      let page = 1;
+      while (all.length < total && page < 50) {
+        page += 1;
+        const next = await api.get(`/reviews/operator/${opId}`, { params: { limit: 500, page } });
+        const rows: Review[] = next.data.data || [];
+        if (!rows.length) break;
+        all = all.concat(rows);
+      }
+      setReviews(all);
+      setTotalReviews(total);
     } catch {
       toast.error('Failed to load reviews');
     } finally {
@@ -200,8 +211,8 @@ export default function OperatorReviewsPage() {
                     )}
                     {review.trip && (
                       <p className="text-xs text-gray-500 mt-1">
-                        {review.trip.route?.origin?.name} → {review.trip.route?.destination?.name} |{' '}
-                        {new Date(review.trip.trip_date).toLocaleDateString()}
+                        {review.trip.route?.origin_city} → {review.trip.route?.destination_city} |{' '}
+                        {review.trip.trip_date}
                       </p>
                     )}
                   </div>

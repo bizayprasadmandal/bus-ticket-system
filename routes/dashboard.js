@@ -1261,7 +1261,7 @@ router.get('/operator/notifications', authenticateToken, requireRole(['OPERATOR'
             attributes: ['full_name', 'phone_number'],
           },
         ],
-        attributes: ['id', 'total_amount', 'total_passengers', 'booking_date', 'cancellation_reason'],
+        attributes: ['id', 'total_amount', 'total_passengers', 'booking_date', 'cancellation_reason', 'refund_amount'],
         order: [['booking_date', 'DESC']],
         limit: 10,
       }),

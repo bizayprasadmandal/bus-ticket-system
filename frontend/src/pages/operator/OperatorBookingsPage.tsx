@@ -46,6 +46,7 @@ export default function OperatorBookingsPage() {
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -79,13 +80,18 @@ export default function OperatorBookingsPage() {
           confirmed: rows.filter(b => b.booking_status === 'CONFIRMED').length,
           pending: rows.filter(b => b.booking_status === 'PENDING').length,
           cancelled: rows.filter(b => b.booking_status === 'CANCELLED').length,
-          revenue: rows.filter(b => ['CONFIRMED', 'COMPLETED'].includes(b.booking_status)).reduce((sum, b) => sum + b.total_amount, 0),
+          revenue: rows.filter(b => ['CONFIRMED', 'COMPLETED'].includes(b.booking_status)).reduce((sum, b) => sum + Number(b.total_amount || 0), 0),
         });
       }
     } catch { toast.error('Failed to load bookings'); } finally { setLoading(false); }
   }, [currentPage, searchQuery, statusFilter]);
 
   useEffect(() => { loadBookings(); }, [loadBookings]);
+  // Debounce server-side search so typing doesn't fire a request per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const { isRefreshing, lastUpdated, refresh } = useAutoRefresh(loadBookings, 30000, true, false);
 
   const resetPage = () => setCurrentPage(1);
@@ -146,8 +152,8 @@ export default function OperatorBookingsPage() {
             <input
               type="text"
               placeholder="Search by PNR, passenger, phone, or route..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); resetPage(); }}
+              value={searchInput}
+              onChange={(e) => { setSearchInput(e.target.value); resetPage(); }}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
@@ -221,7 +227,7 @@ export default function OperatorBookingsPage() {
                       {booking.total_passengers}
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-800">NPR {booking.total_amount.toLocaleString()}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">NPR {Number(booking.total_amount ?? 0).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[booking.booking_status] || 'bg-gray-100 text-gray-600'}`}>
                       {bookingStatusLabel(booking.booking_status)}
@@ -326,7 +332,7 @@ export default function OperatorBookingsPage() {
               <div className="bg-green-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-600">Total Amount</p>
-                  <p className="text-xl font-bold text-green-600">NPR {selectedBooking.total_amount.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-green-600">NPR {Number(selectedBooking.total_amount ?? 0).toLocaleString()}</p>
                 </div>
               </div>
 

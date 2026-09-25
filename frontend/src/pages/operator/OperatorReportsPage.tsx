@@ -5,6 +5,13 @@ import api from '../../api';
 import { TableSkeleton } from '../../components/Skeleton';
 import toast from 'react-hot-toast';
 
+const nptDayFmt = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kathmandu',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 export default function OperatorReportsPage() {
   const [activeTab, setActiveTab] = useState('bookings');
   const [data, setData] = useState<any>(null);
@@ -41,6 +48,7 @@ export default function OperatorReportsPage() {
       setData(res.data.data);
     } catch {
       toast.error('Failed to load report');
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -61,13 +69,13 @@ export default function OperatorReportsPage() {
     const csvContent = [
       headers.join(','),
       ...csvData.map((row) =>
-        headers.map((h) => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(',')
+        headers.map((h) => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(',')
       ),
     ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `${filename}_${nptDayFmt.format(new Date())}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
     toast.success('Exported successfully');
@@ -79,7 +87,7 @@ export default function OperatorReportsPage() {
         exportToCSV(data?.bookings || [], 'operator_bookings_report');
         break;
       case 'revenue':
-        exportToCSV(data?.revenue_by_operator || [], 'operator_revenue_report');
+        exportToCSV(data?.revenue_data || [], 'operator_revenue_report');
         break;
       case 'trips':
         exportToCSV(data?.trips || data || [], 'operator_trips_report');
@@ -90,7 +98,9 @@ export default function OperatorReportsPage() {
   const bookingTrend = (() => {
     const byDate: Record<string, { date: string; bookings: number; revenue: number }> = {};
     (data?.bookings || []).forEach((b: any) => {
-      const key = String(b.booking_date || '').slice(0, 10);
+      if (!b.booking_date) return;
+      // Bucket by Asia/Kathmandu calendar day (server sends UTC instants)
+      const key = nptDayFmt.format(new Date(b.booking_date));
       if (!key) return;
       if (!byDate[key]) byDate[key] = { date: key, bookings: 0, revenue: 0 };
       byDate[key].bookings += 1;
@@ -274,16 +284,16 @@ export default function OperatorReportsPage() {
                 </div>
               </div>
 
-              {data.revenue_by_operator?.length > 0 && (
+              {data.revenue_data?.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Operator</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue by Day</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data.revenue_by_operator}>
+                    <BarChart data={data.revenue_data}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="company_name" tick={{ fontSize: 12 }} />
+                      <XAxis dataKey="period" tick={{ fontSize: 12 }} />
                       <YAxis />
                       <Tooltip formatter={(value: any) => `NPR ${Number(value ?? 0).toLocaleString()}`} />
-                      <Bar dataKey="total_revenue" fill="#d84e55" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="revenue" fill="#d84e55" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -339,6 +349,8 @@ export default function OperatorReportsPage() {
                             <td className="px-4 py-3">
                               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                                 trip.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-700' :
+                                trip.status === 'BOARDING' ? 'bg-amber-100 text-amber-700' :
+                                trip.status === 'DEPARTED' ? 'bg-purple-100 text-purple-700' :
                                 trip.status === 'ARRIVED' ? 'bg-green-100 text-green-700' :
                                 trip.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-600'

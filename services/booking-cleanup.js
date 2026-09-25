@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Booking, Trip, Payment, sequelize } = require('../models');
 const { getSystemSettings } = require('./settings');
+const { releasePromoUsage } = require('./promos');
 
 /**
  * Expire stale PENDING bookings older than the configured timeout.
@@ -35,6 +36,11 @@ async function expireStalePendingBookings() {
         },
         { transaction }
       );
+
+      // Give the promo redemption back (the booking never got paid)
+      if (booking.promo_code && Number(booking.discount_amount || 0) > 0) {
+        await releasePromoUsage(booking.promo_code, { transaction });
+      }
 
       if (booking.trip) {
         await booking.trip.increment(

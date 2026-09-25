@@ -2,7 +2,7 @@ const express = require('express');
 const { sequelize } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment');
-const { Op } = require('sequelize');
+const { Op, col } = require('sequelize');
 const {
   Booking,
   BookingPassenger,
@@ -15,6 +15,7 @@ const {
   Payment,
   WalletTransaction,
   UserWallet,
+  PromoCode,
 } = require('../models');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { checkBookingAccess } = require('../middleware/tripAccess');
@@ -23,6 +24,7 @@ const { handleValidationErrors } = require('../middleware/error');
 const { NotificationService } = require('../services/notifications');
 const { expireStalePendingBookings } = require('../services/booking-cleanup');
 const { getSystemSettings } = require('../services/settings');
+const { findValidPromo, releasePromoUsage } = require('../services/promos');
 
 const notificationService = new NotificationService();
 
@@ -183,6 +185,36 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
       });
     }
 
+    // Validate promo code (authoritative check — the frontend only previews the same rules)
+    let promoCode = null;
+    let discountAmount = 0;
+    const promoInput = typeof req.body.promo_code === 'string' ? req.body.promo_code : '';
+    if (promoInput) {
+      const promoSubtotal = Math.round(trip.current_fare * passengers.length * 100) / 100;
+      const promoCheck = await findValidPromo(promoInput, promoSubtotal, { transaction });
+      if (promoCheck.error) {
+        await transaction.rollback();
+        return res.status(400).json({ success: false, message: promoCheck.error });
+      }
+      // Atomic: counts as redeemed only while a usage slot is actually free.
+      const redeemed = await PromoCode.update(
+        { used_count: sequelize.literal('used_count + 1') },
+        {
+          where: {
+            id: promoCheck.promo.id,
+            [Op.or]: [{ max_uses: 0 }, { used_count: { [Op.lt]: col('max_uses') } }],
+          },
+          transaction,
+        }
+      );
+      if (!redeemed[0]) {
+        await transaction.rollback();
+        return res.status(400).json({ success: false, message: 'This code is fully redeemed' });
+      }
+      promoCode = promoCheck.promo.code;
+      discountAmount = promoCheck.discount;
+    }
+
     // Create booking
     const booking = await Booking.create({
       pnr: generatePNR(),
@@ -190,6 +222,9 @@ router.post('/', authenticateToken, bookingValidation.create, handleValidationEr
       trip_id,
       total_passengers: passengers.length,
       ...amounts,
+      total_amount: Math.round((Number(amounts.total_amount) - discountAmount) * 100) / 100,
+      promo_code: promoCode,
+      discount_amount: discountAmount,
       payment_status: 'PENDING',
       booking_status: 'PENDING',
       passenger_name: passengers[0]?.passenger_name || passengers[0]?.name || '',
@@ -743,6 +778,11 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
       payment_status: isPaid && refundAmount > 0 ? 'REFUNDED' : booking.payment_status,
     }, { transaction });
 
+    // Give the promo redemption back (the booking never happens)
+    if (booking.promo_code && Number(booking.discount_amount || 0) > 0) {
+      await releasePromoUsage(booking.promo_code, { transaction });
+    }
+
     // Release seats
     const trip = await Trip.findByPk(booking.trip_id, { transaction });
     if (trip) {
@@ -882,23 +922,38 @@ router.get('/operator/my-bookings', authenticateToken, async (req, res) => {
     if (booking_status) whereClause.booking_status = booking_status.toUpperCase();
     if (payment_status) whereClause.payment_status = payment_status.toUpperCase();
     if (search) {
-      const matchingUsers = await User.findAll({
-        where: {
-          [Op.or]: [
-            { full_name: { [Op.like]: `%${search}%` } },
-            { phone_number: { [Op.like]: `%${search}%` } },
-          ],
-        },
-        attributes: ['id'],
-        raw: true,
-      });
-      const matchingUserIds = matchingUsers.map(u => u.id);
-      whereClause[Op.or] = [
-        { pnr: { [Op.like]: `%${search}%` } },
-        { '$trip.route.origin_city$': { [Op.like]: `%${search}%` } },
-        { '$trip.route.destination_city$': { [Op.like]: `%${search}%` } },
-        ...(matchingUserIds.length > 0 ? [{ user_id: { [Op.in]: matchingUserIds } }] : []),
-      ];
+      // Resolve associations to IDs up front: $nested.column$ refs break when
+      // Sequelize builds the LIMIT subquery (inner query has no route/passenger joins).
+      const like = { [Op.like]: `%${search}%` };
+      const [matchingUsers, matchingRoutes, matchingPassengers] = await Promise.all([
+        User.findAll({
+          where: { [Op.or]: [{ full_name: like }, { phone_number: like }] },
+          attributes: ['id'],
+          raw: true,
+        }),
+        Route.findAll({
+          where: { [Op.or]: [{ origin_city: like }, { destination_city: like }] },
+          attributes: ['id'],
+          raw: true,
+        }),
+        BookingPassenger.findAll({
+          where: { passenger_name: like },
+          attributes: ['booking_id'],
+          raw: true,
+        }),
+      ]);
+      const routeIds = matchingRoutes.map(r => r.id);
+      let tripIds = [];
+      if (routeIds.length > 0) {
+        const trips = await Trip.findAll({ where: { route_id: routeIds }, attributes: ['id'], raw: true });
+        tripIds = trips.map(t => t.id);
+      }
+      const orConditions = [{ pnr: like }];
+      if (matchingUsers.length > 0) orConditions.push({ user_id: { [Op.in]: matchingUsers.map(u => u.id) } });
+      if (tripIds.length > 0) orConditions.push({ trip_id: { [Op.in]: tripIds } });
+      const paxBookingIds = [...new Set(matchingPassengers.map(p => p.booking_id).filter(Boolean))];
+      if (paxBookingIds.length > 0) orConditions.push({ id: { [Op.in]: paxBookingIds } });
+      whereClause[Op.or] = orConditions;
     }
 
     const baseInclude = [
